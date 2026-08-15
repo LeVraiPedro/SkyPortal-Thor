@@ -1,0 +1,3 @@
+In Source/Android/app/build.gradle.kts, inside android { buildFeatures { ... } } add:
+
+    aidl = true

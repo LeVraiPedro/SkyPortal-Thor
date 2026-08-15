@@ -1,0 +1,39 @@
+diff --git a/Source/Android/app/build.gradle.kts b/Source/Android/app/build.gradle.kts
+index 2fc4cb7a94..2669407ab1 100644
+--- a/Source/Android/app/build.gradle.kts
++++ b/Source/Android/app/build.gradle.kts
+@@ -15,6 +15,7 @@ android {
+         viewBinding = true
+         buildConfig = true
+         resValues = true
++        aidl = true
+     }
+ 
+     compileOptions {
+diff --git a/Source/Android/app/src/main/AndroidManifest.xml b/Source/Android/app/src/main/AndroidManifest.xml
+index 96876acd46..57f2917269 100644
+--- a/Source/Android/app/src/main/AndroidManifest.xml
++++ b/Source/Android/app/src/main/AndroidManifest.xml
+@@ -1,6 +1,10 @@
+ <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     xmlns:tools="http://schemas.android.com/tools">
+ 
++    <permission
++        android:name="com.skyportalthor.permission.PORTAL_CONTROL"
++        android:protectionLevel="signature" />
++
+     <uses-feature
+         android:name="android.hardware.touchscreen"
+         android:required="false"/>
+@@ -180,6 +184,11 @@
+             </intent-filter>
+         </provider>
+ 
++        <service
++            android:name=".skyportal.SkyPortalService"
++            android:exported="true"
++            android:permission="com.skyportalthor.permission.PORTAL_CONTROL" />
++
+     </application>
+ 
+ </manifest>

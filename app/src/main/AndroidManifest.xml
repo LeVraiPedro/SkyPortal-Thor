@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <queries>
+        <package android:name="org.dolphinemu.dolphinemu.debug" />
+        <package android:name="org.dolphinemu.dolphinemu" />
+    </queries>
+
+    <uses-feature android:name="android.software.activities_on_secondary_displays" android:required="false" />
+    <uses-permission android:name="com.skyportalthor.permission.PORTAL_CONTROL" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_skyportal"
+        android:label="SkyPortal Thor"
+        android:theme="@style/Theme.SkyPortalThor">
+        <activity
+            android:name=".PortalActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true" />
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:resizeableActivity="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

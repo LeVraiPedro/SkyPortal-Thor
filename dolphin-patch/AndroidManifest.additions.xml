@@ -1,0 +1,10 @@
+<!-- Add directly under <manifest>, before <application>: -->
+<permission
+    android:name="com.skyportalthor.permission.PORTAL_CONTROL"
+    android:protectionLevel="signature" />
+
+<!-- Add inside <application>: -->
+<service
+    android:name=".skyportal.SkyPortalService"
+    android:exported="true"
+    android:permission="com.skyportalthor.permission.PORTAL_CONTROL" />

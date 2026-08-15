@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.SkyPortalThor" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:navigationBarColor">#09101D</item>
+        <item name="android:statusBarColor">#09101D</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
