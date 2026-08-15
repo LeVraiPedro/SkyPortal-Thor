@@ -1,9 +1,7 @@
 package com.skyportalthor.app
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
-import android.view.Display
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -27,9 +25,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val router = DisplayRouter(this)
-        val secondary = router.secondaryDisplay(currentDisplayId())
-        if (router.supportsSecondaryActivities() && secondary != null) {
-            router.launchOnDisplay(this, Intent(this, PortalActivity::class.java), secondary)
+        val lowerDisplay = router.lowerDisplay()
+        if (
+            router.supportsSecondaryActivities() &&
+            lowerDisplay != null &&
+            router.launchOnDisplay(this, Intent(this, PortalActivity::class.java), lowerDisplay)
+        ) {
+            // MainActivity is only a trampoline. Closing it immediately leaves the upper panel
+            // available for Dolphin instead of displaying a permanent companion landing page.
+            finish()
+            return
         }
 
         setContent {
@@ -37,8 +42,8 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var status by remember {
                         mutableStateOf(
-                            if (secondary != null) "SkyPortal lancé sur l'écran #${secondary.displayId}"
-                            else "Second écran non détecté"
+                            if (!router.supportsSecondaryActivities()) "Activités multi-écrans non prises en charge"
+                            else "Écran inférieur non détecté"
                         )
                     }
                     Column(
@@ -49,25 +54,24 @@ class MainActivity : ComponentActivity() {
                         Text(status)
                         Text("Écrans : ${router.allDisplays().joinToString { "#${it.displayId} ${it.name}" }}")
                         Button(onClick = {
-                            val target = router.secondaryDisplay(currentDisplayId())
-                            if (target != null) {
-                                router.launchOnDisplay(this@MainActivity, Intent(this@MainActivity, PortalActivity::class.java), target)
-                                status = "SkyPortal lancé sur #${target.displayId}"
-                            } else status = "Impossible de trouver l'écran inférieur"
+                            val target = router.lowerDisplay()
+                            if (target != null && router.launchOnDisplay(
+                                    this@MainActivity,
+                                    Intent(this@MainActivity, PortalActivity::class.java),
+                                    target
+                                )
+                            ) {
+                                finish()
+                            } else {
+                                status = "Impossible de lancer SkyPortal sur l'écran inférieur"
+                            }
                         }) {
-                            Text("Relancer SkyPortal en bas")
+                            Text("Réessayer sur l'écran inférieur")
                         }
-                        Text("Tu peux maintenant revenir à l'accueil sur l'écran du haut et lancer Dolphin.")
+                        Text("Allume les deux écrans de la Thor, puis réessaie.")
                     }
                 }
             }
         }
-    }
-
-    private fun currentDisplayId(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        display?.displayId ?: Display.DEFAULT_DISPLAY
-    } else {
-        @Suppress("DEPRECATION")
-        windowManager.defaultDisplay.displayId
     }
 }

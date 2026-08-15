@@ -1,5 +1,12 @@
 # Changelog — SkyPortal Thor
 
+## V3.0.1 (0.3.1) — 16 août 2026
+
+- Le portail cible maintenant toujours l'écran Android secondaire de l'AYN Thor, quel que soit l'écran depuis lequel l'icône est touchée.
+- L'écran inférieur est identifié de façon stable comme l'affichage non principal/de présentation, au lieu de choisir simplement « l'autre écran ».
+- L'activité de lancement se ferme après le routage afin de laisser l'écran supérieur disponible pour Dolphin.
+- Si l'écran inférieur n'est pas disponible, SkyPortal reste sur un écran de diagnostic avec un bouton Réessayer au lieu de s'ouvrir silencieusement en haut.
+
 ## V3 (0.3.0) — 15 août 2026
 
 ### Interface

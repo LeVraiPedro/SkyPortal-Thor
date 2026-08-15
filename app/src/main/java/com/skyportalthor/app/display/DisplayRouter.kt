@@ -16,13 +16,23 @@ class DisplayRouter(private val context: Context) {
     fun supportsSecondaryActivities(): Boolean =
         context.packageManager.hasSystemFeature(PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS)
 
-    fun secondaryDisplay(currentDisplayId: Int): Display? = allDisplays()
-        .filter { it.displayId != currentDisplayId && it.state != Display.STATE_OFF }
-        .sortedWith(compareByDescending<Display> { it.mode.physicalHeight }.thenBy { it.displayId })
+    /**
+     * The Thor exposes its upper panel as Android's default display and its lower panel as a
+     * presentation display. Never derive the destination from the display that opened the
+     * launcher: doing so swaps the panels when the icon is tapped on the lower screen.
+     */
+    fun lowerDisplay(): Display? = allDisplays()
+        .filter { it.displayId != Display.DEFAULT_DISPLAY && it.state != Display.STATE_OFF }
+        .sortedWith(
+            compareByDescending<Display> { it.flags and Display.FLAG_PRESENTATION != 0 }
+                .thenBy { it.mode.physicalWidth * it.mode.physicalHeight }
+                .thenBy { it.displayId }
+        )
         .firstOrNull()
 
-    fun launchOnDisplay(activity: Activity, intent: Intent, display: Display) {
+    fun launchOnDisplay(activity: Activity, intent: Intent, display: Display): Boolean = runCatching {
         val options = ActivityOptions.makeBasic().apply { launchDisplayId = display.displayId }
         activity.startActivity(intent, options.toBundle())
-    }
+        true
+    }.getOrDefault(false)
 }
