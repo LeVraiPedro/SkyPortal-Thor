@@ -1,10 +1,19 @@
-# SkyPortal Thor V3
+# SkyPortal Thor V4
 
 Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor.
 
 Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (`Screen-2`) de la Thor, même si l'icône SkyPortal est touchée depuis l'écran inférieur. L'écran supérieur reste ainsi libre pour Dolphin.
 
 Le compagnon démarre en mode solo : seule la carte Joueur 1 est affichée. Le bouton `1J` de l'en-tête ouvre le réglage permettant d'activer Joueur 2 ; ce choix est conservé entre les lancements.
+
+## Nouveautés V4
+
+- Favoris persistants directement sur les cartes des Skylanders.
+- Vue Récents ordonnée selon les derniers chargements réussis.
+- Équipes rapides solo ou duo enregistrées depuis les slots actifs.
+- Chargement d'une équipe en une action avec activation automatique du mode 2J si nécessaire.
+- Assistant de diagnostic pour l'écran inférieur, SAF, la collection, Dolphin, les signatures APK, Binder et la version de l'API.
+- Distinction explicite entre les contrôles automatiques et l'activation du Portal of Power qui doit encore être confirmée dans Dolphin.
 
 La V3 remplace la collection permanente de la V2 par un portail tactile :
 
@@ -38,7 +47,7 @@ Consulter [CHANGELOG.md](CHANGELOG.md) pour la liste détaillée.
 AYN Thor
 ├─ écran supérieur : Dolphin SkyPortal Edition
 │  └─ SkylanderConfig → Portal of Power émulé
-└─ écran inférieur : SkyPortal Thor V3
+└─ écran inférieur : SkyPortal Thor V4
    ├─ sélection tactile J1 / J2 / slots 3 à 8
    ├─ dossier persistant via Storage Access Framework
    └─ Binder/AIDL → SkyPortalService dans Dolphin

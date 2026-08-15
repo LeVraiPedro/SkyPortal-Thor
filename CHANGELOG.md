@@ -1,5 +1,35 @@
 # Changelog — SkyPortal Thor
 
+## V4 (0.4.0) — 16 août 2026
+
+### Collection
+
+- Ajout d'une étoile tactile sur chaque carte pour ajouter ou retirer un favori.
+- Ajout des vues Tous, Favoris et Récents dans le sélecteur.
+- Les récents ne sont enregistrés qu'après un chargement confirmé par Dolphin et conservent l'ordre des 12 dernières utilisations.
+- Favoris et récents sont persistants entre les lancements.
+
+### Équipes rapides
+
+- Enregistrement de la configuration actuelle de Joueur 1 et, si activé, Joueur 2.
+- Chargement séquentiel et diagnostiqué d'une équipe en une action.
+- Une équipe duo active automatiquement Joueur 2 ; une équipe solo revient proprement au mode 1J.
+- Détection des fichiers d'équipe manquants après déplacement ou changement de dossier.
+- Suppression et conservation persistante de dix équipes maximum.
+
+### Assistant de diagnostic
+
+- Contrôle de l'écran inférieur et de la prise en charge multi-écrans.
+- Contrôle de l'autorisation SAF persistante en lecture et en écriture.
+- Vérification de la collection détectée, de l'installation Dolphin et de la connexion Binder.
+- Comparaison des signatures SHA-256 de SkyPortal et du Dolphin ciblé.
+- Affichage de la version API Dolphin avec recommandation API 2 lorsque nécessaire.
+- Rappel explicite que l'activation du Portal of Power dans le jeu n'est pas encore exposée par l'API.
+
+### Projet
+
+- Version Android `0.4.0` / code `6`.
+
 ## V3.0.2 (0.3.2) — 16 août 2026
 
 - Ajout d'un réglage persistant `1J / 2J` accessible depuis l'en-tête.

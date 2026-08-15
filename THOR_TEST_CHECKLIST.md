@@ -1,4 +1,16 @@
-# Test V3 sur AYN Thor / Android 13
+# Test V4 sur AYN Thor / Android 13
+
+## Fonctions V4
+
+- [ ] Dans la collection, toucher `☆` ajoute le personnage aux favoris sans le charger.
+- [ ] La vue `★ Favoris` ne montre que les favoris et reste identique après relance.
+- [ ] Après un chargement réussi, le personnage apparaît en tête de la vue `Récents`.
+- [ ] `Équipes` permet d'enregistrer les slots actifs avec un nom.
+- [ ] Une équipe solo charge Joueur 1 et conserve le mode 1J.
+- [ ] Une équipe duo active le mode 2J puis charge les deux personnages.
+- [ ] Un fichier d'équipe déplacé ou supprimé est signalé comme introuvable.
+- [ ] `Diagnostic` vérifie l'écran 4, SAF, la collection, Dolphin, la signature, Binder et l'API.
+- [ ] Le diagnostic rappelle que l'activation du portail dans le jeu reste une vérification manuelle.
 
 ## 1. Préparation
 

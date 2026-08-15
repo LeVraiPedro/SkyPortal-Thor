@@ -9,3 +9,5 @@ captures/
 *.aab
 *.jks
 *.keystore
+/skyportal-*.png
+/skyportal-*.xml

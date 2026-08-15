@@ -18,6 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.skyportalthor.app.data.Skylander
+import com.skyportalthor.app.data.QuickTeam
+import com.skyportalthor.app.diagnostics.DiagnosticAssistant
 import com.skyportalthor.app.dolphin.DolphinLauncher
 import com.skyportalthor.app.dolphin.DolphinPortalBridge
 import com.skyportalthor.app.portal.PortalResult
@@ -42,6 +44,7 @@ class PortalActivity : ComponentActivity() {
             val prefs = remember { CollectionPreferences(applicationContext) }
             val repository = remember { SkylanderCollectionRepository(applicationContext) }
             val backups = remember { BackupRepository(applicationContext) }
+            val diagnosticAssistant = remember { DiagnosticAssistant(applicationContext) }
             val bridge = remember { DolphinPortalBridge(applicationContext) }
             val portalState by bridge.state.collectAsState()
 
@@ -51,6 +54,9 @@ class PortalActivity : ComponentActivity() {
             var scanGeneration by remember { mutableIntStateOf(0) }
             var uiMessage by remember { mutableStateOf<UiNotice?>(null) }
             var playerTwoEnabled by remember { mutableStateOf(prefs.isPlayerTwoEnabled()) }
+            var favoriteUris by remember { mutableStateOf(prefs.getFavoriteUris()) }
+            var recentUris by remember { mutableStateOf(prefs.getRecentUris()) }
+            var quickTeams by remember { mutableStateOf(prefs.getQuickTeams()) }
             val reconciledPortalState = remember(portalState, figures) {
                 val figuresByUri = figures.associateBy { it.documentUri.toString() }
                 portalState.copy(
@@ -114,11 +120,34 @@ class PortalActivity : ComponentActivity() {
                 onDispose { bridge.close() }
             }
 
+            suspend fun setPlayerTwoMode(enabled: Boolean): PortalResult {
+                if (enabled == playerTwoEnabled) return PortalResult.Success()
+                val playerTwoSlot = bridge.state.value.slots.getOrNull(1)
+                if (
+                    !enabled &&
+                    playerTwoSlot != null &&
+                    PortalProtocol.isValidActualSlot(playerTwoSlot.actualPortalSlot)
+                ) {
+                    when (val removeResult = bridge.remove(1)) {
+                        is PortalResult.Error -> return removeResult
+                        is PortalResult.Success -> Unit
+                    }
+                }
+                prefs.setPlayerTwoEnabled(enabled)
+                playerTwoEnabled = enabled
+                return PortalResult.Success(
+                    message = if (enabled) "Joueur 2 activé" else "Mode solo activé"
+                )
+            }
+
             MaterialTheme(colorScheme = PortalColorScheme) {
                 PortalScreen(
                     portalState = reconciledPortalState,
                     figures = figures,
                     playerTwoEnabled = playerTwoEnabled,
+                    favoriteUris = favoriteUris,
+                    recentUris = recentUris,
+                    quickTeams = quickTeams,
                     rootUri = rootUri,
                     scanning = scanning,
                     uiMessage = uiMessage,
@@ -148,28 +177,75 @@ class PortalActivity : ComponentActivity() {
                             uiMessage = UiNotice("Dolphin n'est pas installé sur la Thor", NoticeKind.ERROR)
                         }
                     },
-                    onLoad = { logicalSlot, figure -> bridge.load(logicalSlot, figure) },
-                    onPlayerTwoEnabledChange = playerMode@{ enabled ->
-                        if (enabled == playerTwoEnabled) {
-                            return@playerMode PortalResult.Success()
-                        }
-                        val playerTwoSlot = bridge.state.value.slots.getOrNull(1)
-                        if (
-                            !enabled &&
-                            playerTwoSlot != null &&
-                            PortalProtocol.isValidActualSlot(playerTwoSlot.actualPortalSlot)
-                        ) {
-                            when (val removeResult = bridge.remove(1)) {
-                                is PortalResult.Error -> return@playerMode removeResult
-                                is PortalResult.Success -> Unit
+                    onLoad = { logicalSlot, figure ->
+                        bridge.load(logicalSlot, figure).also { result ->
+                            if (result is PortalResult.Success) {
+                                recentUris = prefs.recordRecent(figure.documentUri.toString())
                             }
                         }
-                        prefs.setPlayerTwoEnabled(enabled)
-                        playerTwoEnabled = enabled
-                        PortalResult.Success(
-                            message = if (enabled) "Joueur 2 activé" else "Mode solo activé"
+                    },
+                    onToggleFavorite = { figure ->
+                        favoriteUris = prefs.toggleFavorite(figure.documentUri.toString())
+                    },
+                    onSaveCurrentTeam = saveTeam@{ name ->
+                        val first = reconciledPortalState.slots.getOrNull(0)?.figure
+                            ?: return@saveTeam PortalResult.Error(
+                                message = "Joueur 1 est vide",
+                                diagnosticCode = "TEAM_PLAYER_ONE_EMPTY",
+                                recoveryHint = "Charge un personnage en Joueur 1 puis réessaie."
+                            )
+                        val second = reconciledPortalState.slots.getOrNull(1)?.figure.takeIf { playerTwoEnabled }
+                        val team = QuickTeam(
+                            id = System.currentTimeMillis().toString(),
+                            name = name,
+                            playerOneUri = first.documentUri.toString(),
+                            playerTwoUri = second?.documentUri?.toString()
+                        )
+                        quickTeams = prefs.saveQuickTeam(team)
+                        PortalResult.Success(message = "Équipe $name enregistrée")
+                    },
+                    onDeleteTeam = { id -> quickTeams = prefs.deleteQuickTeam(id) },
+                    onLoadTeam = loadTeam@{ team ->
+                        val byUri = figures.associateBy { it.documentUri.toString() }
+                        val first = byUri[team.playerOneUri]
+                            ?: return@loadTeam PortalResult.Error(
+                                message = "Le fichier Joueur 1 de cette équipe est introuvable",
+                                diagnosticCode = "TEAM_PLAYER_ONE_MISSING",
+                                recoveryHint = "Rescanne le dossier ou recrée l'équipe."
+                            )
+                        val second = team.playerTwoUri?.let(byUri::get)
+                        if (team.playerTwoUri != null && second == null) {
+                            return@loadTeam PortalResult.Error(
+                                message = "Le fichier Joueur 2 de cette équipe est introuvable",
+                                diagnosticCode = "TEAM_PLAYER_TWO_MISSING",
+                                recoveryHint = "Rescanne le dossier ou recrée l'équipe."
+                            )
+                        }
+                        when (val modeResult = setPlayerTwoMode(second != null)) {
+                            is PortalResult.Error -> return@loadTeam modeResult
+                            is PortalResult.Success -> Unit
+                        }
+                        when (val firstResult = bridge.load(0, first)) {
+                            is PortalResult.Error -> return@loadTeam firstResult
+                            is PortalResult.Success -> recentUris = prefs.recordRecent(first.documentUri.toString())
+                        }
+                        if (second != null) {
+                            when (val secondResult = bridge.load(1, second)) {
+                                is PortalResult.Error -> return@loadTeam secondResult
+                                is PortalResult.Success -> recentUris = prefs.recordRecent(second.documentUri.toString())
+                            }
+                        }
+                        PortalResult.Success(message = "Équipe ${team.name} chargée")
+                    },
+                    onRunDiagnostics = {
+                        diagnosticAssistant.run(
+                            rootUri = rootUri,
+                            figures = figures,
+                            portalState = portalState,
+                            preferredDolphinPackage = prefs.getDolphinPackage()
                         )
                     },
+                    onPlayerTwoEnabledChange = { enabled -> setPlayerTwoMode(enabled) },
                     onBackup = backup@{ logicalSlot, figure ->
                         val root = rootUri
                         if (root == null) {

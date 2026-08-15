@@ -28,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -53,8 +54,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.skyportalthor.app.data.FigureKind
+import com.skyportalthor.app.data.QuickTeam
 import com.skyportalthor.app.data.Skylander
+import com.skyportalthor.app.diagnostics.DiagnosticItem
+import com.skyportalthor.app.diagnostics.DiagnosticLevel
 import com.skyportalthor.app.dolphin.DolphinTargets
 import com.skyportalthor.app.portal.PortalResult
 import com.skyportalthor.app.portal.PortalSlotState
@@ -67,6 +72,9 @@ internal fun PortalScreen(
     portalState: PortalState,
     figures: List<Skylander>,
     playerTwoEnabled: Boolean,
+    favoriteUris: Set<String>,
+    recentUris: List<String>,
+    quickTeams: List<QuickTeam>,
     rootUri: Uri?,
     scanning: Boolean,
     uiMessage: UiNotice?,
@@ -77,6 +85,11 @@ internal fun PortalScreen(
     onSelectDolphinPackage: (String) -> Unit,
     onLaunchDolphin: () -> Unit,
     onLoad: suspend (Int, Skylander) -> PortalResult,
+    onToggleFavorite: (Skylander) -> Unit,
+    onSaveCurrentTeam: (String) -> PortalResult,
+    onDeleteTeam: (String) -> Unit,
+    onLoadTeam: suspend (QuickTeam) -> PortalResult,
+    onRunDiagnostics: () -> List<DiagnosticItem>,
     onPlayerTwoEnabledChange: suspend (Boolean) -> PortalResult,
     onBackup: suspend (Int, Skylander) -> PortalResult,
     onRemove: suspend (Int) -> PortalResult,
@@ -89,6 +102,8 @@ internal fun PortalScreen(
     var localNotice by remember { mutableStateOf<UiNotice?>(null) }
     var showDolphinTargets by remember { mutableStateOf(false) }
     var showPlayerMode by remember { mutableStateOf(false) }
+    var showQuickTeams by remember { mutableStateOf(false) }
+    var showDiagnostics by remember { mutableStateOf(false) }
 
     LaunchedEffect(loadState) {
         val success = loadState as? LoadUiState.Success ?: return@LaunchedEffect
@@ -153,26 +168,13 @@ internal fun PortalScreen(
                 )
 
                 if (!compactFeedback) {
-                    Card(
+                    QuickActionsPanel(
+                        playerTwoEnabled = playerTwoEnabled,
+                        teamCount = quickTeams.size,
                         modifier = Modifier.fillMaxWidth().weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
-                        shape = RoundedCornerShape(18.dp)
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    if (playerTwoEnabled) "Touchez Joueur 1 ou Joueur 2" else "Touchez Joueur 1",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Black,
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                                Text(
-                                    "La collection s'ouvrira directement. La recherche reste disponible dans la sélection.",
-                                    color = PortalPalette.Muted
-                                )
-                            }
-                        }
-                    }
+                        onTeams = { showQuickTeams = true },
+                        onDiagnostics = { showDiagnostics = true }
+                    )
                 }
             }
         }
@@ -183,6 +185,8 @@ internal fun PortalScreen(
             logicalSlot = logicalSlot,
             figures = figures,
             occupiedUris = portalState.slots.mapNotNull { it.sourceUri }.toSet(),
+            favoriteUris = favoriteUris,
+            recentUris = recentUris,
             portalConnected = portalState.connected,
             portalMessage = portalState.message,
             loadState = loadState,
@@ -190,6 +194,7 @@ internal fun PortalScreen(
             onDismiss = { pickerSlot = null },
             onPickRoot = onPickRoot,
             onReconnect = onReconnect,
+            onToggleFavorite = onToggleFavorite,
             onLoad = onLoad
         )
     }
@@ -238,6 +243,30 @@ internal fun PortalScreen(
             onDismiss = { showPlayerMode = false }
         )
     }
+
+    if (showQuickTeams) {
+        QuickTeamsDialog(
+            teams = quickTeams,
+            figures = figures,
+            portalState = portalState,
+            playerTwoEnabled = playerTwoEnabled,
+            onSaveCurrentTeam = onSaveCurrentTeam,
+            onDeleteTeam = onDeleteTeam,
+            onLoadTeam = onLoadTeam,
+            onNotice = { localNotice = it },
+            onDismiss = { showQuickTeams = false }
+        )
+    }
+
+    if (showDiagnostics) {
+        DiagnosticsDialog(
+            onRunDiagnostics = onRunDiagnostics,
+            onReconnect = onReconnect,
+            onRescan = onRescan,
+            onLaunchDolphin = onLaunchDolphin,
+            onDismiss = { showDiagnostics = false }
+        )
+    }
 }
 
 @Composable
@@ -257,7 +286,7 @@ private fun Header(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    if (portalState.connected) "SKYPORTAL THOR V3" else "SKYPORTAL V3",
+                    if (portalState.connected) "SKYPORTAL THOR V4" else "SKYPORTAL V4",
                     color = Color.White,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
@@ -319,6 +348,321 @@ private fun PrimarySlots(
                 modifier = Modifier.weight(1f),
                 onTap = onTap
             )
+        }
+    }
+}
+
+@Composable
+private fun QuickActionsPanel(
+    playerTwoEnabled: Boolean,
+    teamCount: Int,
+    modifier: Modifier = Modifier,
+    onTeams: () -> Unit,
+    onDiagnostics: () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (playerTwoEnabled) "Touchez Joueur 1 ou Joueur 2" else "Touchez Joueur 1",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    "Favoris et récents sont disponibles dans la collection.",
+                    color = PortalPalette.Muted,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(onClick = onTeams) {
+                    Text(if (teamCount > 0) "Équipes ($teamCount)" else "Équipes")
+                }
+                OutlinedButton(onClick = onDiagnostics) { Text("Diagnostic") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickTeamsDialog(
+    teams: List<QuickTeam>,
+    figures: List<Skylander>,
+    portalState: PortalState,
+    playerTwoEnabled: Boolean,
+    onSaveCurrentTeam: (String) -> PortalResult,
+    onDeleteTeam: (String) -> Unit,
+    onLoadTeam: suspend (QuickTeam) -> PortalResult,
+    onNotice: (UiNotice) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val figuresByUri = remember(figures) { figures.associateBy { it.documentUri.toString() } }
+    val playerOne = portalState.slots.getOrNull(0)?.figure
+    val playerTwo = portalState.slots.getOrNull(1)?.figure.takeIf { playerTwoEnabled }
+    val suggestedName = listOfNotNull(playerOne?.name, playerTwo?.name).joinToString(" + ")
+    var saveExpanded by remember { mutableStateOf(false) }
+    var teamName by remember(suggestedName) { mutableStateOf(suggestedName) }
+    var busy by remember { mutableStateOf(false) }
+    var actionError by remember { mutableStateOf<PortalResult.Error?>(null) }
+
+    Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
+        Surface(color = PortalPalette.Panel, shape = RoundedCornerShape(22.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    "Équipes rapides",
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    "Enregistre la configuration actuelle puis recharge-la en une seule action.",
+                    color = PortalPalette.Muted
+                )
+
+                if (saveExpanded) {
+                    OutlinedTextField(
+                        value = teamName,
+                        onValueChange = { teamName = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        enabled = !busy,
+                        label = { Text("Nom de l'équipe") }
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            enabled = !busy && teamName.isNotBlank() && playerOne != null,
+                            onClick = {
+                                when (val result = onSaveCurrentTeam(teamName.trim())) {
+                                    is PortalResult.Success -> {
+                                        saveExpanded = false
+                                        onNotice(UiNotice(result.message ?: "Équipe enregistrée", NoticeKind.SUCCESS))
+                                    }
+                                    is PortalResult.Error -> actionError = result
+                                }
+                            }
+                        ) { Text("Enregistrer") }
+                        TextButton(onClick = { saveExpanded = false }, enabled = !busy) { Text("Annuler") }
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            teamName = suggestedName
+                            saveExpanded = true
+                            actionError = null
+                        },
+                        enabled = !busy && playerOne != null
+                    ) { Text("Enregistrer l'équipe actuelle") }
+                    if (playerOne == null) {
+                        Text(
+                            "Charge d'abord un personnage en Joueur 1 pour créer une équipe.",
+                            color = PortalPalette.Muted,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
+                if (teams.isEmpty()) {
+                    Text("Aucune équipe enregistrée.", color = PortalPalette.Muted)
+                } else {
+                    teams.forEach { team ->
+                        val first = figuresByUri[team.playerOneUri]
+                        val second = team.playerTwoUri?.let(figuresByUri::get)
+                        val missing = first == null || (team.playerTwoUri != null && second == null)
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = PortalPalette.PanelRaised),
+                            border = BorderStroke(1.dp, if (missing) PortalPalette.Warning else PortalPalette.Accent)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(team.name, color = Color.White, fontWeight = FontWeight.Black)
+                                Text(
+                                    listOfNotNull(
+                                        first?.name ?: "Joueur 1 introuvable",
+                                        team.playerTwoUri?.let { second?.name ?: "Joueur 2 introuvable" }
+                                    ).joinToString(" • "),
+                                    color = if (missing) PortalPalette.Warning else PortalPalette.Muted,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Button(
+                                        enabled = !busy && !missing,
+                                        onClick = {
+                                            if (busy) return@Button
+                                            busy = true
+                                            actionError = null
+                                            scope.launch {
+                                                when (val result = onLoadTeam(team)) {
+                                                    is PortalResult.Success -> {
+                                                        onNotice(
+                                                            UiNotice(
+                                                                result.message ?: "Équipe ${team.name} chargée",
+                                                                NoticeKind.SUCCESS
+                                                            )
+                                                        )
+                                                        onDismiss()
+                                                    }
+                                                    is PortalResult.Error -> actionError = result
+                                                }
+                                                busy = false
+                                            }
+                                        }
+                                    ) { Text("Charger") }
+                                    TextButton(
+                                        onClick = { onDeleteTeam(team.id) },
+                                        enabled = !busy
+                                    ) { Text("Supprimer") }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (busy) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 3.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Chargement de l'équipe…", color = PortalPalette.Muted)
+                    }
+                }
+                actionError?.let { error ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF3C222D))) {
+                        Column(modifier = Modifier.padding(9.dp)) {
+                            Text(error.message, color = PortalPalette.Error, fontWeight = FontWeight.Bold)
+                            error.recoveryHint?.let {
+                                Text(it, color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text(
+                                "Code : ${error.diagnosticCode}",
+                                color = PortalPalette.Muted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+                TextButton(onClick = onDismiss, enabled = !busy) { Text("Fermer") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticsDialog(
+    onRunDiagnostics: () -> List<DiagnosticItem>,
+    onReconnect: () -> Unit,
+    onRescan: () -> Unit,
+    onLaunchDolphin: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var items by remember { mutableStateOf(onRunDiagnostics()) }
+    val errors = items.count { it.level == DiagnosticLevel.ERROR }
+    val warnings = items.count { it.level == DiagnosticLevel.WARNING }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(10.dp),
+            color = PortalPalette.Background,
+            shape = RoundedCornerShape(22.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Assistant de diagnostic",
+                            color = Color.White,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            when {
+                                errors > 0 -> "$errors erreur(s) • $warnings avertissement(s)"
+                                warnings > 0 -> "Prêt avec $warnings avertissement(s)"
+                                else -> "Tous les contrôles automatiques sont réussis"
+                            },
+                            color = if (errors > 0) PortalPalette.Error else if (warnings > 0) PortalPalette.Warning else PortalPalette.Success
+                        )
+                    }
+                    TextButton(onClick = onDismiss) { Text("Fermer") }
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    items.forEach { item -> DiagnosticItemCard(item) }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Button(onClick = { items = onRunDiagnostics() }) { Text("Actualiser") }
+                    OutlinedButton(onClick = onReconnect) { Text("Reconnecter") }
+                    OutlinedButton(onClick = onRescan) { Text("Scanner") }
+                    OutlinedButton(onClick = onLaunchDolphin) { Text("Dolphin") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticItemCard(item: DiagnosticItem) {
+    val color = when (item.level) {
+        DiagnosticLevel.SUCCESS -> PortalPalette.Success
+        DiagnosticLevel.WARNING -> PortalPalette.Warning
+        DiagnosticLevel.ERROR -> PortalPalette.Error
+        DiagnosticLevel.INFO -> PortalPalette.Accent
+    }
+    val symbol = when (item.level) {
+        DiagnosticLevel.SUCCESS -> "✓"
+        DiagnosticLevel.WARNING -> "!"
+        DiagnosticLevel.ERROR -> "×"
+        DiagnosticLevel.INFO -> "i"
+    }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.14f)),
+        border = BorderStroke(1.dp, color)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(symbol, color = color, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(item.title, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(item.detail, color = PortalPalette.Muted, style = MaterialTheme.typography.bodySmall)
+                item.recovery?.let {
+                    Text(it, color = Color.White, style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
     }
 }

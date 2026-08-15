@@ -72,6 +72,8 @@ internal fun SkylanderPickerDialog(
     logicalSlot: Int,
     figures: List<Skylander>,
     occupiedUris: Set<String>,
+    favoriteUris: Set<String>,
+    recentUris: List<String>,
     portalConnected: Boolean,
     portalMessage: String,
     loadState: LoadUiState,
@@ -79,6 +81,7 @@ internal fun SkylanderPickerDialog(
     onDismiss: () -> Unit,
     onPickRoot: () -> Unit,
     onReconnect: () -> Unit,
+    onToggleFavorite: (Skylander) -> Unit,
     onLoad: suspend (Int, Skylander) -> PortalResult
 ) {
     val scope = rememberCoroutineScope()
@@ -86,6 +89,7 @@ internal fun SkylanderPickerDialog(
     var query by remember(logicalSlot) { mutableStateOf("") }
     var generation by remember(logicalSlot) { mutableStateOf("Tous") }
     var element by remember(logicalSlot) { mutableStateOf("Tous") }
+    var collectionView by remember(logicalSlot) { mutableStateOf(CollectionView.ALL) }
     var searchExpanded by remember(logicalSlot) { mutableStateOf(false) }
     var detailsExpanded by remember(logicalSlot) { mutableStateOf(false) }
     var launchInFlight by remember(logicalSlot) { mutableStateOf(false) }
@@ -100,13 +104,38 @@ internal fun SkylanderPickerDialog(
             preferred.indexOf(it).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE
         }
     }
-    val filtered = remember(characters, query, generation, element, searchExpanded) {
-        characters.filter { figure ->
+    val filtered = remember(
+        characters,
+        query,
+        generation,
+        element,
+        searchExpanded,
+        collectionView,
+        favoriteUris,
+        recentUris
+    ) {
+        val recentOrder = recentUris.withIndex().associate { it.value to it.index }
+        val visible = if (searchExpanded) {
+            characters
+        } else {
+            when (collectionView) {
+                CollectionView.ALL -> characters
+                CollectionView.FAVORITES -> characters.filter { it.documentUri.toString() in favoriteUris }
+                CollectionView.RECENTS -> characters.filter { it.documentUri.toString() in recentOrder }
+            }
+        }
+        visible.filter { figure ->
             if (searchExpanded) {
                 query.isBlank() || figure.name.contains(query, true) || figure.fileName.contains(query, true)
             } else {
                 (generation == "Tous" || figure.generation == generation) &&
                     (element == "Tous" || figure.element == element)
+            }
+        }.let { result ->
+            if (!searchExpanded && collectionView == CollectionView.RECENTS) {
+                result.sortedBy { recentOrder[it.documentUri.toString()] ?: Int.MAX_VALUE }
+            } else {
+                result
             }
         }
     }
@@ -198,6 +227,12 @@ internal fun SkylanderPickerDialog(
 
                 if (currentState !is LoadUiState.Error) {
                     if (!searchExpanded) {
+                        PickerFilterRow(
+                            "Vue",
+                            CollectionView.entries.map { it.label },
+                            collectionView.label,
+                            !busy
+                        ) { label -> collectionView = CollectionView.entries.first { it.label == label } }
                         PickerFilterRow("Élément", elements, element, !busy) { element = it }
                         PickerFilterRow("Jeu", generations, generation, !busy) { generation = it }
                     } else {
@@ -256,11 +291,19 @@ internal fun SkylanderPickerDialog(
                 } else if (filtered.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Aucun résultat avec ces filtres", color = Color.White)
+                            Text(
+                                when (collectionView) {
+                                    CollectionView.FAVORITES -> "Aucun favori avec ces filtres"
+                                    CollectionView.RECENTS -> "Aucun personnage récent avec ces filtres"
+                                    CollectionView.ALL -> "Aucun résultat avec ces filtres"
+                                },
+                                color = Color.White
+                            )
                             TextButton(onClick = {
                                 query = ""
                                 generation = "Tous"
                                 element = "Tous"
+                                collectionView = CollectionView.ALL
                             }) { Text("Réinitialiser les filtres") }
                         }
                     }
@@ -277,8 +320,10 @@ internal fun SkylanderPickerDialog(
                             FigureGridCard(
                                 figure = figure,
                                 occupied = occupied,
+                                favorite = figure.documentUri.toString() in favoriteUris,
                                 loading = loading,
                                 enabled = !busy,
+                                onToggleFavorite = { onToggleFavorite(figure) },
                                 onClick = { requestLoad(figure) }
                             )
                         }
@@ -321,8 +366,10 @@ private fun PickerFilterRow(
 private fun FigureGridCard(
     figure: Skylander,
     occupied: Boolean,
+    favorite: Boolean,
     loading: Boolean,
     enabled: Boolean,
+    onToggleFavorite: () -> Unit,
     onClick: () -> Unit
 ) {
     val canClick = enabled && !occupied
@@ -331,7 +378,7 @@ private fun FigureGridCard(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 112.dp)
-            .semantics(mergeDescendants = true) {
+            .semantics {
                 role = Role.Button
                 contentDescription = "${figure.name}, ${figure.element}, ${figure.generation}"
                 stateDescription = when {
@@ -347,8 +394,25 @@ private fun FigureGridCard(
         border = BorderStroke(if (loading) 3.dp else 1.dp, if (loading) PortalPalette.Warning else elementColor),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().background(elementColor.copy(alpha = 0.18f)).padding(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().background(elementColor.copy(alpha = 0.18f)).padding(start = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(figure.element, color = elementColor, fontWeight = FontWeight.Black)
+            TextButton(
+                onClick = onToggleFavorite,
+                enabled = enabled,
+                modifier = Modifier.semantics {
+                    contentDescription = if (favorite) {
+                        "Retirer ${figure.name} des favoris"
+                    } else {
+                        "Ajouter ${figure.name} aux favoris"
+                    }
+                }
+            ) {
+                Text(if (favorite) "★" else "☆", color = if (favorite) PortalPalette.Warning else PortalPalette.Muted)
+            }
         }
         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -509,3 +573,9 @@ private fun generationOrder(value: String): Int = when (value) {
 }
 
 private const val SUCCESS_DISPLAY_MS = 550L
+
+private enum class CollectionView(val label: String) {
+    ALL("Tous"),
+    FAVORITES("★ Favoris"),
+    RECENTS("Récents")
+}
