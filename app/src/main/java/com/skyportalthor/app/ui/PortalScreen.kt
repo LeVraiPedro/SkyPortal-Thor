@@ -29,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,6 +66,7 @@ import kotlinx.coroutines.launch
 internal fun PortalScreen(
     portalState: PortalState,
     figures: List<Skylander>,
+    playerTwoEnabled: Boolean,
     rootUri: Uri?,
     scanning: Boolean,
     uiMessage: UiNotice?,
@@ -75,6 +77,7 @@ internal fun PortalScreen(
     onSelectDolphinPackage: (String) -> Unit,
     onLaunchDolphin: () -> Unit,
     onLoad: suspend (Int, Skylander) -> PortalResult,
+    onPlayerTwoEnabledChange: suspend (Boolean) -> PortalResult,
     onBackup: suspend (Int, Skylander) -> PortalResult,
     onRemove: suspend (Int) -> PortalResult,
     onClear: () -> Unit
@@ -85,6 +88,7 @@ internal fun PortalScreen(
     var loadState by remember { mutableStateOf<LoadUiState>(LoadUiState.Idle) }
     var localNotice by remember { mutableStateOf<UiNotice?>(null) }
     var showDolphinTargets by remember { mutableStateOf(false) }
+    var showPlayerMode by remember { mutableStateOf(false) }
 
     LaunchedEffect(loadState) {
         val success = loadState as? LoadUiState.Success ?: return@LaunchedEffect
@@ -106,8 +110,10 @@ internal fun PortalScreen(
             ) {
                 Header(
                     portalState = portalState,
+                    playerTwoEnabled = playerTwoEnabled,
                     onReconnect = onReconnect,
                     onChooseTarget = { showDolphinTargets = true },
+                    onChoosePlayerMode = { showPlayerMode = true },
                     onLaunchDolphin = onLaunchDolphin
                 )
 
@@ -118,6 +124,7 @@ internal fun PortalScreen(
 
                 PrimarySlots(
                     slots = portalState.slots,
+                    playerTwoEnabled = playerTwoEnabled,
                     loadState = loadState,
                     onTap = { slot ->
                         if (slot.isOccupied()) actionSlot = slot else pickerSlot = slot.logicalSlot
@@ -154,7 +161,7 @@ internal fun PortalScreen(
                         Box(modifier = Modifier.fillMaxSize().padding(12.dp), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(
-                                    "Touchez Joueur 1 ou Joueur 2",
+                                    if (playerTwoEnabled) "Touchez Joueur 1 ou Joueur 2" else "Touchez Joueur 1",
                                     color = Color.White,
                                     fontWeight = FontWeight.Black,
                                     style = MaterialTheme.typography.titleLarge
@@ -221,13 +228,25 @@ internal fun PortalScreen(
             onDismiss = { showDolphinTargets = false }
         )
     }
+
+    if (showPlayerMode) {
+        PlayerModeDialog(
+            playerTwoEnabled = playerTwoEnabled,
+            playerTwoOccupied = portalState.slots.getOrNull(1)?.isOccupied() == true,
+            onChange = onPlayerTwoEnabledChange,
+            onNotice = { localNotice = it },
+            onDismiss = { showPlayerMode = false }
+        )
+    }
 }
 
 @Composable
 private fun Header(
     portalState: PortalState,
+    playerTwoEnabled: Boolean,
     onReconnect: () -> Unit,
     onChooseTarget: () -> Unit,
+    onChoosePlayerMode: () -> Unit,
     onLaunchDolphin: () -> Unit
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel), shape = RoundedCornerShape(18.dp)) {
@@ -255,6 +274,16 @@ private fun Header(
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = onChoosePlayerMode,
+                    modifier = Modifier.semantics {
+                        contentDescription = if (playerTwoEnabled) {
+                            "Mode deux joueurs, toucher pour modifier"
+                        } else {
+                            "Mode un joueur, toucher pour modifier"
+                        }
+                    }
+                ) { Text(if (playerTwoEnabled) "2J" else "1J") }
                 if (portalState.availablePackages.size > 1) {
                     OutlinedButton(onClick = onChooseTarget) { Text("Cible") }
                 }
@@ -270,6 +299,7 @@ private fun Header(
 @Composable
 private fun PrimarySlots(
     slots: List<PortalSlotState>,
+    playerTwoEnabled: Boolean,
     loadState: LoadUiState,
     onTap: (PortalSlotState) -> Unit
 ) {
@@ -281,13 +311,121 @@ private fun PrimarySlots(
             modifier = Modifier.weight(1f),
             onTap = onTap
         )
-        PortalSlotCard(
-            title = "JOUEUR 2",
-            slot = slots.getOrElse(1) { PortalSlotState(1) },
-            loadState = loadState,
-            modifier = Modifier.weight(1f),
-            onTap = onTap
-        )
+        if (playerTwoEnabled) {
+            PortalSlotCard(
+                title = "JOUEUR 2",
+                slot = slots.getOrElse(1) { PortalSlotState(1) },
+                loadState = loadState,
+                modifier = Modifier.weight(1f),
+                onTap = onTap
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayerModeDialog(
+    playerTwoEnabled: Boolean,
+    playerTwoOccupied: Boolean,
+    onChange: suspend (Boolean) -> PortalResult,
+    onNotice: (UiNotice) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var actionError by remember { mutableStateOf<PortalResult.Error?>(null) }
+
+    fun requestChange(enabled: Boolean) {
+        if (busy || enabled == playerTwoEnabled) return
+        busy = true
+        actionError = null
+        scope.launch {
+            when (val result = onChange(enabled)) {
+                is PortalResult.Success -> {
+                    onNotice(
+                        UiNotice(
+                            result.message ?: if (enabled) "Joueur 2 activé" else "Mode solo activé",
+                            NoticeKind.SUCCESS
+                        )
+                    )
+                    onDismiss()
+                }
+                is PortalResult.Error -> actionError = result
+            }
+            busy = false
+        }
+    }
+
+    Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
+        Surface(color = PortalPalette.Panel, shape = RoundedCornerShape(22.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Nombre de joueurs",
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    "Le mode solo est recommandé sur une console portable.",
+                    color = PortalPalette.Muted
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp)
+                        .clickable(enabled = !busy) { requestChange(!playerTwoEnabled) },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Activer le joueur 2", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (playerTwoEnabled) "Deux cartes de joueur affichées" else "Seul Joueur 1 est affiché",
+                            color = PortalPalette.Muted,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Switch(
+                        checked = playerTwoEnabled,
+                        onCheckedChange = { requestChange(it) },
+                        enabled = !busy
+                    )
+                }
+                if (playerTwoEnabled && playerTwoOccupied) {
+                    Text(
+                        "Désactiver Joueur 2 retirera d'abord son personnage du portail afin de sauvegarder sa progression.",
+                        color = PortalPalette.Warning,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                if (busy) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 3.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Mise à jour du portail…", color = PortalPalette.Muted)
+                    }
+                }
+                actionError?.let { error ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF3C222D))) {
+                        Column(modifier = Modifier.padding(9.dp)) {
+                            Text(error.message, color = PortalPalette.Error, fontWeight = FontWeight.Bold)
+                            error.recoveryHint?.let {
+                                Text(it, color = Color.White, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text(
+                                "Code : ${error.diagnosticCode}",
+                                color = PortalPalette.Muted,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+                TextButton(onClick = onDismiss, enabled = !busy) { Text("Fermer") }
+            }
+        }
     }
 }
 

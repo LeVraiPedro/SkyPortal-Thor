@@ -1,5 +1,13 @@
 # Changelog — SkyPortal Thor
 
+## V3.0.2 (0.3.2) — 16 août 2026
+
+- Ajout d'un réglage persistant `1J / 2J` accessible depuis l'en-tête.
+- Le mode solo est désormais la valeur par défaut et affiche Joueur 1 sur toute la largeur.
+- Joueur 2 n'apparaît que lorsque l'option correspondante est activée.
+- Revenir au mode solo retire d'abord le personnage de Joueur 2 dans Dolphin avant de masquer son slot.
+- Un échec de retrait conserve le mode deux joueurs et affiche le diagnostic au lieu de masquer un personnage encore monté.
+
 ## V3.0.1 (0.3.1) — 16 août 2026
 
 - Le portail cible maintenant toujours l'écran Android secondaire de l'AYN Thor, quel que soit l'écran depuis lequel l'icône est touchée.

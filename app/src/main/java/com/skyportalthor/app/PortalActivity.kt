@@ -50,6 +50,7 @@ class PortalActivity : ComponentActivity() {
             var scanning by remember { mutableStateOf(false) }
             var scanGeneration by remember { mutableIntStateOf(0) }
             var uiMessage by remember { mutableStateOf<UiNotice?>(null) }
+            var playerTwoEnabled by remember { mutableStateOf(prefs.isPlayerTwoEnabled()) }
             val reconciledPortalState = remember(portalState, figures) {
                 val figuresByUri = figures.associateBy { it.documentUri.toString() }
                 portalState.copy(
@@ -117,6 +118,7 @@ class PortalActivity : ComponentActivity() {
                 PortalScreen(
                     portalState = reconciledPortalState,
                     figures = figures,
+                    playerTwoEnabled = playerTwoEnabled,
                     rootUri = rootUri,
                     scanning = scanning,
                     uiMessage = uiMessage,
@@ -147,6 +149,27 @@ class PortalActivity : ComponentActivity() {
                         }
                     },
                     onLoad = { logicalSlot, figure -> bridge.load(logicalSlot, figure) },
+                    onPlayerTwoEnabledChange = playerMode@{ enabled ->
+                        if (enabled == playerTwoEnabled) {
+                            return@playerMode PortalResult.Success()
+                        }
+                        val playerTwoSlot = bridge.state.value.slots.getOrNull(1)
+                        if (
+                            !enabled &&
+                            playerTwoSlot != null &&
+                            PortalProtocol.isValidActualSlot(playerTwoSlot.actualPortalSlot)
+                        ) {
+                            when (val removeResult = bridge.remove(1)) {
+                                is PortalResult.Error -> return@playerMode removeResult
+                                is PortalResult.Success -> Unit
+                            }
+                        }
+                        prefs.setPlayerTwoEnabled(enabled)
+                        playerTwoEnabled = enabled
+                        PortalResult.Success(
+                            message = if (enabled) "Joueur 2 activé" else "Mode solo activé"
+                        )
+                    },
                     onBackup = backup@{ logicalSlot, figure ->
                         val root = rootUri
                         if (root == null) {

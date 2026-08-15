@@ -18,8 +18,15 @@ class CollectionPreferences(context: Context) {
         prefs.edit().putString(KEY_DOLPHIN_PACKAGE, packageName).apply()
     }
 
+    fun isPlayerTwoEnabled(): Boolean = prefs.getBoolean(KEY_PLAYER_TWO_ENABLED, false)
+
+    fun setPlayerTwoEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_PLAYER_TWO_ENABLED, enabled).apply()
+    }
+
     companion object {
         private const val KEY_ROOT_URI = "root_uri"
         private const val KEY_DOLPHIN_PACKAGE = "dolphin_package"
+        private const val KEY_PLAYER_TWO_ENABLED = "player_two_enabled"
     }
 }

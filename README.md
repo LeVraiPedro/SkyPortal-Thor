@@ -4,6 +4,8 @@ Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin 
 
 Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (`Screen-2`) de la Thor, même si l'icône SkyPortal est touchée depuis l'écran inférieur. L'écran supérieur reste ainsi libre pour Dolphin.
 
+Le compagnon démarre en mode solo : seule la carte Joueur 1 est affichée. Le bouton `1J` de l'en-tête ouvre le réglage permettant d'activer Joueur 2 ; ce choix est conservé entre les lancements.
+
 La V3 remplace la collection permanente de la V2 par un portail tactile :
 
 1. toucher **Joueur 1** ou **Joueur 2** ;
