@@ -1,0 +1,5 @@
+# Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# git apply requires patch metadata to retain Unix line endings on Windows.
+*.patch text eol=lf

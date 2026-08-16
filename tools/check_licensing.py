@@ -55,8 +55,10 @@ def check_required_documents(errors: list[str]) -> None:
             errors.append(f"missing required file: {path.relative_to(ROOT)}")
     if not license_path.is_file() or not reuse_path.is_file():
         return
-    license_bytes = license_path.read_bytes()
-    reuse_bytes = reuse_path.read_bytes()
+    # Git may materialize text files with CRLF on Windows. Compare and hash the
+    # canonical LF form so the same official text passes on every build host.
+    license_bytes = license_path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    reuse_bytes = reuse_path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
     if license_bytes != reuse_bytes:
         errors.append("LICENSE and LICENSES/GPL-2.0-or-later.txt differ")
     license_digest = hashlib.sha256(license_bytes).hexdigest()
