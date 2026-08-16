@@ -1,3 +1,5 @@
+// Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+// SPDX-License-Identifier: GPL-2.0-or-later
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {

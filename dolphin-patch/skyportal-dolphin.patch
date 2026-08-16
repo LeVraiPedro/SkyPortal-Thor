@@ -50,10 +50,12 @@ index 96876ac..57f2917 100644
  </manifest>
 diff --git a/Source/Android/app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl b/Source/Android/app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl
 new file mode 100644
-index 0000000..20e2a9e
+index 0000000..9f20bc3
 --- /dev/null
 +++ b/Source/Android/app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,14 @@
++// Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
++// SPDX-License-Identifier: GPL-2.0-or-later
 +package com.skyportalthor.ipc;
 +
 +interface ISkylanderPortalService {
@@ -98,10 +100,11 @@ index b8cf8a4..5b33818 100644
 
 diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
 new file mode 100644
-index 0000000..5679aef
+index 0000000..8af0d6f
 --- /dev/null
 +++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
-@@ -0,0 +1,787 @@
+@@ -0,0 +1,788 @@
++// Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +package org.dolphinemu.dolphinemu.skyportal
 +

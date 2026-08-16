@@ -1,3 +1,7 @@
+<!--
+  Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+  SPDX-License-Identifier: GPL-2.0-or-later
+-->
 <!-- Add directly under <manifest>, before <application>: -->
 <permission
     android:name="com.skyportalthor.permission.PORTAL_CONTROL"
