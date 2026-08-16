@@ -2,7 +2,7 @@
 
 ## Portée
 
-Ce rapport décrit les résultats établis pour la candidate Android **0.5.0** (`versionCode 7`). Il ne constitue pas une validation de la future refonte visuelle V6.
+Ce rapport décrit les résultats établis pour la version Android **0.5.0** (`versionCode 7`). Il ne constitue pas une validation de la future refonte visuelle V6.
 
 La validation combine :
 
@@ -17,7 +17,7 @@ Après la campagne ADB décrite dans ce document, un faux état `Portail prêt` 
 
 L'analyse a également établi que l'ancien état `portalActivated` reflétait un booléen protocolaire initialisé à `true`, et non une preuve que le jeu avait réellement attaché puis interrogé le périphérique USB. Le correctif ajoute trois preuves distinctes — présence, attachement et handshake Skylanders — ainsi qu'une liste de bases concurrentes. `Portail prêt` exige désormais ces preuves cohérentes et aucun conflit.
 
-La Thor a été reconnectée après l'implémentation. La paire corrigée a été installée en mise à jour, sans `pm clear`, désinstallation ni suppression de données. Le chemin normal `SkylanderUSB` → JNI → service → compagnon a été validé avec Disney Infinity désactivé. Le conflit produit par les deux bases simultanément actives n'a pas été rejoué sur le nouveau binaire et reste explicitement en attente.
+La Thor a été reconnectée après l'implémentation. La paire Release officielle a été installée après sauvegarde et migration contrôlée, sans `pm clear` ni suppression de la collection. Le chemin normal `SkylanderUSB` → JNI → service → compagnon a été validé avec Disney Infinity désactivé. Le conflit produit par les deux bases simultanément actives a ensuite été rejoué : le compagnon affiche le conflit, ne passe jamais à `Portail prêt` et bloque le chargement avant Binder. La configuration finale restaure Disney Infinity désactivé.
 
 ## Environnement matériel
 
@@ -158,6 +158,6 @@ Une construction Release locale a aussi confirmé que les deux APK peuvent être
 - Imaginators n'est pas pris en charge par le Manager de la révision Dolphin utilisée ; aucun Creation Crystal matériel n'a été testé.
 - L'exécution réelle des workflows sur GitHub doit être confirmée après push ; une validation de syntaxe locale n'est pas un résultat GitHub Actions.
 - Le nouveau suivi `portalUsbPresent` / `portalUsbAttached` / `portalUsbHandshakeSeen` est validé dans le chemin normal, mais le conflit et le blocage avant Binder avec les deux bases actives restent à rejouer.
-- Une prochaine campagne matérielle doit activer simultanément les deux bases, vérifier `PORTAL_CONFLICT`, puis restaurer Disney Infinity désactivé et relancer complètement l'émulation.
+- Le Magic Item Anvil Rain avait été validé matériellement pendant la campagne V5.1 avec une fixture créée par le Manager Dolphin ; il n'a pas été recréé lors du dernier smoke test de la paire Release afin de ne pas repolluer la collection utilisateur restaurée.
 
 La [matrice de compatibilité](COMPATIBILITY_MATRIX.md) et la [checklist Thor](../THOR_TEST_CHECKLIST.md) indiquent le niveau de preuve de chaque scénario.

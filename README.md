@@ -1,6 +1,6 @@
 # SkyPortal Thor V5 — Smart Portal
 
-Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor. La version Android candidate actuelle est **0.5.0** (`versionCode 7`).
+Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor. La version stable actuelle est **0.5.0** (`versionCode 7`).
 
 Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (`Screen-2`) de la Thor, même si l'icône SkyPortal est touchée depuis l'écran inférieur. L'écran supérieur reste ainsi libre pour Dolphin.
 
@@ -130,7 +130,9 @@ La campagne V5.1 de fiabilisation a validé sur une vraie AYN Thor Android 13 : 
 
 Après cette campagne, un cas de faux `Portail prêt` a été reproduit : Dolphin avait à la fois le portail Skylanders et la base Disney Infinity activés. L'utilisateur a confirmé que la désactivation de Disney Infinity, suivie d'un redémarrage de l'émulation, supprimait le problème. Le correctif distingue maintenant le réglage du portail de son utilisation USB réelle et signale le conflit.
 
-La paire corrigée a ensuite été réinstallée sans effacer les données sur la Thor. Avec Disney Infinity désactivé, le chemin complet jeu → USB → JNI → service → compagnon a confirmé `SSPP52`, les trois preuves USB et `Portail prêt`. Le remplacement Lightning Rod → Sonic Boom → Whirlwind sur J1 a réussi sans mapping obsolète ni faux échec ; le retrait final et la reconnexion de SkyPortal avec Lightning Rod monté ont également été validés. Le conflit avec **les deux bases actives** reste volontairement annoncé comme non rejoué sur le nouveau binaire.
+La paire Release officielle, signée avec le certificat persistant commun, a ensuite été installée sans `pm clear` et sans suppression de la collection sur la Thor. Avec Disney Infinity désactivé, le chemin complet jeu → USB → JNI → service → compagnon a confirmé `SSPP52`, les trois preuves USB et `Portail prêt`. En jeu, Whirlwind → Sonic Boom → Lightning Rod sur J1 a réussi sans mapping obsolète, slot fantôme ni faux échec ; le retrait, J2, la reconnexion de SkyPortal avec un personnage monté, la mort/reprise de Dolphin et le cycle écran/accueil ont également été validés.
+
+Le conflit volontaire a lui aussi été rejoué sur cette paire exacte : portail Skylanders et base Disney Infinity simultanément actifs produisent un état de conflit explicite, jamais `Portail prêt`, et le chargement est bloqué avant Binder. Après restauration de Disney Infinity à `false` et redémarrage complet de l'émulation, les trois preuves USB repassent à `true` et le portail redevient prêt.
 
 Les contrôles automatisés comprennent 75 tests unitaires, Android Lint et la compilation Debug. Ils couvrent notamment le parsing des nouveaux indicateurs USB, les décisions de disponibilité, les anciens payloads API 3, le conflit Disney Infinity, le schéma natif v2, la bascule sûre Debug/Release et le format de migration des préférences lors du passage à la clé officielle. Trois tests natifs ciblés ont aussi été exécutés sur la Thor ARM64. Dix fixtures contrôlées ont été créées localement avec le Skylanders Manager officiel de Dolphin, dans un dossier séparé de la collection utilisateur ; aucun dump n'a été téléchargé. Sur SSA, elles ont permis de valider le filtre Personnages/Objets, les refus avant Binder, le chargement réel d'un Magic Item et la protection des backups.
 

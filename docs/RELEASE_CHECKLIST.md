@@ -1,6 +1,6 @@
 # Checklist de release V5
 
-Version candidate : **0.5.0**, `versionCode 7`. Conserver ce numéro tant qu'aucune release/tag `v0.5.0` n'existe ; passer à 0.5.1 uniquement après vérification de l'état GitHub.
+Version validée pour publication : **0.5.0**, `versionCode 7`.
 
 ## 1. Dépôt et portée
 
@@ -28,8 +28,8 @@ Version candidate : **0.5.0**, `versionCode 7`. Conserver ce numéro tant qu'auc
 - [x] Correctifs USB/montage : sources natives compilées, trois tests ARM64 exécutés, patchs vérifiés et parcours ciblé validé sur la Thor.
 - [x] Recalculer les SHA-256 des nouveaux artefacts finaux.
 - [x] Vérifier les certificats des nouveaux artefacts avec `apksigner verify --print-certs`.
-- [ ] Ne jamais publier deux APK comme compatibles si les certificats diffèrent.
-- [ ] Joindre les sources Dolphin correspondantes et respecter sa licence lors d'une distribution binaire.
+- [x] Les deux APK Release candidats ont exactement le même certificat persistant, vérifié avec `apksigner`.
+- [x] Le workflow a produit l'arbre source Dolphin correspondant complet et le kit de reconstruction avec licences et provenance.
 - [x] Conserver la révision Dolphin épinglée ; ne pas construire silencieusement depuis une branche mouvante.
 
 ## 4. Critères matériels critiques — résultats historiques
@@ -49,12 +49,12 @@ Version candidate : **0.5.0**, `versionCode 7`. Conserver ce numéro tant qu'auc
 - [x] Campagne initiale : Logcat frais sans crash natif/app, ANR ni spam `DeadObjectException`.
 - [ ] Rejouer équipe pendant reconnexion, retrait pendant scan et arrêt de Dolphin pendant chargement.
 
-### Correctif USB — validation ciblée et conflit restant
+### Correctif USB — validation matérielle finale
 
-La cause du premier bug a été confirmée par l'utilisateur : la base Disney Infinity activée en même temps que le portail Skylanders empêchait le jeu de détecter ce dernier. Le chemin normal du nouveau binaire est validé ; le conflit volontaire reste à rejouer :
+La cause du premier bug a été confirmée puis le scénario volontaire a été rejoué avec la paire Release exacte :
 
-- [ ] Les deux bases actives produisent `PORTAL_CONFLICT`, jamais `READY`.
-- [ ] Le conflit bloque l'activation automatique et le chargement avant Binder, avec un message français demandant un arrêt complet de l'émulation.
+- [x] Les deux bases actives produisent `PORTAL_CONFLICT`, jamais `READY`.
+- [x] Le conflit bloque l'activation automatique et le chargement avant Binder, avec un message français demandant un arrêt complet de l'émulation.
 - [x] Disney Infinity désactivé puis émulation relancée : présence, attachement et handshake passent à `true`, puis seulement l'en-tête affiche `Portail prêt`.
 - [ ] Un portail configuré mais non attaché demande un redémarrage au lieu d'annoncer un faux succès.
 - [x] Le parcours ciblé J1, double remplacement, retrait et reconnexion reste fonctionnel avec les nouveaux indicateurs.
@@ -70,8 +70,8 @@ Ne marquer la candidate prête que si tous les critères critiques applicables s
 - [x] `.github/workflows/release.yml` prépare APK, SHA-256, archive source et release sur tag `v*`.
 - [x] `.github/workflows/full-pair-build.yml` prépare manuellement une paire signée avec révision Dolphin épinglée.
 - [x] Syntaxe des trois workflows validée localement.
-- [ ] Après push du correctif USB, vérifier le nouveau résultat réel d'Android CI.
-- [ ] Tester le workflow manuel de paire dans un environnement disposant des secrets requis.
+- [x] Android CI de `main` réussie sur le commit candidat.
+- [x] Workflow manuel de paire réussi en mode `PERSISTENT_RELEASE_KEY`.
 - [ ] Ne pas créer le tag de release tant que la PR et la CI ne sont pas validées.
 
 Secrets attendus pour une signature persistante :
@@ -93,8 +93,8 @@ Ils doivent être configurés dans GitHub Actions, jamais committés. Le workflo
 - [x] La CI vérifie les documents de licence, les en-têtes SPDX et l’absence de données interdites suivies par Git.
 - [x] L’archive source du compagnon contient `LICENSE` et `NOTICE.md`.
 - [x] Le workflow de paire produit un code source Dolphin complet ainsi qu’un kit de reconstruction avec commit amont, patchs, ajouts, script et instructions.
-- [ ] Configurer les quatre secrets de signature avant toute release officielle ; ils sont actuellement absents du dépôt et ne doivent jamais y être ajoutés.
-- [ ] Pour tout APK Dolphin publié, joindre durablement le code source correspondant et son SHA-256 dans la même release.
+- [x] Les quatre secrets de signature sont configurés dans GitHub sans exposer leurs valeurs et ne sont pas suivis par Git.
+- [x] Le lot candidat contient le source Dolphin correspondant complet et son SHA-256 ; il sera joint durablement à la release avec l'APK.
 - [ ] Faire relire les attributions et la portée de la licence par une personne compétente avant la première publication sous cette licence.
 - [ ] Ne pas republier silencieusement les anciennes archives v0.3/v0.4 dépourvues de licence ; publier un correctif explicitement identifié si elles doivent rester distribuées.
 

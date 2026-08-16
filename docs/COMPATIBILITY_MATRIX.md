@@ -59,7 +59,7 @@ Sur la Thor, le filtre automatique SSA a montré Terrabite côté Personnages et
 | API 1 | oui | non pendant cette campagne | pas de jeu/portail/catalogue Smart |
 | API 2 | oui | non pendant cette campagne | pas de jeu/portail/catalogue Smart complet |
 | API 3 historique | oui | oui, Dolphin Debug + SSA pour Binder, jeu, slots et chargements | `portalActivated` historique ne prouvait pas l'énumération USB et pouvait produire un faux `Portail prêt` |
-| API 3 avec indicateurs USB et schéma slots v2 | oui | **oui, chemin normal SSA** | mode Smart complet après `portalUsbPresent`, `portalUsbAttached` et `portalUsbHandshakeSeen` ; conflit `DISNEY_INFINITY_BASE` bloquant mais scénario deux bases non rejoué |
+| API 3 avec indicateurs USB et schéma slots v2 | oui | **oui, chemin normal SSA et conflit Disney Infinity** | mode Smart complet après `portalUsbPresent`, `portalUsbAttached` et `portalUsbHandshakeSeen` ; conflit `DISNEY_INFINITY_BASE` bloquant validé sur la paire Release |
 
 La matrice doit être mise à jour seulement avec des preuves reproductibles. En particulier, créer une fixture Trap Team ou SuperChargers dans le Manager n'autorise pas à déclarer le jeu correspondant « testé sur matériel ».
 
@@ -72,7 +72,7 @@ La matrice doit être mise à jour seulement avec des preuves reproductibles. En
 | Allocation pendant `mounted=true / status=REMOVED` | le slot reste occupé ; un troisième fichier reçoit un autre slot | test natif ARM64 sur Thor |
 | Portail configuré mais jamais attaché au jeu | `Redémarrage requis`, aucun chargement Binder | parsing/décision automatisés ; bout en bout Thor en attente |
 | Portail attaché sans commande Skylanders | `Portail en initialisation`, aucun chargement Binder | parsing/décision automatisés ; bout en bout Thor en attente |
-| Portail Skylanders + base Disney Infinity | conflit explicite, aucune auto-activation, aucun chargement Binder, redémarrage demandé | cause confirmée par l'utilisateur ; parsing/décision automatisés ; correctif complet Thor en attente |
+| Portail Skylanders + base Disney Infinity | conflit explicite, aucune auto-activation, aucun chargement Binder, redémarrage demandé | parsing/décision automatisés et parcours matériel réussi sur la paire Release |
 | Ancien JSON API 3 sans indicateurs USB | `Portail non vérifié`, aucune valeur inventée | automatisé |
 
-La confirmation utilisateur établit la cause du dysfonctionnement observé, mais ne remplace pas un parcours ADB du nouveau binaire. Aucune ligne de cette section ne présente donc le correctif comme revalidé matériellement.
+Le scénario avec les deux bases actives a été rejoué par ADB sur la paire Release officielle : aucun faux `Portail prêt`, diagnostic explicite et chargement bloqué avant Binder. La restauration Disney Infinity désactivé, suivie d'un redémarrage complet, a rendu les trois preuves USB vraies.
