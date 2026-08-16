@@ -143,3 +143,15 @@ Documentation de validation :
 - [intégration Dolphin](DOLPHIN_INTEGRATION.md).
 
 Les workflows GitHub Actions présents dans `.github/workflows/` couvrent la CI Android, la préparation d'une release sur tag et, manuellement, la construction d'une paire SkyPortal/Dolphin avec signature commune. Aucune clé privée n'est stockée dans le dépôt.
+
+## Licence
+
+SkyPortal Thor est distribué sous `GPL-2.0-or-later`. Le texte complet de la GNU General Public License version 2 se trouve dans [`LICENSE`](LICENSE) ; la mention « or later » permet au destinataire de choisir une version ultérieure de la GPL.
+
+Certains fichiers du dossier [`dolphin-patch/`](dolphin-patch/) proviennent de Dolphin Emulator ou en constituent des modifications. Leurs copyrights et identifiants SPDX originaux doivent être conservés. Toute distribution publique d’un Dolphin modifié doit respecter les licences amont et fournir durablement le code source correspondant au binaire distribué ; voir [`DOLPHIN_INTEGRATION.md`](DOLPHIN_INTEGRATION.md).
+
+Les composants tiers conservent leur propre licence. En particulier, le wrapper Gradle reste sous Apache-2.0. La GPL du code SkyPortal n’accorde aucun droit sur les noms, marques, personnages, illustrations ou autres œuvres Skylanders et de leurs ayants droit. Les attributions détaillées figurent dans [`NOTICE.md`](NOTICE.md) et l’inventaire graphique dans [`docs/ASSET_AUDIT.md`](docs/ASSET_AUDIT.md).
+
+## Projet non officiel
+
+SkyPortal Thor est un projet communautaire non officiel. Il n’est affilié à, approuvé par ou sponsorisé par Activision, Toys for Bob, Microsoft, Nintendo, Sony, AYN Technologies ou l’équipe Dolphin. Le dépôt ne distribue aucun jeu, ROM, clé de chiffrement ni collection de dumps `.sky` provenant de tiers.

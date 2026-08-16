@@ -2,6 +2,16 @@
 
 ## V5 (0.5.0) — 16 août 2026
 
+### Licence et distribution open source
+
+- Adoption explicite de `GPL-2.0-or-later` pour le code original SkyPortal Thor, sans changement de version Android.
+- Ajout du texte officiel complet de la GPL v2 dans `LICENSE` et `LICENSES/GPL-2.0-or-later.txt`.
+- Ajout de `NOTICE.md` pour distinguer les copyrights SkyPortal, Dolphin, Gradle et les marques ou œuvres tierces.
+- Ajout d’en-têtes SPDX aux sources originales SkyPortal, tout en conservant les avis Dolphin et Apache-2.0 existants.
+- Documentation de l’obligation de fournir le code source correspondant lors de toute distribution publique d’un Dolphin modifié.
+- Renforcement des archives et workflows de release : contrôle licence/NOTICE, provenance, exclusions de données privées et sommes SHA-256.
+- Ajout d’un audit des ressources graphiques ; les captures QA contenant jeux, jaquettes ou interfaces tierces restent locales et exclues des publications.
+
 ### Correctifs post-validation — état USB réel et remplacement de figurine
 
 - Correction du faux état `Portail prêt` : le réglage Dolphin et le booléen protocolaire historique ne suffisent plus à prouver que le jeu voit le Portal of Power.
