@@ -7,6 +7,7 @@ import android.content.pm.Signature
 import android.net.Uri
 import android.os.Build
 import com.skyportalthor.app.data.Skylander
+import com.skyportalthor.app.data.DolphinServiceState
 import com.skyportalthor.app.display.DisplayRouter
 import com.skyportalthor.app.dolphin.DolphinTargets
 import com.skyportalthor.app.portal.PortalState
@@ -38,6 +39,7 @@ class DiagnosticAssistant(private val context: Context) {
         add(checkDolphinInstallation(targetPackage))
         if (targetPackage != null) add(checkSignature(targetPackage))
         add(checkBinder(portalState))
+        add(checkServiceState(portalState))
         add(checkApi(portalState))
         add(checkGame(portalState))
         add(checkPortal(portalState))
@@ -164,6 +166,23 @@ class DiagnosticAssistant(private val context: Context) {
             DiagnosticLevel.ERROR,
             state.message,
             "Démarre Dolphin puis utilise Reconnecter."
+        )
+    }
+
+    private fun checkServiceState(state: PortalState): DiagnosticItem = when (state.serviceState) {
+        DolphinServiceState.READY -> DiagnosticItem(
+            "Service Dolphin", DiagnosticLevel.SUCCESS,
+            "Le service SkyPortal Dolphin est initialisé et répond."
+        )
+        DolphinServiceState.INITIALIZING -> DiagnosticItem(
+            "Service Dolphin", DiagnosticLevel.INFO,
+            "Dolphin termine son initialisation native.",
+            "Patiente quelques secondes : SkyPortal actualise automatiquement cet état."
+        )
+        DolphinServiceState.UNKNOWN -> DiagnosticItem(
+            "Service Dolphin", DiagnosticLevel.WARNING,
+            if (state.connected) "Cette version de Dolphin n’expose pas explicitement l’état du service."
+            else "Le service Dolphin n’est pas connecté."
         )
     }
 

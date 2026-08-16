@@ -59,6 +59,7 @@ import com.skyportalthor.app.data.FigureKind
 import com.skyportalthor.app.data.QuickTeam
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.SmartPortalReadiness
+import com.skyportalthor.app.data.DolphinServiceState
 import com.skyportalthor.app.diagnostics.DiagnosticItem
 import com.skyportalthor.app.diagnostics.DiagnosticLevel
 import com.skyportalthor.app.dolphin.DolphinTargets
@@ -193,6 +194,7 @@ internal fun PortalScreen(
             portalConnected = portalState.connected,
             portalMessage = portalState.message,
             detectedGame = portalState.skylandersGame,
+            requireNativeIdentity = (portalState.apiVersion ?: 1) >= 3 && portalState.figureCatalog.isNotEmpty(),
             loadState = loadState,
             onLoadStateChange = { loadState = it },
             onDismiss = { pickerSlot = null },
@@ -335,12 +337,20 @@ private fun Header(
 
 private fun smartStatusLine(state: PortalState): String {
     if (!state.connected) return "● ${state.message}"
+    if (state.serviceState == DolphinServiceState.INITIALIZING) {
+        return "● Connecté | Initialisation Dolphin…"
+    }
     val game = state.skylandersGame?.displayName ?: state.gameTitle?.takeIf { it.isNotBlank() } ?: "Aucun jeu"
     val portal = when (state.readiness) {
         SmartPortalReadiness.ENABLING_PORTAL -> "Activation…"
         SmartPortalReadiness.PORTAL_DISABLED -> "Portail désactivé"
         SmartPortalReadiness.READY -> "Portail prêt"
-        else -> when (state.portalEnabled) { true -> "Portail activé"; false -> "Portail désactivé"; null -> "Portail inconnu" }
+        else -> when {
+            state.portalEnabled == true && state.portalActivated == false -> "Portail en initialisation"
+            state.portalEnabled == true -> "Portail activé"
+            state.portalEnabled == false -> "Portail désactivé"
+            else -> "Portail inconnu"
+        }
     }
     return "● Connecté | $game | $portal"
 }

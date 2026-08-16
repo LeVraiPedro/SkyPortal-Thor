@@ -1,9 +1,25 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val skyPortalStoreFile = providers.gradleProperty("skyportalStoreFile")
+    .orElse(providers.environmentVariable("SKYPORTAL_STORE_FILE"))
+val skyPortalStorePassword = providers.gradleProperty("skyportalStorePassword")
+    .orElse(providers.environmentVariable("SKYPORTAL_STORE_PASSWORD"))
+val skyPortalKeyAlias = providers.gradleProperty("skyportalKeyAlias")
+    .orElse(providers.environmentVariable("SKYPORTAL_KEY_ALIAS"))
+val skyPortalKeyPassword = providers.gradleProperty("skyportalKeyPassword")
+    .orElse(providers.environmentVariable("SKYPORTAL_KEY_PASSWORD"))
+val hasReleaseSigning = listOf(
+    skyPortalStoreFile,
+    skyPortalStorePassword,
+    skyPortalKeyAlias,
+    skyPortalKeyPassword
+).all { it.isPresent }
 
 android {
     namespace = "com.skyportalthor.app"
@@ -21,6 +37,23 @@ android {
         compose = true
         buildConfig = true
         aidl = true
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("skyPortalRelease") {
+                storeFile = file(skyPortalStoreFile.get())
+                storePassword = skyPortalStorePassword.get()
+                keyAlias = skyPortalKeyAlias.get()
+                keyPassword = skyPortalKeyPassword.get()
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.findByName("skyPortalRelease")
+        }
     }
 
     compileOptions {
@@ -45,5 +78,6 @@ dependencies {
     implementation("androidx.documentfile:documentfile:1.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20260719")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

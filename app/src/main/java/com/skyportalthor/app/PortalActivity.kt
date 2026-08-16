@@ -19,9 +19,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.DolphinFigureCatalog
+import com.skyportalthor.app.data.EmulationState
+import com.skyportalthor.app.data.FigureCompatibilityEngine
 import com.skyportalthor.app.data.FigureKey
 import com.skyportalthor.app.data.SmartPortalReadiness
 import com.skyportalthor.app.data.QuickTeam
+import com.skyportalthor.app.data.CollectionStateLogic
 import com.skyportalthor.app.diagnostics.DiagnosticAssistant
 import com.skyportalthor.app.dolphin.DolphinLauncher
 import com.skyportalthor.app.dolphin.DolphinPortalBridge
@@ -141,6 +144,59 @@ class PortalActivity : ComponentActivity() {
                         is PortalResult.Error -> uiMessage = UiNotice(result.message, NoticeKind.ERROR)
                         is PortalResult.Success -> uiMessage = UiNotice(result.message ?: "Portail activé", NoticeKind.SUCCESS)
                     }
+                } else if (
+                    !portalState.connected ||
+                    portalState.emulationState == EmulationState.NONE ||
+                    portalState.emulationState == EmulationState.STOPPING
+                ) {
+                    autoActivationAttemptedFor = null
+                }
+            }
+
+            LaunchedEffect(
+                portalState.gameId,
+                portalState.emulationState,
+                portalState.nativeSlots,
+                portalState.figureCatalog
+            ) {
+                val game = portalState.skylandersGame
+                if (
+                    game != null &&
+                    (portalState.apiVersion ?: 1) >= 3 &&
+                    portalState.figureCatalog.isNotEmpty() &&
+                    portalState.emulationState in setOf(EmulationState.RUNNING, EmulationState.PAUSED)
+                ) {
+                    for (slot in portalState.slots) {
+                        if (!PortalProtocol.isValidActualSlot(slot.actualPortalSlot)) continue
+                        val native = portalState.nativeSlots.firstOrNull {
+                            it.slot == slot.actualPortalSlot && it.occupied
+                        } ?: continue
+                        val metadata = native.figureId?.let { id ->
+                            native.variantId?.let { variant -> portalState.figureCatalog[FigureKey(id, variant)] }
+                        }
+                        val compatibility = metadata?.let {
+                            FigureCompatibilityEngine.check(
+                                generationNumber = it.generation,
+                                kind = it.kind,
+                                typeLabel = it.typeLabel,
+                                name = it.canonicalName,
+                                generationName = DolphinFigureCatalog.generationName(it.generation),
+                                game = game
+                            )
+                        }
+                        if (metadata == null || compatibility?.compatible == false) {
+                            when (val result = bridge.remove(slot.logicalSlot)) {
+                                is PortalResult.Success -> uiMessage = UiNotice(
+                                    "${metadata?.canonicalName ?: "Contenu inconnu"} retiré : incompatible avec ${game.displayName}",
+                                    NoticeKind.ERROR
+                                )
+                                is PortalResult.Error -> uiMessage = UiNotice(
+                                    "Impossible de retirer un ancien slot incompatible : ${result.message}",
+                                    NoticeKind.ERROR
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -189,10 +245,10 @@ class PortalActivity : ComponentActivity() {
                         }
                     },
                     onSelectDolphinPackage = { packageName ->
-                        prefs.setDolphinPackage(packageName)
                         scope.launch {
                             val connected = bridge.connect(packageName)
                             uiMessage = if (connected) {
+                                prefs.setDolphinPackage(packageName)
                                 UiNotice("Connexion basculée vers ${bridge.state.value.message}", NoticeKind.SUCCESS)
                             } else {
                                 UiNotice(bridge.state.value.message, NoticeKind.ERROR)
@@ -243,20 +299,21 @@ class PortalActivity : ComponentActivity() {
                     onDeleteTeam = { id -> quickTeams = prefs.deleteQuickTeam(id) },
                     onLoadTeam = loadTeam@{ team ->
                         val byUri = figures.associateBy { it.documentUri.toString() }
-                        val first = byUri[team.playerOneUri]
-                            ?: return@loadTeam PortalResult.Error(
-                                message = "Le fichier Joueur 1 de cette équipe est introuvable",
-                                diagnosticCode = "TEAM_PLAYER_ONE_MISSING",
-                                recoveryHint = "Rescanne le dossier ou recrée l'équipe."
-                            )
-                        val second = team.playerTwoUri?.let(byUri::get)
-                        if (team.playerTwoUri != null && second == null) {
+                        val missingMember = CollectionStateLogic.missingQuickTeamMember(team, byUri.keys)
+                        if (missingMember != null) {
                             return@loadTeam PortalResult.Error(
-                                message = "Le fichier Joueur 2 de cette équipe est introuvable",
-                                diagnosticCode = "TEAM_PLAYER_TWO_MISSING",
+                                message = "Le fichier $missingMember de cette équipe est introuvable",
+                                diagnosticCode = if (missingMember == "Joueur 1") {
+                                    "TEAM_PLAYER_ONE_MISSING"
+                                } else {
+                                    "TEAM_PLAYER_TWO_MISSING"
+                                },
                                 recoveryHint = "Rescanne le dossier ou recrée l'équipe."
                             )
                         }
+                        val first = byUri[team.playerOneUri]
+                            ?: return@loadTeam PortalResult.Error("Le fichier Joueur 1 est introuvable", "TEAM_PLAYER_ONE_MISSING")
+                        val second = team.playerTwoUri?.let(byUri::get)
                         when (val modeResult = setPlayerTwoMode(second != null)) {
                             is PortalResult.Error -> return@loadTeam modeResult
                             is PortalResult.Success -> Unit
@@ -290,32 +347,19 @@ class PortalActivity : ComponentActivity() {
                                 diagnosticCode = "BACKUP_NO_ROOT"
                             )
                         }
-                        val mounted = bridge.state.value.slots.getOrNull(logicalSlot)
-                        if (
-                            mounted?.sourceUri != figure.documentUri.toString() ||
-                            !PortalProtocol.isValidActualSlot(mounted.actualPortalSlot)
-                        ) {
-                            return@backup PortalResult.Error(
-                                message = "Le slot a changé avant le backup",
-                                diagnosticCode = "BACKUP_STALE_SLOT",
-                                recoveryHint = "Ferme ce panneau et réessaie."
+                        bridge.backupAfterRemoving(logicalSlot, figure) {
+                            backups.backup(root, figure).fold(
+                                onSuccess = { path -> PortalResult.Success(message = "Backup créé : $path") },
+                                onFailure = { error ->
+                                    PortalResult.Error(
+                                        message = "${figure.name} a été retiré, mais le backup a échoué",
+                                        diagnosticCode = "BACKUP_WRITE_FAILED",
+                                        technicalDetails = error.javaClass.simpleName,
+                                        recoveryHint = "Vérifie que le dossier autorise l'écriture, puis recharge le personnage."
+                                    )
+                                }
                             )
                         }
-                        when (val removeResult = bridge.remove(logicalSlot)) {
-                            is PortalResult.Error -> return@backup removeResult
-                            is PortalResult.Success -> Unit
-                        }
-                        backups.backup(root, figure).fold(
-                            onSuccess = { path -> PortalResult.Success(message = "Backup créé : $path") },
-                            onFailure = { error ->
-                                PortalResult.Error(
-                                    message = "${figure.name} a été retiré, mais le backup a échoué",
-                                    diagnosticCode = "BACKUP_WRITE_FAILED",
-                                    technicalDetails = "${error.javaClass.simpleName}: ${error.message ?: "sans détail"}",
-                                    recoveryHint = "Vérifie que le dossier autorise l'écriture, puis recharge le personnage."
-                                )
-                            }
-                        )
                     },
                     onRemove = { logicalSlot -> bridge.remove(logicalSlot) },
                     onClear = {

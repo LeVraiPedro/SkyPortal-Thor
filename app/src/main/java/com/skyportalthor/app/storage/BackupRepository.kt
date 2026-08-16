@@ -33,12 +33,24 @@ class BackupRepository(private val context: Context) {
             val destination = characterDir.createFile("application/octet-stream", fileName)
                 ?: error("Impossible de créer le fichier de backup")
 
-            context.contentResolver.openInputStream(figure.documentUri).use { input ->
-                requireNotNull(input) { "Impossible de lire ${figure.fileName}" }
-                context.contentResolver.openOutputStream(destination.uri, "w").use { output ->
-                    requireNotNull(output) { "Impossible d'écrire le backup" }
-                    input.copyTo(output)
+            try {
+                context.contentResolver.openInputStream(figure.documentUri).use { input ->
+                    requireNotNull(input) { "Impossible de lire ${figure.fileName}" }
+                    context.contentResolver.openOutputStream(destination.uri, "w").use { output ->
+                        requireNotNull(output) { "Impossible d'écrire le backup" }
+                        val copied = input.copyTo(output)
+                        check(copied == SKY_DUMP_SIZE_BYTES) {
+                            "Backup incomplet : $copied octets copiés au lieu de $SKY_DUMP_SIZE_BYTES"
+                        }
+                    }
                 }
+                check(destination.length() == SKY_DUMP_SIZE_BYTES) {
+                    "Backup incomplet après écriture : ${destination.length()} octets"
+                }
+            } catch (error: Throwable) {
+                // Never leave a partial file that could later be mistaken for a valid backup.
+                runCatching { destination.delete() }
+                throw error
             }
 
             "99_Backups/SkyPortal/$characterDirName/$fileName"
@@ -49,4 +61,8 @@ class BackupRepository(private val context: Context) {
         .replace(Regex("[^A-Za-z0-9À-ÿ._ -]+"), "_")
         .trim()
         .ifBlank { "Unknown" }
+
+    private companion object {
+        const val SKY_DUMP_SIZE_BYTES = 1_024L
+    }
 }

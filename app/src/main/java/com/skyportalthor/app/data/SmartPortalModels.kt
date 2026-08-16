@@ -2,6 +2,8 @@ package com.skyportalthor.app.data
 
 enum class EmulationState { NONE, STARTING, RUNNING, PAUSED, STOPPING, UNKNOWN }
 
+enum class DolphinServiceState { INITIALIZING, READY, UNKNOWN }
+
 enum class SmartPortalReadiness {
     DOLPHIN_ABSENT,
     DOLPHIN_DETECTED,
@@ -27,48 +29,107 @@ data class FigureMetadata(
 
 data class CompatibilityResult(val compatible: Boolean, val reason: String? = null)
 
+data class NativeIdentityResult(
+    val recognized: Boolean,
+    val diagnosticCode: String? = null,
+    val reason: String? = null,
+    val metadata: FigureMetadata? = null
+)
+
+object NativeIdentityPolicy {
+    fun check(
+        figureId: Int,
+        variantId: Int,
+        catalog: Map<FigureKey, FigureMetadata>,
+        required: Boolean
+    ): NativeIdentityResult {
+        if (!required) return NativeIdentityResult(recognized = true)
+        val metadata = catalog[FigureKey(figureId, variantId)]
+        if (metadata != null) return NativeIdentityResult(recognized = true, metadata = metadata)
+        val idKnown = catalog.keys.any { it.id == figureId }
+        return NativeIdentityResult(
+            recognized = false,
+            diagnosticCode = if (idKnown) "UNKNOWN_FIGURE_VARIANT" else "UNKNOWN_FIGURE_ID",
+            reason = if (idKnown) {
+                "La variante $variantId de ce Skylander n’est pas reconnue par Dolphin."
+            } else {
+                "L’identifiant $figureId de ce fichier .sky n’est pas reconnu par Dolphin."
+            }
+        )
+    }
+}
+
+enum class GameFeature {
+    ADVENTURE_PACKS,
+    MAGIC_ITEMS,
+    GIANTS,
+    SWAP_FORCE,
+    TRAP_MASTERS,
+    TRAPS,
+    LIGHT_DARK,
+    VEHICLES,
+    TROPHIES,
+    SENSEIS,
+    CREATION_CRYSTALS
+}
+
+private val CORE_ELEMENTS = setOf("Magic", "Fire", "Air", "Life", "Undead", "Earth", "Water", "Tech")
+
 enum class SkylandersGame(
     val displayName: String,
     val generation: Int,
-    val idPrefixes: Set<String>,
+    val gameIds: Set<String>,
     val supportedKinds: Set<FigureKind>,
-    val features: Set<String>
+    val features: Set<GameFeature>,
+    val availableElements: Set<String>
 ) {
     SPYROS_ADVENTURE(
-        "Spyro’s Adventure", 1, setOf("SSP"),
+        "Spyro’s Adventure", 1,
+        setOf("SSPE52", "SSPJGD", "SSPP52", "SSPX52", "SSPY52"),
         setOf(FigureKind.CHARACTER, FigureKind.ITEM),
-        setOf("Adventure Packs", "Magic Items")
+        setOf(GameFeature.ADVENTURE_PACKS, GameFeature.MAGIC_ITEMS),
+        CORE_ELEMENTS
     ),
     GIANTS(
-        "Giants", 2, setOf("SKY"),
+        "Giants", 2,
+        setOf("SKYE52", "SKYP52", "SKYX52", "SKYY52", "SKYZ52"),
         setOf(FigureKind.CHARACTER, FigureKind.ITEM),
-        setOf("Giants", "Adventure Packs", "Magic Items")
+        setOf(GameFeature.GIANTS, GameFeature.ADVENTURE_PACKS, GameFeature.MAGIC_ITEMS),
+        CORE_ELEMENTS
     ),
     SWAP_FORCE(
-        "Swap Force", 3, setOf("SVX"),
+        "Swap Force", 3,
+        setOf("SVXE52", "SVXF52", "SVXI52", "SVXP52", "SVXX52", "SVXY52"),
         setOf(FigureKind.CHARACTER, FigureKind.ITEM),
-        setOf("SWAP Force", "Adventure Packs", "Magic Items")
+        setOf(GameFeature.SWAP_FORCE, GameFeature.ADVENTURE_PACKS, GameFeature.MAGIC_ITEMS),
+        CORE_ELEMENTS
     ),
     TRAP_TEAM(
-        "Trap Team", 4, setOf("SK8"),
+        "Trap Team", 4,
+        setOf("SK8D52", "SK8E52", "SK8I52", "SK8P52", "SK8V52", "SK8X52"),
         setOf(FigureKind.CHARACTER, FigureKind.ITEM, FigureKind.TRAP),
-        setOf("Trap Masters", "Traps", "Light", "Dark")
+        setOf(GameFeature.TRAP_MASTERS, GameFeature.TRAPS, GameFeature.LIGHT_DARK),
+        CORE_ELEMENTS + setOf("Light", "Dark")
     ),
     SUPERCHARGERS(
-        "SuperChargers", 5, setOf("SKN", "BS5"),
+        "SuperChargers", 5,
+        setOf("SKNE52", "SKNP52", "BS5E52", "BS5P52"),
         setOf(FigureKind.CHARACTER, FigureKind.ITEM, FigureKind.TRAP, FigureKind.VEHICLE, FigureKind.TROPHY),
-        setOf("Land", "Sea", "Sky", "Trophies")
+        setOf(GameFeature.VEHICLES, GameFeature.TROPHIES, GameFeature.TRAPS, GameFeature.LIGHT_DARK),
+        CORE_ELEMENTS + setOf("Light", "Dark")
     ),
     IMAGINATORS(
-        "Imaginators", 6, setOf("BL6"),
+        "Imaginators", 6,
+        setOf("BL6E52", "BL6P52"),
         FigureKind.entries.toSet() - FigureKind.UNKNOWN,
-        setOf("Senseis", "Creation Crystals")
+        setOf(GameFeature.SENSEIS, GameFeature.CREATION_CRYSTALS),
+        CORE_ELEMENTS + setOf("Light", "Dark", "Kaos")
     );
 
     companion object {
         fun detect(gameId: String?, title: String?): SkylandersGame? {
             val normalizedId = gameId.orEmpty().uppercase()
-            entries.firstOrNull { game -> game.idPrefixes.any(normalizedId::startsWith) }?.let { return it }
+            entries.firstOrNull { normalizedId in it.gameIds }?.let { return it }
             val normalizedTitle = title.orEmpty().lowercase()
             if ("skylander" !in normalizedTitle) return null
             return when {
@@ -85,9 +146,43 @@ enum class SkylandersGame(
 }
 
 object FigureCompatibilityEngine {
-    fun check(figure: Skylander, game: SkylandersGame?): CompatibilityResult = check(
-        figure.generationNumber, figure.kind, figure.typeLabel, figure.name, figure.generation, game
-    )
+    fun check(
+        figure: Skylander,
+        game: SkylandersGame?,
+        requireNativeIdentity: Boolean = false
+    ): CompatibilityResult {
+        if (figure.isMasterTemplate) {
+            return CompatibilityResult(
+                false,
+                "Ce fichier MASTER est un modèle vierge. Crée d’abord une copie de travail dans Dolphin."
+            )
+        }
+        if (figure.dumpStatus !in setOf(SkyDumpStatus.UNKNOWN, SkyDumpStatus.VALID)) {
+            return CompatibilityResult(
+                false,
+                figure.dumpProblem ?: "Ce fichier .sky est invalide ou inaccessible."
+            )
+        }
+        if (requireNativeIdentity && !figure.identifiedByDolphin) {
+            val identity = listOfNotNull(figure.figureId, figure.variantId).joinToString("/")
+            return CompatibilityResult(
+                false,
+                if (identity.isBlank()) {
+                    "L’identité de ce fichier .sky ne peut pas être lue de façon fiable."
+                } else {
+                    "L’identifiant $identity de ce fichier .sky n’est pas reconnu par cette version de Dolphin."
+                }
+            )
+        }
+        return check(
+            figure.generationNumber,
+            figure.kind,
+            figure.typeLabel,
+            figure.name,
+            figure.generation,
+            game
+        )
+    }
 
     fun check(
         generationNumber: Int,
@@ -102,9 +197,10 @@ object FigureCompatibilityEngine {
             return CompatibilityResult(false, "Cet objet n’est pas identifié de façon assez fiable pour vérifier sa compatibilité.")
         }
         if (generationNumber > game.generation) {
+            val subject = if (kind == FigureKind.CHARACTER) "Ce personnage" else "Ce contenu"
             return CompatibilityResult(
                 false,
-                "$name provient de $generationName et ne peut pas être utilisé dans ${game.displayName}."
+                "$subject provient d’une génération plus récente ($generationName) et ne peut pas être utilisé dans ${game.displayName}."
             )
         }
         if (kind !in game.supportedKinds) {
@@ -135,10 +231,14 @@ object DolphinFigureCatalog {
             2 -> "Giant"
             3 -> "SWAP Force"
             4 -> "Trap Master"
-            5 -> "Mini"
-            6 -> "Objet du portail"
+            5 -> if (name.contains("Sidekick", ignoreCase = true)) "Sidekick" else "Mini"
+            6 -> if (id in LOCATION_IDS) "Adventure / Location" else "Magic Item"
             7 -> "Trophée"
-            8 -> "Véhicule"
+            8 -> when (id) {
+                in SKY_VEHICLE_IDS -> "Véhicule Sky"
+                in SEA_VEHICLE_IDS -> "Véhicule Sea"
+                else -> "Véhicule Land"
+            }
             9 -> "Trap"
             else -> "Inconnu"
         }
@@ -154,4 +254,8 @@ object DolphinFigureCatalog {
     fun generationName(number: Int): String = games.getOrElse(number - 1) {
         if (number == 6) "Imaginators" else "Autre"
     }
+
+    private val LOCATION_IDS = (300..308).toSet() + setOf(3300, 3301)
+    private val SKY_VEHICLE_IDS = setOf(3220, 3232, 3233, 3236, 3241)
+    private val SEA_VEHICLE_IDS = setOf(3222, 3231, 3237, 3238, 3239)
 }

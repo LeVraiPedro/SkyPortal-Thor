@@ -15,5 +15,8 @@ data class Skylander(
     val figureId: Int? = null,
     val variantId: Int? = null,
     val generationNumber: Int = 99,
-    val identifiedByDolphin: Boolean = false
+    val identifiedByDolphin: Boolean = false,
+    val dumpStatus: SkyDumpStatus = SkyDumpStatus.UNKNOWN,
+    val dumpProblem: String? = null,
+    val isMasterTemplate: Boolean = false
 )

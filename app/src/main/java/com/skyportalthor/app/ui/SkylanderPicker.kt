@@ -63,6 +63,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.skyportalthor.app.data.FigureKind
 import com.skyportalthor.app.data.FigureCompatibilityEngine
+import com.skyportalthor.app.data.FigureFilterPolicy
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.SkylandersGame
 import com.skyportalthor.app.portal.PortalResult
@@ -79,6 +80,7 @@ internal fun SkylanderPickerDialog(
     portalConnected: Boolean,
     portalMessage: String,
     detectedGame: SkylandersGame?,
+    requireNativeIdentity: Boolean,
     loadState: LoadUiState,
     onLoadStateChange: (LoadUiState) -> Unit,
     onDismiss: () -> Unit,
@@ -96,18 +98,23 @@ internal fun SkylanderPickerDialog(
     var collectionView by remember(logicalSlot) { mutableStateOf(CollectionView.ALL) }
     var searchExpanded by remember(logicalSlot) { mutableStateOf(false) }
     var detailsExpanded by remember(logicalSlot) { mutableStateOf(false) }
+    var filtersExpanded by remember(logicalSlot) { mutableStateOf(false) }
     var launchInFlight by remember(logicalSlot) { mutableStateOf(false) }
     var category by remember(logicalSlot) { mutableStateOf(FigureCategory.CHARACTERS) }
     var smartFilterEnabled by remember(logicalSlot, detectedGame) { mutableStateOf(detectedGame != null) }
 
-    val available = remember(figures, category, detectedGame, smartFilterEnabled) {
+    val available = remember(figures, category, detectedGame, smartFilterEnabled, requireNativeIdentity) {
         figures.filter { figure ->
-            val categoryMatches = if (category == FigureCategory.CHARACTERS) {
-                figure.kind == FigureKind.CHARACTER
-            } else {
-                figure.kind != FigureKind.CHARACTER
-            }
-            categoryMatches && (!smartFilterEnabled || FigureCompatibilityEngine.check(figure, detectedGame).compatible)
+            FigureFilterPolicy.visible(
+                kind = figure.kind,
+                charactersCategory = category == FigureCategory.CHARACTERS,
+                smartFilterEnabled = smartFilterEnabled,
+                compatible = FigureCompatibilityEngine.check(
+                    figure,
+                    detectedGame,
+                    requireNativeIdentity
+                ).compatible
+            )
         }
     }
     val generations = remember(available) {
@@ -257,8 +264,11 @@ internal fun SkylanderPickerDialog(
                             category = FigureCategory.entries.first { it.label == label }
                             typeFilter = "Tous"
                         }
-                        if (detectedGame != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (detectedGame != null) {
                                 FilterChip(
                                     selected = smartFilterEnabled,
                                     onClick = { smartFilterEnabled = !smartFilterEnabled },
@@ -268,18 +278,35 @@ internal fun SkylanderPickerDialog(
                                     }
                                 )
                             }
+                            Spacer(Modifier.weight(1f))
+                            TextButton(
+                                onClick = { filtersExpanded = !filtersExpanded },
+                                enabled = !busy
+                            ) {
+                                Text(if (filtersExpanded) "Masquer filtres" else "Filtres")
+                            }
                         }
-                        PickerFilterRow(
-                            "Vue",
-                            CollectionView.entries.map { it.label },
-                            collectionView.label,
-                            !busy
-                        ) { label -> collectionView = CollectionView.entries.first { it.label == label } }
-                        PickerFilterRow("Élément", elements, element, !busy) { element = it }
-                        if (types.size > 2) {
-                            PickerFilterRow("Type", types, activeType, !busy) { typeFilter = it }
+                        if (filtersExpanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 164.dp)
+                                    .verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                PickerFilterRow(
+                                    "Vue",
+                                    CollectionView.entries.map { it.label },
+                                    collectionView.label,
+                                    !busy
+                                ) { label -> collectionView = CollectionView.entries.first { it.label == label } }
+                                PickerFilterRow("Élément", elements, element, !busy) { element = it }
+                                if (types.size > 2) {
+                                    PickerFilterRow("Type", types, activeType, !busy) { typeFilter = it }
+                                }
+                                PickerFilterRow("Jeu", generations, generation, !busy) { generation = it }
+                            }
                         }
-                        PickerFilterRow("Jeu", generations, generation, !busy) { generation = it }
                     } else {
                         OutlinedTextField(
                             value = query,

@@ -2,6 +2,7 @@ package com.skyportalthor.app.portal
 
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.EmulationState
+import com.skyportalthor.app.data.DolphinServiceState
 import com.skyportalthor.app.data.FigureKey
 import com.skyportalthor.app.data.FigureMetadata
 import com.skyportalthor.app.data.SkylandersGame
@@ -24,6 +25,7 @@ data class PortalState(
     val availablePackages: List<String> = emptyList(),
     val slots: List<PortalSlotState> = List(8) { PortalSlotState(it) },
     val readiness: SmartPortalReadiness = SmartPortalReadiness.DOLPHIN_ABSENT,
+    val serviceState: DolphinServiceState = DolphinServiceState.UNKNOWN,
     val emulationState: EmulationState = EmulationState.NONE,
     val gameId: String? = null,
     val gameTitle: String? = null,

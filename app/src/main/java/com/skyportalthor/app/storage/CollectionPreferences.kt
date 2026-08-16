@@ -3,6 +3,7 @@ package com.skyportalthor.app.storage
 import android.content.Context
 import android.net.Uri
 import com.skyportalthor.app.data.QuickTeam
+import com.skyportalthor.app.data.CollectionStateLogic
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -31,9 +32,7 @@ class CollectionPreferences(context: Context) {
         prefs.getStringSet(KEY_FAVORITE_URIS, emptySet())?.toSet().orEmpty()
 
     fun toggleFavorite(uri: String): Set<String> {
-        val updated = getFavoriteUris().toMutableSet().apply {
-            if (!add(uri)) remove(uri)
-        }.toSet()
+        val updated = CollectionStateLogic.toggleFavorite(getFavoriteUris(), uri)
         prefs.edit().putStringSet(KEY_FAVORITE_URIS, updated).apply()
         return updated
     }
@@ -41,7 +40,7 @@ class CollectionPreferences(context: Context) {
     fun getRecentUris(): List<String> = readStringArray(KEY_RECENT_URIS)
 
     fun recordRecent(uri: String): List<String> {
-        val updated = (listOf(uri) + getRecentUris().filterNot { it == uri }).take(MAX_RECENTS)
+        val updated = CollectionStateLogic.recordRecent(getRecentUris(), uri, MAX_RECENTS)
         writeStringArray(KEY_RECENT_URIS, updated)
         return updated
     }

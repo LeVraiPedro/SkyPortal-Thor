@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import com.skyportalthor.app.data.Skylander
+import com.skyportalthor.app.data.SkyDumpMetadataParser
+import com.skyportalthor.app.data.SkyDumpMetadataResult
+import com.skyportalthor.app.data.SkyDumpStatus
 import com.skyportalthor.app.data.SkylanderPathParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,13 +31,15 @@ class SkylanderCollectionRepository(private val context: Context) {
         node.listFiles().forEach { child ->
             val childName = child.name ?: return@forEach
             if (child.isDirectory) {
-                if (!childName.equals(BACKUP_DIRECTORY, ignoreCase = true)) {
+                if (CollectionScanPolicy.shouldDescendInto(childName)) {
                     walk(child, segments + childName, out)
                 }
             } else if (child.isFile && childName.endsWith(".sky", ignoreCase = true)) {
                 val relativePath = (segments + childName).joinToString("/")
                 val meta = SkylanderPathParser.parse(childName, segments)
-                val ids = readFigureIds(child)
+                val dumpMetadata = readFigureMetadata(child)
+                val validMetadata = dumpMetadata as? SkyDumpMetadataResult.Valid
+                val invalidMetadata = dumpMetadata as? SkyDumpMetadataResult.Invalid
                 out += Skylander(
                     name = meta.name,
                     element = meta.element,
@@ -44,28 +49,29 @@ class SkylanderCollectionRepository(private val context: Context) {
                     relativePath = relativePath,
                     kind = meta.kind,
                     typeLabel = meta.typeLabel,
-                    figureId = ids?.first,
-                    variantId = ids?.second,
-                    generationNumber = generationOrder(meta.generation)
+                    figureId = validMetadata?.figureId,
+                    variantId = validMetadata?.variantId,
+                    generationNumber = generationOrder(meta.generation),
+                    dumpStatus = invalidMetadata?.status ?: SkyDumpStatus.VALID,
+                    dumpProblem = invalidMetadata?.reason,
+                    isMasterTemplate = CollectionScanPolicy.isMasterTemplate(childName)
                 )
             }
         }
     }
 
-    private fun readFigureIds(file: DocumentFile): Pair<Int, Int>? = runCatching {
-        context.contentResolver.openInputStream(file.uri)?.use { input ->
-            val header = ByteArray(0x1E)
-            var read = 0
-            while (read < header.size) {
-                val count = input.read(header, read, header.size - read)
-                if (count < 0) return@use null
-                read += count
-            }
-            val id = (header[0x10].toInt() and 0xff) or ((header[0x11].toInt() and 0xff) shl 8)
-            val variant = (header[0x1c].toInt() and 0xff) or ((header[0x1d].toInt() and 0xff) shl 8)
-            id to variant
-        }
-    }.getOrNull()
+    private fun readFigureMetadata(file: DocumentFile): SkyDumpMetadataResult = runCatching {
+        context.contentResolver.openInputStream(file.uri)?.use(SkyDumpMetadataParser::read)
+            ?: SkyDumpMetadataResult.Invalid(
+                SkyDumpStatus.UNREADABLE,
+                "Le fournisseur de documents n’a pas ouvert le fichier."
+            )
+    }.getOrElse {
+        SkyDumpMetadataResult.Invalid(
+            SkyDumpStatus.UNREADABLE,
+            "Le fichier n’est plus accessible."
+        )
+    }
 
     private fun generationOrder(name: String): Int = when (name) {
         "Spyro's Adventure" -> 1
@@ -77,7 +83,19 @@ class SkylanderCollectionRepository(private val context: Context) {
         else -> 99
     }
 
-    companion object {
-        private const val BACKUP_DIRECTORY = "99_Backups"
-    }
+}
+
+internal object CollectionScanPolicy {
+    private val excludedDirectories = setOf(
+        "99_backups",
+        "device-backups",
+        "test-fixtures",
+        ".skyportal-test-fixtures"
+    )
+
+    fun shouldDescendInto(directoryName: String): Boolean =
+        directoryName.lowercase() !in excludedDirectories
+
+    fun isMasterTemplate(fileName: String): Boolean =
+        fileName.contains("MASTER_BLANK", ignoreCase = true)
 }
