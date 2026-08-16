@@ -22,7 +22,6 @@ import com.skyportalthor.app.data.DolphinFigureCatalog
 import com.skyportalthor.app.data.EmulationState
 import com.skyportalthor.app.data.FigureCompatibilityEngine
 import com.skyportalthor.app.data.FigureKey
-import com.skyportalthor.app.data.SmartPortalReadiness
 import com.skyportalthor.app.data.QuickTeam
 import com.skyportalthor.app.data.CollectionStateLogic
 import com.skyportalthor.app.diagnostics.DiagnosticAssistant
@@ -30,6 +29,7 @@ import com.skyportalthor.app.dolphin.DolphinLauncher
 import com.skyportalthor.app.dolphin.DolphinPortalBridge
 import com.skyportalthor.app.portal.PortalResult
 import com.skyportalthor.app.portal.PortalProtocol
+import com.skyportalthor.app.portal.PortalReadinessPolicy
 import com.skyportalthor.app.storage.BackupRepository
 import com.skyportalthor.app.storage.CollectionPreferences
 import com.skyportalthor.app.storage.SkylanderCollectionRepository
@@ -136,8 +136,14 @@ class PortalActivity : ComponentActivity() {
             LaunchedEffect(portalState.readiness, portalState.gameId) {
                 val key = portalState.gameId ?: portalState.gameTitle
                 if (
-                    portalState.readiness == SmartPortalReadiness.PORTAL_DISABLED &&
-                    portalState.canSetPortalEnabled && key != null && autoActivationAttemptedFor != key
+                    PortalReadinessPolicy.canAutoActivate(
+                        apiVersion = portalState.apiVersion,
+                        readiness = portalState.readiness,
+                        canSetPortalEnabled = portalState.canSetPortalEnabled,
+                        portalUsbStatusValid = portalState.portalUsbStatusValid,
+                        conflictingUsbDevices = portalState.conflictingUsbDevices
+                    ) &&
+                    key != null && autoActivationAttemptedFor != key
                 ) {
                     autoActivationAttemptedFor = key
                     when (val result = bridge.setPortalEnabled(true)) {

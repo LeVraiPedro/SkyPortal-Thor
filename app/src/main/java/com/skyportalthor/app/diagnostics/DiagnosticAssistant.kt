@@ -10,6 +10,9 @@ import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.DolphinServiceState
 import com.skyportalthor.app.display.DisplayRouter
 import com.skyportalthor.app.dolphin.DolphinTargets
+import com.skyportalthor.app.data.SmartPortalReadiness
+import com.skyportalthor.app.data.EmulationState
+import com.skyportalthor.app.portal.PortalReadinessPolicy
 import com.skyportalthor.app.portal.PortalState
 import java.security.MessageDigest
 
@@ -227,20 +230,71 @@ class DiagnosticAssistant(private val context: Context) {
         )
     }
 
-    private fun checkPortal(state: PortalState): DiagnosticItem = when (state.portalEnabled) {
-        true -> DiagnosticItem(
-            "Portal of Power", DiagnosticLevel.SUCCESS,
-            "Portail émulé activé. État protocolaire interne : ${if (state.portalActivated == true) "actif" else "en attente du jeu"}."
+    private fun checkPortal(state: PortalState): DiagnosticItem = when {
+        state.apiVersion != null && state.apiVersion < 3 -> DiagnosticItem(
+            "Portal of Power", DiagnosticLevel.WARNING,
+            "API ${state.apiVersion} : le chargement reste compatible, mais la détection USB réelle du portail ne peut pas être vérifiée.",
+            "Utilise la paire SkyPortal/Dolphin API 3 à jour pour obtenir un état fiable."
         )
-        false -> DiagnosticItem(
+        state.readiness == SmartPortalReadiness.PORTAL_CONFLICT -> {
+            val conflict = PortalReadinessPolicy.conflictSummary(state.conflictingUsbDevices)
+                .ifBlank { "une autre base USB émulée" }
+            DiagnosticItem(
+                "Portal of Power", DiagnosticLevel.ERROR,
+                "Le portail est en conflit avec $conflict. Le jeu peut alors annoncer qu’aucun portail n’est détecté.",
+                "Désactive la base concurrente, arrête complètement l’émulation puis relance le jeu."
+            )
+        }
+        state.portalEnabled == false -> DiagnosticItem(
             "Portal of Power", DiagnosticLevel.ERROR,
             "Le portail émulé est désactivé. Activation par API : ${if (state.canSetPortalEnabled) "disponible" else "indisponible"}.",
             if (state.canSetPortalEnabled) "Utilise Activer le portail dans l’en-tête." else "Active-le dans Dolphin ou installe l’API 3."
         )
-        null -> DiagnosticItem(
+        state.readiness == SmartPortalReadiness.PORTAL_RESTART_REQUIRED -> DiagnosticItem(
+            "Portal of Power", DiagnosticLevel.ERROR,
+            "Le portail est configuré, mais le jeu ne l’a ni attaché ni interrogé sur USB.",
+            "Arrête complètement l’émulation, vérifie que seul le portail Skylanders est activé, puis relance le jeu."
+        )
+        state.readiness == SmartPortalReadiness.PORTAL_UNVERIFIED -> when {
+            !state.portalUsbStatusValid -> DiagnosticItem(
+                "Portal of Power", DiagnosticLevel.WARNING,
+                "Cette build Dolphin API 3 n’expose pas les preuves USB nécessaires. « Portail activé » ne signifie pas que le jeu le détecte.",
+                "Mets à jour ensemble SkyPortal et Dolphin avant de charger une figurine."
+            )
+            state.serviceState == DolphinServiceState.UNKNOWN -> DiagnosticItem(
+                "Portal of Power", DiagnosticLevel.WARNING,
+                "L’état du service Dolphin est inconnu : le portail ne peut pas être déclaré prêt.",
+                "Attends l’actualisation ou reconnecte Dolphin."
+            )
+            state.emulationState == EmulationState.UNKNOWN -> DiagnosticItem(
+                "Portal of Power", DiagnosticLevel.WARNING,
+                "L’état de l’émulation est inconnu : le portail ne peut pas être déclaré prêt.",
+                "Attends l’actualisation ou redémarre l’émulation."
+            )
+            else -> DiagnosticItem(
+                "Portal of Power", DiagnosticLevel.WARNING,
+                "Les informations USB du portail sont incohérentes et ne permettent pas de confirmer sa détection.",
+                "Actualise Dolphin avant de charger une figurine."
+            )
+        }
+        state.readiness == SmartPortalReadiness.PORTAL_INITIALIZING -> DiagnosticItem(
+            "Portal of Power", DiagnosticLevel.INFO,
+            "Le périphérique USB est attaché, mais aucune commande Skylanders du jeu n’a encore été observée.",
+            "Patiente quelques secondes. Si cet état persiste, redémarre complètement l’émulation."
+        )
+        state.readiness == SmartPortalReadiness.READY && state.portalUsbHandshakeSeen == true -> DiagnosticItem(
+            "Portal of Power", DiagnosticLevel.SUCCESS,
+            "Portail confirmé par une commande USB Skylanders du jeu (présent=${state.portalUsbPresent}, attaché=${state.portalUsbAttached}, protocole=${state.portalProtocolActivated})."
+        )
+        state.portalEnabled == true -> DiagnosticItem(
             "Portal of Power", DiagnosticLevel.WARNING,
-            "État non exposé par cette version de l’API Dolphin.",
-            "L’API 3 est recommandée pour Smart Portal."
+            "Le portail est configuré dans Dolphin, mais sa détection réelle par le jeu n’est pas confirmée.",
+            "Attends la détection USB ou consulte les réglages des périphériques émulés."
+        )
+        else -> DiagnosticItem(
+            "Portal of Power", DiagnosticLevel.WARNING,
+            "État du portail non exposé par cette version de Dolphin.",
+            "Utilise la paire SkyPortal/Dolphin à jour."
         )
     }
 

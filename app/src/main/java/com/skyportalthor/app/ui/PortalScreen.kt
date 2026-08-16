@@ -64,6 +64,7 @@ import com.skyportalthor.app.diagnostics.DiagnosticItem
 import com.skyportalthor.app.diagnostics.DiagnosticLevel
 import com.skyportalthor.app.dolphin.DolphinTargets
 import com.skyportalthor.app.portal.PortalResult
+import com.skyportalthor.app.portal.PortalReadinessPolicy
 import com.skyportalthor.app.portal.PortalSlotState
 import com.skyportalthor.app.portal.PortalState
 import kotlinx.coroutines.delay
@@ -341,13 +342,26 @@ private fun smartStatusLine(state: PortalState): String {
         return "● Connecté | Initialisation Dolphin…"
     }
     val game = state.skylandersGame?.displayName ?: state.gameTitle?.takeIf { it.isNotBlank() } ?: "Aucun jeu"
-    val portal = when (state.readiness) {
+    val portal = if ((state.apiVersion ?: 1) < 3) {
+        "Portail non vérifié (API ${state.apiVersion ?: "?"})"
+    } else when (state.readiness) {
         SmartPortalReadiness.ENABLING_PORTAL -> "Activation…"
         SmartPortalReadiness.PORTAL_DISABLED -> "Portail désactivé"
+        SmartPortalReadiness.PORTAL_INITIALIZING -> "Portail détecté, initialisation…"
+        SmartPortalReadiness.PORTAL_UNVERIFIED -> if (state.portalUsbStatusValid) {
+            "État Dolphin non vérifié"
+        } else {
+            "Portail non vérifié — mise à jour requise"
+        }
+        SmartPortalReadiness.PORTAL_RESTART_REQUIRED -> "Portail absent — redémarrage requis"
+        SmartPortalReadiness.PORTAL_CONFLICT -> {
+            val conflict = PortalReadinessPolicy.conflictSummary(state.conflictingUsbDevices)
+            if (conflict.isBlank()) "Conflit USB — redémarrage requis"
+            else "Conflit : $conflict — redémarrage requis"
+        }
         SmartPortalReadiness.READY -> "Portail prêt"
         else -> when {
-            state.portalEnabled == true && state.portalActivated == false -> "Portail en initialisation"
-            state.portalEnabled == true -> "Portail activé"
+            state.portalEnabled == true -> "Portail configuré, détection non vérifiée"
             state.portalEnabled == false -> "Portail désactivé"
             else -> "Portail inconnu"
         }

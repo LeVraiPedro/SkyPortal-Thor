@@ -12,40 +12,55 @@ Version candidate : **0.5.0**, `versionCode 7`. Conserver ce numéro tant qu'auc
 
 ## 2. Qualité Android
 
-- [x] `:app:testDebugUnitTest` : 31 tests réussis localement.
+- [x] `:app:testDebugUnitTest` : 62 tests réussis localement, dont le parsing et les décisions des nouvelles preuves USB, l'ancien JSON API 3, le conflit Disney Infinity et le chemin dégradé API 1/2.
 - [x] `:app:lintDebug` : réussi localement, aucune erreur bloquante.
 - [x] `:app:assembleDebug` : réussi localement.
 - [x] Rejouer les trois commandes sur l'état exact qui sera commité.
-- [x] Installer l'APK final sur la Thor sans `pm clear`.
-- [x] Vérifier que la collection et la permission SAF sont préservées après l'installation.
+- [x] Campagne initiale : la candidate antérieure au correctif USB a été installée sur la Thor sans `pm clear`.
+- [x] Campagne initiale : la collection et la permission SAF ont été préservées après cette installation.
+- [ ] Installer et vérifier le nouveau binaire USB sur la Thor lorsqu'elle sera de nouveau disponible.
 - [ ] Rejouer explicitement les régressions favoris, récents et équipes rapides sur l'APK final.
 
 ## 3. Paire Dolphin/SkyPortal
 
-- [x] Dolphin Debug API 3 compilé et testé localement.
-- [x] Certificats identiques pour la paire Debug de validation.
-- [x] Recalculer les SHA-256 des artefacts finaux.
-- [x] Vérifier les certificats finaux avec `apksigner verify --print-certs`.
+- [x] Campagne initiale : Dolphin Debug API 3 compilé et testé localement.
+- [x] Campagne initiale : certificats identiques pour la paire Debug de validation.
+- [x] Correctif USB : parsing/décisions du compagnon testés, sources natives compilées et patchs vérifiés localement, sans validation de bout en bout sur la Thor.
+- [ ] Recalculer les SHA-256 des nouveaux artefacts finaux.
+- [ ] Vérifier les certificats des nouveaux artefacts avec `apksigner verify --print-certs`.
 - [ ] Ne jamais publier deux APK comme compatibles si les certificats diffèrent.
 - [ ] Joindre les sources Dolphin correspondantes et respecter sa licence lors d'une distribution binaire.
 - [x] Conserver la révision Dolphin épinglée ; ne pas construire silencieusement depuis une branche mouvante.
 
-## 4. Critères matériels critiques
+## 4. Critères matériels critiques — résultats historiques
 
 - [x] SkyPortal s'ouvre sur l'écran inférieur logique `4`.
 - [x] Dolphin reste utilisable sur l'écran supérieur logique `0`.
 - [x] Binder API 3 se connecte.
 - [x] Spyro's Adventure et `SSPP52` sont détectés.
-- [x] Le portail peut être activé depuis SkyPortal.
-- [x] J1/J2 chargent et retirent sans faux succès ni duplication observée.
+- [x] Pendant la campagne initiale, le portail a pu être activé depuis SkyPortal.
+- [x] Pendant la campagne initiale, J1/J2 ont chargé et retiré sans faux succès ni duplication observée.
 - [x] La recréation du compagnon réconcilie les slots.
 - [x] La mort/reprise de Dolphin invalide puis retrouve l'état distant.
 - [x] Après correction de l'initialisation service-only, aucun crash/ANR n'est observé dans le parcours rejoué.
 - [x] Refus matériels de Snap Shot, Magic Log Holder et Unknown avant Binder, sans slot natif.
 - [x] Chargement/retrait et backup contrôlé d'Anvil Rain ; `99_Backups` non rescanné.
 - [x] Écran éteint/allumé, accueil/retour et recréation du compagnon sans doublon.
-- [x] Logcat frais sans crash natif/app, ANR ni spam `DeadObjectException`.
+- [x] Campagne initiale : Logcat frais sans crash natif/app, ANR ni spam `DeadObjectException`.
 - [ ] Rejouer équipe pendant reconnexion, retrait pendant scan et arrêt de Dolphin pendant chargement.
+
+### Correctif USB à revalider sur la Thor
+
+La cause du nouveau bug a été confirmée par l'utilisateur : la base Disney Infinity activée en même temps que le portail Skylanders empêchait le jeu de détecter ce dernier. Les points ci-dessous sont des critères critiques du nouveau binaire et restent non cochés tant que la Thor n'est pas disponible :
+
+- [ ] Les deux bases actives produisent `PORTAL_CONFLICT`, jamais `READY`.
+- [ ] Le conflit bloque l'activation automatique et le chargement avant Binder, avec un message français demandant un arrêt complet de l'émulation.
+- [ ] Disney Infinity désactivé puis émulation relancée : présence, attachement et handshake passent à `true`, puis seulement l'en-tête affiche `Portail prêt`.
+- [ ] Un portail configuré mais non attaché demande un redémarrage au lieu d'annoncer un faux succès.
+- [ ] Le parcours normal J1/J2, retrait, reconnexion et arrêt du jeu reste fonctionnel avec les nouveaux indicateurs.
+- [ ] Un Logcat frais du parcours ne contient ni crash, ni ANR, ni erreur Binder/USB inattendue.
+
+Les tests automatisés et les builds peuvent valider la logique et l'intégration statique, mais ils ne permettent pas de cocher ces six points matériels.
 
 Ne marquer la candidate prête que si tous les critères critiques applicables sont réussis. Les jeux indisponibles n'empêchent pas la release s'ils restent clairement annoncés comme non testés matériellement et couverts automatiquement.
 
@@ -55,7 +70,7 @@ Ne marquer la candidate prête que si tous les critères critiques applicables s
 - [x] `.github/workflows/release.yml` prépare APK, SHA-256, archive source et release sur tag `v*`.
 - [x] `.github/workflows/full-pair-build.yml` prépare manuellement une paire signée avec révision Dolphin épinglée.
 - [x] Syntaxe des trois workflows validée localement.
-- [ ] Après push, vérifier le résultat réel d'Android CI.
+- [ ] Après push du correctif USB, vérifier le nouveau résultat réel d'Android CI.
 - [ ] Tester le workflow manuel de paire dans un environnement disposant des secrets requis.
 - [ ] Ne pas créer le tag de release tant que la PR et la CI ne sont pas validées.
 
@@ -72,12 +87,12 @@ Ils doivent être configurés dans GitHub Actions, jamais committés. Le workflo
 
 ## 6. Pull request
 
-- [ ] Créer des commits cohérents et relire chaque périmètre.
-- [ ] Pousser `agent/v5-1-validation-release` sans réécrire l'historique partagé.
-- [ ] Ouvrir une PR vers `main`, sans fusion automatique.
+- [ ] Créer des commits cohérents pour le correctif USB et relire chaque périmètre.
+- [ ] Pousser le correctif sur `agent/v5-1-validation-release` sans réécrire l'historique partagé.
+- [x] PR #2 ouverte vers `main`, sans fusion automatique.
 - [ ] Inclure résultats automatiques, résultats Thor, seul jeu réellement testé, fixtures, limites et artefacts.
 - [ ] Utiliser une PR en brouillon si un critère critique reste ouvert.
-- [ ] Attendre les checks GitHub et corriger tout échec reproductible.
+- [ ] Attendre les nouveaux checks GitHub du correctif et corriger tout échec reproductible.
 
 Titre proposé :
 

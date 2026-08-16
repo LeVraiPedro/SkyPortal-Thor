@@ -66,6 +66,11 @@ class DolphinStatusParserTest {
             .put("gameTitle", "Skylanders: Spyro's Adventure")
             .put("portalEnabled", true)
             .put("portalActivated", true)
+            .put("portalProtocolActivated", true)
+            .put("portalUsbPresent", true)
+            .put("portalUsbAttached", true)
+            .put("portalUsbHandshakeSeen", true)
+            .put("conflictingUsbDevices", JSONArray())
             .put("canSetPortalEnabled", true)
             .toString()
 
@@ -77,6 +82,12 @@ class DolphinStatusParserTest {
         assertEquals("SSPP52", parsed.gameId)
         assertEquals(true, parsed.portalEnabled)
         assertEquals(true, parsed.portalActivated)
+        assertEquals(true, parsed.portalProtocolActivated)
+        assertEquals(true, parsed.portalUsbPresent)
+        assertEquals(true, parsed.portalUsbAttached)
+        assertEquals(true, parsed.portalUsbHandshakeSeen)
+        assertTrue(parsed.conflictingUsbDevices.isEmpty())
+        assertTrue(parsed.portalUsbStatusValid)
         assertTrue(parsed.canSetPortalEnabled)
         assertTrue(parsed.issues.isEmpty())
     }
@@ -121,5 +132,79 @@ class DolphinStatusParserTest {
         assertEquals(1, parsed.nativeSlots.size)
         assertTrue(parsed.issues.any { "dupliqué" in it })
         assertTrue(parsed.issues.any { "incomplet" in it })
+    }
+
+    @Test
+    fun oldApi3SnapshotKeepsUsbEvidenceUnknown() {
+        val parsed = DolphinStatusParser.parse(
+            JSONObject()
+                .put("apiVersion", 3)
+                .put("portalEnabled", true)
+                .put("portalActivated", true)
+                .toString()
+        )
+
+        assertNull(parsed.portalUsbPresent)
+        assertNull(parsed.portalUsbAttached)
+        assertNull(parsed.portalUsbHandshakeSeen)
+        assertTrue(parsed.conflictingUsbDevices.isEmpty())
+        assertFalse(parsed.portalUsbStatusValid)
+    }
+
+    @Test
+    fun parsesAndNormalizesCompetingUsbDevices() {
+        val parsed = DolphinStatusParser.parse(
+            JSONObject()
+                .put("apiVersion", 3)
+                .put("conflictingUsbDevices", JSONArray()
+                    .put("disney_infinity_base")
+                    .put("DISNEY_INFINITY_BASE"))
+                .toString()
+        )
+
+        assertEquals(listOf("DISNEY_INFINITY_BASE"), parsed.conflictingUsbDevices)
+    }
+
+    @Test
+    fun reportsImpossibleUsbEvidenceInsteadOfTrustingIt() {
+        val parsed = DolphinStatusParser.parse(
+            JSONObject()
+                .put("apiVersion", 3)
+                .put("portalUsbPresent", false)
+                .put("portalUsbAttached", false)
+                .put("portalUsbHandshakeSeen", true)
+                .toString()
+        )
+
+        assertTrue(parsed.issues.any { "handshake USB" in it })
+    }
+
+    @Test
+    fun reportsPartialUsbEvidencePayload() {
+        val parsed = DolphinStatusParser.parse(
+            JSONObject()
+                .put("apiVersion", 3)
+                .put("portalUsbPresent", true)
+                .toString()
+        )
+
+        assertTrue(parsed.issues.any { "état USB du portail incomplet" in it })
+        assertFalse(parsed.portalUsbStatusValid)
+    }
+
+    @Test
+    fun malformedConflictListInvalidatesOtherwiseCompleteUsbStatus() {
+        val parsed = DolphinStatusParser.parse(
+            JSONObject()
+                .put("apiVersion", 3)
+                .put("portalUsbPresent", true)
+                .put("portalUsbAttached", true)
+                .put("portalUsbHandshakeSeen", true)
+                .put("conflictingUsbDevices", "DISNEY_INFINITY_BASE")
+                .toString()
+        )
+
+        assertFalse(parsed.portalUsbStatusValid)
+        assertTrue(parsed.issues.any { "schéma d’état USB" in it })
     }
 }

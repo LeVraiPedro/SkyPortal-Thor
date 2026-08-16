@@ -109,7 +109,7 @@ def main() -> None:
             cwd=repo,
             check=True,
         )
-        print("patched: native Smart Portal catalog and slot snapshot")
+        print("patched: native Smart Portal catalog, slots and USB state")
     print("SkyPortal patch applied successfully.")
 
 

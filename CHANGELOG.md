@@ -2,6 +2,19 @@
 
 ## V5 (0.5.0) — 16 août 2026
 
+### Correctif post-validation — état USB réel et conflit Disney Infinity
+
+- Correction du faux état `Portail prêt` : le réglage Dolphin et le booléen protocolaire historique ne suffisent plus à prouver que le jeu voit le Portal of Power.
+- Ajout, dans le JSON API 3, de la présence du portail dans le scanner USB, de son attachement, de la première commande Skylanders observée et de la liste des périphériques concurrents.
+- Détection explicite de la base Disney Infinity. Lorsqu'elle est active en même temps que le portail Skylanders, SkyPortal affiche un conflit, n'active pas automatiquement le portail et bloque le chargement avant Binder.
+- Ajout des états `Portail en initialisation`, `Portail non vérifié`, `Redémarrage requis` et `Conflit USB`, avec des conseils en français.
+- Un portail configuré mais jamais interrogé par le jeu ne peut plus atteindre `READY`. Le chargement API 3 est bloqué jusqu'à une preuve USB cohérente ; API 1 et API 2 conservent leur chemin dégradé historique.
+- Compatibilité préservée sans modification de l'ordre AIDL : les nouvelles clés JSON sont optionnelles. Un ancien JSON API 3 est accepté, mais reste `Portail non vérifié` au lieu de produire un faux succès.
+- L'activation automatique est désarmée avec un ancien schéma API 3 qui ne peut pas révéler une base concurrente ; l'action manuelle et le diagnostic restent disponibles.
+- Après un timeout Binder, l'autorisation SAF et la propriété du slot restent protégées jusqu'à une réconciliation exacte ou un retrait confirmé. Un second chargement ne peut pas écraser ce résultat incertain.
+- La cause a été confirmée par l'utilisateur : désactiver Disney Infinity puis redémarrer complètement l'émulation permettait au jeu de détecter le portail Skylanders.
+- Le parsing et les décisions du compagnon sont validés par tests JVM. Le chemin natif `SkylanderUSB` → JNI → service est compilé et les patchs sont vérifiés, mais **il n'a pas encore été validé de bout en bout sur une AYN Thor**, la console n'étant pas disponible au moment de cette correction.
+
 ### Validation et durcissement V5.1
 
 - Validation réelle sur AYN Thor Android 13, écrans logiques `0` et `4`, avec Dolphin Debug API 3 et Spyro's Adventure (`SSPP52`).
@@ -12,7 +25,7 @@
 - Sérialisation renforcée des opérations, délais Binder bornés, `DeathRecipient`, invalidation des résultats obsolètes et nettoyage des slots après perte du processus Dolphin.
 - Backup d'un contenu actif sérialisé avec son retrait confirmé ; une copie partielle est supprimée en cas d'échec.
 - Exclusion du scan pour `99_Backups`, `device-backups`, `test-fixtures` et `.skyportal-test-fixtures`.
-- Suite portée à 31 tests unitaires couvrant jeux, compatibilité, dumps, AIDL, API 1/2/3, confirmation des chargements, montages non identifiés, garde d'identité Dolphin, slots et logique de collection.
+- Suite portée à 62 tests unitaires couvrant jeux, compatibilité, dumps, AIDL, API 1/2/3, confirmation des chargements, montages non identifiés, garde d'identité Dolphin, slots, logique de collection, parsing et décisions USB, ainsi que le conflit Disney Infinity.
 - Ajout des workflows GitHub Actions `android-ci.yml`, `release.yml` et `full-pair-build.yml` ; ce dernier exige une signature commune et une révision Dolphin épinglée.
 - Création de fixtures contrôlées avec le Skylanders Manager de Dolphin pour les principales générations et catégories, hors collection utilisateur.
 - Validation matérielle du filtre SSA : Terrabite côté Personnages, Anvil Rain et Dragon's Peak côté Objets, avec affichage des générations futures via `Toute la collection`.
@@ -30,7 +43,7 @@
 - API Dolphin 3 : état d'émulation, Game ID, titre, état du portail, commande d'activation et slots natifs.
 - Détection centralisée des six générations de jeux et architecture extensible `SkylandersGame`.
 - En-tête compact indiquant connexion, jeu et disponibilité du portail.
-- Activation automatique sûre du réglage officiel Dolphin lorsque le jeu Skylanders actif en a besoin.
+- Activation automatique du réglage officiel Dolphin lorsque le jeu Skylanders actif en a besoin et qu'aucune base concurrente n'est signalée ; un redémarrage de l'émulation est demandé si le jeu a déjà manqué l'énumération USB initiale.
 - Reconnexion automatique après arrêt/redémarrage du processus Dolphin.
 
 ### Collection et compatibilité

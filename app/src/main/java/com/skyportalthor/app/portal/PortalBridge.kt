@@ -32,6 +32,13 @@ data class PortalState(
     val skylandersGame: SkylandersGame? = null,
     val portalEnabled: Boolean? = null,
     val portalActivated: Boolean? = null,
+    val portalProtocolActivated: Boolean? = null,
+    val portalUsbPresent: Boolean? = null,
+    val portalUsbAttached: Boolean? = null,
+    val portalUsbHandshakeSeen: Boolean? = null,
+    val conflictingUsbDevices: List<String> = emptyList(),
+    val portalUsbStatusValid: Boolean = false,
+    val portalRestartRequired: Boolean = false,
     val canSetPortalEnabled: Boolean = false,
     val nativeSlots: List<NativePortalSlotState> = emptyList(),
     val figureCatalog: Map<FigureKey, FigureMetadata> = emptyMap()

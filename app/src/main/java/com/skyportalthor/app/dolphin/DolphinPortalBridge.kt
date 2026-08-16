@@ -11,7 +11,6 @@ import android.os.IBinder
 import android.util.Log
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.DolphinFigureCatalog
-import com.skyportalthor.app.data.EmulationState
 import com.skyportalthor.app.data.DolphinServiceState
 import com.skyportalthor.app.data.FigureCompatibilityEngine
 import com.skyportalthor.app.data.FigureKey
@@ -25,6 +24,7 @@ import com.skyportalthor.app.portal.PortalBridge
 import com.skyportalthor.app.portal.PortalResult
 import com.skyportalthor.app.portal.PortalProtocol
 import com.skyportalthor.app.portal.PortalMountPolicy
+import com.skyportalthor.app.portal.PortalReadinessPolicy
 import com.skyportalthor.app.portal.PortalSlotState
 import com.skyportalthor.app.portal.PortalState
 import com.skyportalthor.app.portal.PortalStateReducer
@@ -38,7 +38,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -56,6 +55,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
 
     private val connectMutex = Mutex()
     private val operationMutex = Mutex()
+    private val lifecycle = BridgeLifecycleGate()
     private val bridgeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val serviceLock = Any()
     @Volatile private var service: ISkylanderPortalService? = null
@@ -66,12 +66,19 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
     private var connection: ServiceConnection? = null
     private val grantLock = Any()
     private val grantedUris = mutableMapOf<GrantSlotKey, String>()
+    private val uncertainMounts = mutableMapOf<GrantSlotKey, UncertainMountOwnership>()
+    private val pendingGrantedUris = mutableSetOf<GrantedUriKey>()
 
     override suspend fun connect(preferredPackage: String?): Boolean = withContext(Dispatchers.Main.immediate) {
+        if (!lifecycle.allowsMutation()) return@withContext false
         connectMutex.withLock {
             operationMutex.withLock connectionOperation@{
+                if (!lifecycle.allowsMutation()) return@connectionOperation false
                 val available = DolphinTargets.components.filter(::isServiceAvailable)
-                _state.update { it.copy(availablePackages = available.map(ComponentName::getPackageName)) }
+                if (!updateStateIfOpen {
+                        it.copy(availablePackages = available.map(ComponentName::getPackageName))
+                    }
+                ) return@connectionOperation false
 
                 val target = preferredPackage
                     ?.let { preferred -> available.firstOrNull { it.packageName == preferred } }
@@ -80,11 +87,13 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
 
                 if (target == null) {
                     disconnectCurrentBinding()
-                    _state.value = disconnectedState(
-                        message = "Dolphin SkyPortal Edition introuvable",
-                        readiness = SmartPortalReadiness.DOLPHIN_ABSENT,
-                        connectedPackage = null
-                    )
+                    updateStateIfOpen {
+                        disconnectedState(
+                            message = "Dolphin SkyPortal Edition introuvable",
+                            readiness = SmartPortalReadiness.DOLPHIN_ABSENT,
+                            connectedPackage = null
+                        )
+                    }
                     return@connectionOperation false
                 }
 
@@ -105,7 +114,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     if (cleared.isFailure && cleared.exceptionOrNull() !is DeadObjectException) {
                         val error = cleared.exceptionOrNull()!!
                         logFailure("target-switch-clear", error)
-                        _state.update {
+                        updateStateIfOpen {
                             it.copy(
                                 message = "Bascule refusée : l’ancien portail n’a pas pu être vidé"
                             )
@@ -121,26 +130,25 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 }
 
                 disconnectCurrentBinding()
-                activeComponent = target
-                _state.update {
+                if (!selectTargetIfOpen(target)) return@connectionOperation false
+                if (!updateStateIfOpen {
                     it.copy(
                         connected = false,
                         readiness = SmartPortalReadiness.CONNECTING,
                         connectedPackage = target.packageName,
                         message = "Connexion à ${DolphinTargets.label(target.packageName)}…"
                     )
-                }
+                }) return@connectionOperation false
 
                 val connected = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
                     suspendCancellableCoroutine { continuation ->
                         var bindRequested = false
                         val conn = object : ServiceConnection {
                             override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-                                if (connection !== this || activeComponent != target || binder == null) {
+                                if (binder == null || !markConnectionBoundIfOpen(this, target)) {
                                     if (continuation.isActive) continuation.resume(false)
                                     return
                                 }
-                                bound = true
                                 val token = installService(binder, target) ?: run {
                                     if (continuation.isActive) continuation.resume(false)
                                     return
@@ -171,34 +179,40 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                             }
 
                             override fun onServiceDisconnected(name: ComponentName?) {
-                                if (connection !== this) return
+                                if (!isCurrentConnection(this)) return
                                 markDisconnected("Connexion Dolphin perdue")
                                 if (continuation.isActive) continuation.resume(false)
                             }
 
                             override fun onBindingDied(name: ComponentName?) {
-                                if (connection !== this) return
+                                if (!isCurrentConnection(this)) return
                                 markDisconnected("Le service Dolphin a été arrêté")
                                 if (continuation.isActive) continuation.resume(false)
                             }
 
                             override fun onNullBinding(name: ComponentName?) {
-                                if (connection !== this) return
+                                if (!isCurrentConnection(this)) return
                                 markDisconnected("Dolphin a renvoyé un service vide")
                                 if (continuation.isActive) continuation.resume(false)
                             }
                         }
-                        connection = conn
+                        if (!registerConnectionIfOpen(conn, target)) {
+                            if (continuation.isActive) continuation.resume(false)
+                            return@suspendCancellableCoroutine
+                        }
 
                         val bindAttempt = runCatching {
                             context.bindService(Intent().setComponent(target), conn, Context.BIND_AUTO_CREATE)
                         }
                         bindRequested = bindAttempt.getOrDefault(false)
-                        if (bindRequested) bound = true
+                        if (bindRequested && !markConnectionBoundIfOpen(conn, target)) {
+                            runCatching { context.unbindService(conn) }
+                            bindRequested = false
+                        }
                         if (!bindRequested) {
                             val failure = bindAttempt.exceptionOrNull()
                             failure?.let { logFailure("bind", it) }
-                            _state.update {
+                            updateStateIfOpen {
                                 it.copy(
                                     connected = false,
                                     message = if (failure is SecurityException) {
@@ -233,7 +247,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         operationMutex.withLock { refreshLocked() }
     }
 
-    private suspend fun refreshLocked(): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun refreshLocked(protectedGrantLogicalSlot: Int? = null): Boolean = withContext(Dispatchers.IO) {
         val token = currentServiceToken() ?: return@withContext false
         val json = binderCall(STATUS_TIMEOUT_MS) { token.service.statusJson }.getOrElse { error ->
             logFailure("refresh", error)
@@ -260,6 +274,19 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         if (!isCurrentService(token)) return@withContext false
 
         val detectedGame = SkylandersGame.detect(snapshot.gameId, snapshot.gameTitle)
+        val uncertainByLogicalSlot = uncertainMountsForPackage(token.packageName)
+        val readinessDecision = PortalReadinessPolicy.evaluate(
+            apiVersion = snapshot.apiVersion,
+            serviceState = snapshot.serviceState,
+            emulationState = snapshot.emulationState,
+            game = detectedGame,
+            portalEnabled = snapshot.portalEnabled,
+            portalUsbPresent = snapshot.portalUsbPresent,
+            portalUsbAttached = snapshot.portalUsbAttached,
+            portalUsbHandshakeSeen = snapshot.portalUsbHandshakeSeen,
+            conflictingUsbDevices = snapshot.conflictingUsbDevices,
+            portalUsbStatusValid = snapshot.portalUsbStatusValid
+        )
         var committedSlots: List<PortalSlotState> = emptyList()
         val committed = updateStateIfCurrent(token) { current ->
             val currentFigures = current.slots.associateBy(PortalSlotState::logicalSlot)
@@ -268,12 +295,21 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
             val newSlots = List(LOGICAL_SLOT_COUNT) { logical ->
                 val old = currentFigures[logical]
                 val remote = reported[logical]
+                val uncertain = uncertainByLogicalSlot[logical]
                 val actual = remote?.actualSlot ?: -1
                 val native = nativeBySlot[actual]
                 val nativeConfirmsSlot = snapshot.apiVersion < 3 ||
                     snapshot.nativeSlots.isEmpty() || native?.occupied == true
                 if (!PortalProtocol.isValidActualSlot(actual) || !nativeConfirmsSlot) {
-                    PortalSlotState(logicalSlot = logical)
+                    uncertain?.let { ownership ->
+                        PortalSlotState(
+                            logicalSlot = logical,
+                            actualPortalSlot = ownership.expectedActualSlot,
+                            figure = ownership.figure,
+                            label = ownership.label,
+                            sourceUri = ownership.uri
+                        )
+                    } ?: PortalSlotState(logicalSlot = logical)
                 } else {
                     val sourceUri = if (remote?.uriWasReported == true) {
                         remote.sourceUri
@@ -320,16 +356,17 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 skylandersGame = detectedGame,
                 portalEnabled = snapshot.portalEnabled,
                 portalActivated = snapshot.portalActivated,
+                portalProtocolActivated = snapshot.portalProtocolActivated,
+                portalUsbPresent = snapshot.portalUsbPresent,
+                portalUsbAttached = snapshot.portalUsbAttached,
+                portalUsbHandshakeSeen = snapshot.portalUsbHandshakeSeen,
+                conflictingUsbDevices = snapshot.conflictingUsbDevices,
+                portalUsbStatusValid = snapshot.portalUsbStatusValid,
+                portalRestartRequired = readinessDecision.restartRequired,
                 canSetPortalEnabled = snapshot.canSetPortalEnabled,
                 nativeSlots = snapshot.nativeSlots,
                 figureCatalog = catalog,
-                readiness = readiness(
-                    snapshot.serviceState,
-                    snapshot.emulationState,
-                    detectedGame,
-                    snapshot.portalEnabled,
-                    snapshot.portalActivated
-                )
+                readiness = readinessDecision.readiness
             )
         }
         if (!committed) return@withContext false
@@ -337,9 +374,33 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         committedSlots.forEach { slot ->
             val remote = snapshot.logicalSlots.firstOrNull { it.logicalSlot == slot.logicalSlot }
             val uri = slot.sourceUri
-            if (slot.actualPortalSlot < 0) releaseSlotGrant(token.packageName, slot.logicalSlot)
+            val grantProtected = protectedGrantLogicalSlot == slot.logicalSlot
+            val uncertain = uncertainByLogicalSlot[slot.logicalSlot]
+            val native = snapshot.nativeSlots.firstOrNull { it.slot == remote?.actualSlot }
+            val uncertainMountReconciled = uncertain != null && remote != null &&
+                PortalProtocol.isUncertainMountReconciled(
+                    apiVersion = snapshot.apiVersion,
+                    remoteActualSlot = remote.actualSlot,
+                    remoteUriWasReported = remote.uriWasReported,
+                    remoteUri = remote.sourceUri,
+                    expectedUri = uncertain.uri,
+                    nativeSnapshotSize = snapshot.nativeSlots.size,
+                    nativeOccupied = native?.occupied,
+                    expectedFigureId = uncertain.figure.figureId,
+                    expectedVariantId = uncertain.figure.variantId,
+                    nativeFigureId = native?.figureId,
+                    nativeVariantId = native?.variantId
+                )
+            if (uncertainMountReconciled) {
+                confirmUncertainMount(token.packageName, slot.logicalSlot, checkNotNull(uncertain).uri)
+                return@forEach
+            }
+            if (uncertain != null) return@forEach
+            if (slot.actualPortalSlot < 0 && !grantProtected) releaseSlotGrant(token.packageName, slot.logicalSlot)
             else if (uri != null) rememberSlotGrant(token.packageName, slot.logicalSlot, uri)
-            else if (remote?.uriWasReported == true) releaseSlotGrant(token.packageName, slot.logicalSlot)
+            else if (remote?.uriWasReported == true && !grantProtected) {
+                releaseSlotGrant(token.packageName, slot.logicalSlot)
+            }
         }
         true
     }
@@ -375,16 +436,17 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                         }
                     )
                 }
-                if (
-                    (_state.value.apiVersion ?: 1) >= 3 &&
-                    _state.value.skylandersGame != null &&
-                    _state.value.portalEnabled == true &&
-                    _state.value.portalActivated == false
-                ) {
+                val currentState = _state.value
+                PortalReadinessPolicy.loadBlock(
+                    apiVersion = currentState.apiVersion ?: 1,
+                    gameDetected = currentState.skylandersGame != null,
+                    readiness = currentState.readiness,
+                    conflictingUsbDevices = currentState.conflictingUsbDevices
+                )?.let { block ->
                     return@withLock PortalResult.Error(
-                        message = "Le Portal of Power est encore en cours d’initialisation",
-                        diagnosticCode = "PORTAL_NOT_ACTIVATED",
-                        recoveryHint = "Attends quelques secondes que le jeu détecte le portail puis réessaie."
+                        message = block.message,
+                        diagnosticCode = block.diagnosticCode,
+                        recoveryHint = block.recoveryHint
                     )
                 }
 
@@ -393,6 +455,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     is SkyPreflight.Valid -> result
                 }
                 val stateBeforeLoad = _state.value
+                val skylandersGameDetectedBeforeLoad = stateBeforeLoad.skylandersGame != null
                 PortalMountPolicy.unidentifiedMountReason(
                     apiVersion = stateBeforeLoad.apiVersion ?: 1,
                     requestedLogicalSlot = logicalSlot,
@@ -460,6 +523,13 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 if (!isCurrentService(token)) return@withLock serviceReplacedError()
                 val packageName = token.packageName
                 val newUri = skylander.documentUri.toString()
+                if (hasUncertainMount(packageName, logicalSlot)) {
+                    return@withLock PortalResult.Error(
+                        message = "Le résultat du chargement précédent sur ce slot reste incertain",
+                        diagnosticCode = "MOUNT_OUTCOME_UNCERTAIN",
+                        recoveryHint = "Utilise Retirer ou Vider le portail avant de charger un autre fichier."
+                    )
+                }
                 val duplicate = grantForUri(newUri)
                 if (duplicate != null && (duplicate.packageName != packageName || duplicate.logicalSlot != logicalSlot)) {
                     return@withLock PortalResult.Error(
@@ -480,17 +550,51 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     token.service.load(logicalSlot, skylander.documentUri.toString(), verifiedFigure.name)
                 }
                 val actual = loadAttempt.getOrElse { error ->
-                    revokeTemporaryGrant(packageName, newUri)
                     logFailure("load", error)
                     if (error is DeadObjectException) {
+                        revokeTemporaryGrant(packageName, newUri)
                         markDisconnectedIfCurrent(token, "Connexion Dolphin perdue")
+                        return@withLock binderError(error)
                     }
-                    return@withLock binderError(error)
-                }
-
-                if (!isCurrentService(token)) {
-                    revokeTemporaryGrant(packageName, newUri)
-                    return@withLock serviceReplacedError()
+                    val expectedActual = stateBeforeLoad.slots.getOrNull(logicalSlot)
+                        ?.actualPortalSlot
+                        ?.takeIf(PortalProtocol::isValidActualSlot)
+                        ?: -1
+                    markMountOutcomeUncertain(
+                        packageName = packageName,
+                        logicalSlot = logicalSlot,
+                        uri = newUri,
+                        expectedActualSlot = expectedActual,
+                        figure = verifiedFigure,
+                        label = verifiedFigure.name
+                    )
+                    updateStateIfCurrent(token) { current ->
+                        val slots = current.slots.toMutableList()
+                        slots[logicalSlot] = PortalSlotState(
+                            logicalSlot = logicalSlot,
+                            actualPortalSlot = expectedActual,
+                            figure = verifiedFigure,
+                            label = verifiedFigure.name,
+                            sourceUri = newUri
+                        )
+                        current.copy(
+                            slots = slots,
+                            message = "Résultat du chargement incertain — vérification…"
+                        )
+                    }
+                    val reconciled = refreshLocked(protectedGrantLogicalSlot = logicalSlot)
+                    val reconciledState = _state.value
+                    val reconciledSlot = reconciledState.slots.getOrNull(logicalSlot)
+                    val mountReconciled = reconciled && reconciledSlot?.sourceUri == newUri &&
+                        PortalProtocol.isValidActualSlot(reconciledSlot.actualPortalSlot) &&
+                        !hasUncertainMount(packageName, logicalSlot)
+                    val failure = PortalProtocol.dispatchedLoadFailure(mountReconciled)
+                    return@withLock PortalResult.Error(
+                        message = failure.message,
+                        diagnosticCode = failure.diagnosticCode,
+                        technicalDetails = error.safeSummary(),
+                        recoveryHint = failure.recoveryHint
+                    )
                 }
 
                 if (!PortalProtocol.isValidActualSlot(actual)) {
@@ -501,6 +605,16 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 }
 
                 rememberSlotGrant(packageName, logicalSlot, newUri)
+                if (!isCurrentService(token)) {
+                    return@withLock rollbackKnownMountedLoad(
+                        token = token,
+                        logicalSlot = logicalSlot,
+                        actualSlot = actual,
+                        figure = verifiedFigure,
+                        uri = newUri,
+                        reason = "Le service Dolphin a changé après le chargement"
+                    )
+                }
                 val staged = updateStateIfCurrent(token) { current ->
                     val slots = current.slots.toMutableList()
                     slots[logicalSlot] = PortalSlotState(
@@ -517,16 +631,29 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     )
                 }
                 if (!staged) {
-                    revokeTemporaryGrant(packageName, newUri)
-                    return@withLock serviceReplacedError()
+                    return@withLock rollbackKnownMountedLoad(
+                        token = token,
+                        logicalSlot = logicalSlot,
+                        actualSlot = actual,
+                        figure = verifiedFigure,
+                        uri = newUri,
+                        reason = "La connexion Dolphin a changé avant la vérification"
+                    )
                 }
 
-                val refreshed = refreshLocked()
+                val refreshed = refreshLocked(protectedGrantLogicalSlot = logicalSlot)
                 val confirmedState = _state.value
                 val confirmedSlot = confirmedState.slots.getOrNull(logicalSlot)
                 val native = confirmedState.nativeSlots.firstOrNull { it.slot == actual }
+                val portalReadyAfterLoad = confirmedState.readiness == SmartPortalReadiness.READY
+                val confirmedApiVersion = confirmedState.apiVersion ?: stateBeforeLoad.apiVersion ?: 1
+                val requirePortalReadyAfterLoad = PortalProtocol.requiresPortalReadyAfterLoad(
+                    apiVersion = confirmedApiVersion,
+                    skylandersGameDetectedBefore = skylandersGameDetectedBeforeLoad,
+                    skylandersGameDetectedAfter = confirmedState.skylandersGame != null
+                )
                 val confirmed = PortalProtocol.isConfirmedLoad(
-                    apiVersion = confirmedState.apiVersion ?: 1,
+                    apiVersion = confirmedApiVersion,
                     refreshSucceeded = refreshed,
                     expectedActualSlot = actual,
                     logicalActualSlot = confirmedSlot?.actualPortalSlot,
@@ -534,19 +661,55 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     expectedFigureId = preflight.figureId,
                     expectedVariantId = preflight.variantId,
                     nativeFigureId = native?.figureId,
-                    nativeVariantId = native?.variantId
+                    nativeVariantId = native?.variantId,
+                    requirePortalReady = requirePortalReadyAfterLoad,
+                    portalReady = portalReadyAfterLoad
                 )
                 if (!confirmed) {
-                    if (isCurrentService(token)) {
-                        binderCall(OPERATION_TIMEOUT_MS) { token.service.remove(logicalSlot) }
-                        refreshLocked()
+                    val cleanup = if (isCurrentService(token)) {
+                        removeLocked(logicalSlot)
+                    } else {
+                        PortalResult.Error(
+                            message = "La connexion Dolphin a changé avant le retrait de sécurité",
+                            diagnosticCode = "LOAD_CLEANUP_BINDER_CHANGED",
+                            recoveryHint = "Vérifie le slot après la reconnexion avant de réessayer."
+                        )
                     }
-                    releaseSlotGrant(packageName, logicalSlot)
+                    val cleanupConfirmed = cleanup is PortalResult.Success
+                    if (!cleanupConfirmed && isCurrentService(token)) {
+                        // The URI may still be mounted. Preserve both the logical ownership and the
+                        // persisted grant until a later refresh or explicit remove confirms absence.
+                        rememberSlotGrant(packageName, logicalSlot, newUri)
+                        updateStateIfCurrent(token) { current ->
+                            val slots = current.slots.toMutableList()
+                            slots[logicalSlot] = PortalSlotState(
+                                logicalSlot = logicalSlot,
+                                actualPortalSlot = actual,
+                                figure = verifiedFigure,
+                                label = verifiedFigure.name,
+                                sourceUri = newUri
+                            )
+                            current.copy(
+                                slots = slots,
+                                message = "Chargement incertain — retrait à confirmer"
+                            )
+                        }
+                    }
+                    val failure = PortalProtocol.loadConfirmationFailure(
+                        cleanupConfirmed = cleanupConfirmed,
+                        portalReadinessRequired = requirePortalReadyAfterLoad,
+                        portalReady = portalReadyAfterLoad
+                    )
                     return@withLock PortalResult.Error(
-                        message = "Dolphin n’a pas confirmé le chargement sur le portail natif",
-                        diagnosticCode = "LOAD_NOT_CONFIRMED",
-                        technicalDetails = "Slot logique=${logicalSlot + 1}; slot natif=$actual",
-                        recoveryHint = "Attends la reconnexion, vérifie l’état du portail puis réessaie."
+                        message = failure.message,
+                        diagnosticCode = failure.diagnosticCode,
+                        technicalDetails = buildString {
+                            append("Slot logique=${logicalSlot + 1}; slot natif=$actual")
+                            if (cleanup is PortalResult.Error) {
+                                append("; retrait=${cleanup.diagnosticCode}")
+                            }
+                        },
+                        recoveryHint = failure.recoveryHint
                     )
                 }
                 updateStateIfCurrent(token) { it.copy(message = "${verifiedFigure.name} est sur le portail") }
@@ -697,12 +860,21 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 return@withLock PortalResult.Error("Dolphin n’a pas pu modifier l’état du portail", "PORTAL_TOGGLE_$code")
             }
             refreshLocked()
-            PortalResult.Success(message = if (enabled) "Portal of Power activé" else "Portal of Power désactivé")
+            val restartRequired = enabled && _state.value.portalRestartRequired
+            PortalResult.Success(
+                message = when {
+                    !enabled -> "Portal of Power désactivé"
+                    restartRequired -> "Portail activé — redémarre l’émulation pour que le jeu le détecte"
+                    else -> "Portal of Power activé"
+                }
+            )
         }
     }
 
     override fun close() {
+        if (!lifecycle.beginClose()) return
         disconnectCurrentBinding()
+        revokeEveryGrant()
         bridgeScope.cancel()
         _state.value = disconnectedState(
             message = "Dolphin non connecté",
@@ -776,18 +948,33 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
     }
 
     private fun grantUriToDolphin(packageName: String, skylander: Skylander): PortalResult.Error? {
+        if (!lifecycle.allowsMutation()) return bridgeClosedError()
         val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         val attempt = runCatching {
             context.grantUriPermission(packageName, skylander.documentUri, flags)
         }
-        val failure = attempt.exceptionOrNull() ?: return null
-        logFailure("uri-grant", failure)
-        return PortalResult.Error(
-            message = "Android a refusé de partager le fichier avec ${DolphinTargets.label(packageName)}",
-            diagnosticCode = "URI_GRANT_FAILED",
-            technicalDetails = failure.safeSummary(),
-            recoveryHint = "Sélectionne à nouveau le dossier ou réinstalle les deux APK avec la même signature."
-        )
+        attempt.exceptionOrNull()?.let { failure ->
+            logFailure("uri-grant", failure)
+            return PortalResult.Error(
+                message = "Android a refusé de partager le fichier avec ${DolphinTargets.label(packageName)}",
+                diagnosticCode = "URI_GRANT_FAILED",
+                technicalDetails = failure.safeSummary(),
+                recoveryHint = "Sélectionne à nouveau le dossier ou réinstalle les deux APK avec la même signature."
+            )
+        }
+        val uriString = skylander.documentUri.toString()
+        val retainedForOperation = synchronized(grantLock) {
+            if (!lifecycle.allowsMutation()) false
+            else {
+                pendingGrantedUris.add(GrantedUriKey(packageName, uriString))
+                true
+            }
+        }
+        if (!retainedForOperation) {
+            revokeUriGrant(packageName, uriString)
+            return bridgeClosedError()
+        }
+        return null
     }
 
     private fun revokeUriGrant(packageName: String, uriString: String) {
@@ -798,22 +985,33 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
     }
 
     private fun rememberSlotGrant(packageName: String, logicalSlot: Int, uriString: String) {
+        var accepted = false
         val previous = synchronized(grantLock) {
+            if (!lifecycle.allowsMutation()) return@synchronized null
+            accepted = true
+            pendingGrantedUris.remove(GrantedUriKey(packageName, uriString))
             grantedUris.put(GrantSlotKey(packageName, logicalSlot), uriString)
+        }
+        if (!accepted) {
+            revokeTemporaryGrant(packageName, uriString)
+            return
         }
         if (previous != null && previous != uriString) revokeTemporaryGrant(packageName, previous)
     }
 
     private fun releaseSlotGrant(packageName: String, logicalSlot: Int) {
-        val uri = synchronized(grantLock) {
-            grantedUris.remove(GrantSlotKey(packageName, logicalSlot))
-        } ?: return
-        revokeTemporaryGrant(packageName, uri)
+        val uris = synchronized(grantLock) {
+            val key = GrantSlotKey(packageName, logicalSlot)
+            setOfNotNull(grantedUris.remove(key), uncertainMounts.remove(key)?.uri)
+        }
+        uris.forEach { revokeTemporaryGrant(packageName, it) }
     }
 
     private fun revokeTemporaryGrant(packageName: String, uriString: String) {
         val stillUsed = synchronized(grantLock) {
-            grantedUris.any { (key, value) -> key.packageName == packageName && value == uriString }
+            pendingGrantedUris.remove(GrantedUriKey(packageName, uriString))
+            grantedUris.any { (key, value) -> key.packageName == packageName && value == uriString } ||
+                uncertainMounts.any { (key, value) -> key.packageName == packageName && value.uri == uriString }
         }
         if (!stillUsed) revokeUriGrant(packageName, uriString)
     }
@@ -821,82 +1019,208 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
     private fun revokeAllGrants(packageName: String) {
         val uris = synchronized(grantLock) {
             val matching = grantedUris.filterKeys { it.packageName == packageName }.values.toSet()
+                .plus(uncertainMounts.filterKeys { it.packageName == packageName }.values.map { it.uri })
+                .plus(pendingGrantedUris.filter { it.packageName == packageName }.map { it.uri })
             grantedUris.keys.removeAll { it.packageName == packageName }
+            uncertainMounts.keys.removeAll { it.packageName == packageName }
+            pendingGrantedUris.removeAll { it.packageName == packageName }
             matching
         }
         uris.forEach { revokeUriGrant(packageName, it) }
     }
 
-    private fun grantForUri(uriString: String): GrantSlotKey? = synchronized(grantLock) {
-        grantedUris.entries.firstOrNull { (_, value) -> value == uriString }?.key
+    private fun revokeEveryGrant() {
+        val grants = synchronized(grantLock) {
+            buildSet {
+                grantedUris.forEach { (key, uri) -> add(GrantedUriKey(key.packageName, uri)) }
+                uncertainMounts.forEach { (key, ownership) -> add(GrantedUriKey(key.packageName, ownership.uri)) }
+                addAll(pendingGrantedUris)
+            }.also {
+                grantedUris.clear()
+                uncertainMounts.clear()
+                pendingGrantedUris.clear()
+            }
+        }
+        grants.forEach { revokeUriGrant(it.packageName, it.uri) }
     }
 
-    private fun mapLoadError(code: Int, skylander: Skylander): PortalResult.Error = when (code) {
-        PortalProtocol.NATIVE_NO_SLOT -> PortalResult.Error(
-            message = "Le portail Dolphin est plein",
-            diagnosticCode = "PORTAL_FULL_255",
-            technicalDetails = "Dolphin a renvoyé le slot natif 255 pour ${skylander.fileName}.",
-            recoveryHint = "Vide le portail. Si des figurines restent orphelines, ferme puis relance Dolphin."
+    private fun grantForUri(uriString: String): GrantSlotKey? = synchronized(grantLock) {
+        grantedUris.entries.firstOrNull { (_, value) -> value == uriString }?.key
+            ?: uncertainMounts.entries.firstOrNull { (_, value) -> value.uri == uriString }?.key
+    }
+
+    private fun markMountOutcomeUncertain(
+        packageName: String,
+        logicalSlot: Int,
+        uri: String,
+        expectedActualSlot: Int,
+        figure: Skylander,
+        label: String
+    ): Boolean {
+        val accepted = synchronized(grantLock) {
+            if (!lifecycle.allowsMutation()) return@synchronized false
+            val key = GrantSlotKey(packageName, logicalSlot)
+            val existing = uncertainMounts[key]
+            if (existing == null || existing.uri == uri) {
+                pendingGrantedUris.remove(GrantedUriKey(packageName, uri))
+                uncertainMounts[key] = UncertainMountOwnership(
+                    uri = uri,
+                    expectedActualSlot = expectedActualSlot,
+                    figure = figure,
+                    label = label
+                )
+                true
+            } else {
+                Log.e(TAG, "Refusing to replace unresolved mount ownership for logical slot $logicalSlot")
+                false
+            }
+        }
+        if (!accepted) revokeTemporaryGrant(packageName, uri)
+        return accepted
+    }
+
+    private fun confirmUncertainMount(packageName: String, logicalSlot: Int, uri: String) {
+        var accepted = false
+        val previous = synchronized(grantLock) {
+            if (!lifecycle.allowsMutation()) return@synchronized null
+            accepted = true
+            val key = GrantSlotKey(packageName, logicalSlot)
+            uncertainMounts.remove(key)
+            pendingGrantedUris.remove(GrantedUriKey(packageName, uri))
+            grantedUris.put(key, uri)
+        }
+        if (!accepted) {
+            revokeTemporaryGrant(packageName, uri)
+            return
+        }
+        if (previous != null && previous != uri) revokeTemporaryGrant(packageName, previous)
+    }
+
+    private fun uncertainMountsForPackage(packageName: String): Map<Int, UncertainMountOwnership> =
+        synchronized(grantLock) {
+            uncertainMounts
+                .filterKeys { it.packageName == packageName }
+                .mapKeys { it.key.logicalSlot }
+        }
+
+    private fun hasUncertainMount(packageName: String, logicalSlot: Int): Boolean =
+        synchronized(grantLock) {
+            GrantSlotKey(packageName, logicalSlot) in uncertainMounts
+        }
+
+    private suspend fun rollbackKnownMountedLoad(
+        token: ServiceToken,
+        logicalSlot: Int,
+        actualSlot: Int,
+        figure: Skylander,
+        uri: String,
+        reason: String
+    ): PortalResult.Error {
+        val cleanup = binderCall(OPERATION_TIMEOUT_MS) { token.service.remove(logicalSlot) }
+        val cleanupError = cleanup.exceptionOrNull()
+        val processGone = cleanupError is DeadObjectException || !token.binder.isBinderAlive
+        val cleanupConfirmed = processGone || cleanup.getOrNull() == true
+        if (cleanupConfirmed) {
+            releaseSlotGrant(token.packageName, logicalSlot)
+        } else {
+            markMountOutcomeUncertain(
+                packageName = token.packageName,
+                logicalSlot = logicalSlot,
+                uri = uri,
+                expectedActualSlot = actualSlot,
+                figure = figure,
+                label = figure.name
+            )
+        }
+        val failure = PortalProtocol.knownMountRollbackFailure(cleanupConfirmed)
+        return PortalResult.Error(
+            message = failure.message,
+            diagnosticCode = failure.diagnosticCode,
+            technicalDetails = buildString {
+                append(reason)
+                cleanupError?.let { append("; retrait=${it.safeSummary()}") }
+                if (cleanup.getOrNull() == false) append("; retrait refusé")
+            },
+            recoveryHint = failure.recoveryHint
         )
-        -2 -> PortalResult.Error(
-            message = "Dolphin n'a pas pu ouvrir ou reconnaître le fichier .sky",
-            diagnosticCode = "DOLPHIN_OPEN_FAILED",
-            technicalDetails = diagnosticContext(skylander),
-            recoveryHint = "Vérifie que le fichier est un dump .sky valide et que le dossier est toujours autorisé."
-        )
-        -3 -> PortalResult.Error(
-            message = "Dolphin a refusé le numéro de slot",
-            diagnosticCode = "DOLPHIN_BAD_SLOT",
-            technicalDetails = diagnosticContext(skylander)
-        )
-        -4 -> PortalResult.Error(
-            message = "Dolphin n'a pas accès au fichier partagé",
-            diagnosticCode = "DOLPHIN_URI_ACCESS_DENIED",
-            technicalDetails = diagnosticContext(skylander),
-            recoveryHint = "Sélectionne à nouveau le dossier Skylanders dans l'application."
-        )
-        -5 -> PortalResult.Error(
-            message = "Dolphin a rejeté les données du fichier .sky",
-            diagnosticCode = "DOLPHIN_SKY_DATA_REJECTED",
-            technicalDetails = diagnosticContext(skylander),
-            recoveryHint = "Teste ce fichier dans le gestionnaire Skylanders de Dolphin ou recrée uniquement ce dump."
-        )
-        PortalProtocol.ERROR_PORTAL_FULL -> PortalResult.Error(
-            message = "Le portail Dolphin est plein",
-            diagnosticCode = "PORTAL_FULL",
-            technicalDetails = diagnosticContext(skylander),
-            recoveryHint = "Vide le portail. Si des figurines restent orphelines, ferme puis relance Dolphin."
-        )
-        -8 -> PortalResult.Error(
-            message = "Cette identité de figurine n’est pas reconnue par Dolphin",
-            diagnosticCode = "DOLPHIN_UNKNOWN_FIGURE",
-            technicalDetails = diagnosticContext(skylander),
-            recoveryHint = "Crée le fichier avec le gestionnaire Skylanders de cette version de Dolphin."
-        )
-        -9 -> PortalResult.Error(
-            message = "Dolphin a refusé cette figurine pour le jeu actuellement lancé",
-            diagnosticCode = "DOLPHIN_FIGURE_INCOMPATIBLE",
-            technicalDetails = diagnosticContext(skylander),
-            recoveryHint = "Choisis un personnage ou un objet compatible avec le jeu détecté."
-        )
-        PortalProtocol.ERROR_DOLPHIN_NOT_READY -> PortalResult.Error(
-            message = "Dolphin termine son initialisation",
-            diagnosticCode = "DOLPHIN_NATIVE_NOT_READY",
-            technicalDetails = diagnosticContext(skylander),
-            recoveryHint = "Patiente quelques secondes, puis réessaie quand le jeu et le portail sont détectés."
-        )
-        PortalProtocol.ERROR_UNIDENTIFIED_NATIVE_MOUNT -> PortalResult.Error(
-            message = "Un slot Dolphin non identifié est déjà occupé",
-            diagnosticCode = "DOLPHIN_UNIDENTIFIED_NATIVE_MOUNT",
-            technicalDetails = diagnosticContext(skylander),
-            recoveryHint = "Retire la figurine ouverte directement dans le Manager Dolphin, actualise SkyPortal puis réessaie."
-        )
-        else -> PortalResult.Error(
-            message = "Dolphin a refusé le chargement",
-            diagnosticCode = "DOLPHIN_LOAD_$code",
-            technicalDetails = "Code natif : $code. ${diagnosticContext(skylander)}",
-            recoveryHint = "Vide le portail puis réessaie."
-        )
+    }
+
+    private fun mapLoadError(code: Int, skylander: Skylander): PortalResult.Error {
+        PortalProtocol.usbLoadFailure(code)?.let { failure ->
+            return PortalResult.Error(
+                message = failure.message,
+                diagnosticCode = failure.diagnosticCode,
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = failure.recoveryHint
+            )
+        }
+        return when (code) {
+            PortalProtocol.NATIVE_NO_SLOT -> PortalResult.Error(
+                message = "Le portail Dolphin est plein",
+                diagnosticCode = "PORTAL_FULL_255",
+                technicalDetails = "Dolphin a renvoyé le slot natif 255 pour ${skylander.fileName}.",
+                recoveryHint = "Vide le portail. Si des figurines restent orphelines, ferme puis relance Dolphin."
+            )
+            -2 -> PortalResult.Error(
+                message = "Dolphin n'a pas pu ouvrir ou reconnaître le fichier .sky",
+                diagnosticCode = "DOLPHIN_OPEN_FAILED",
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = "Vérifie que le fichier est un dump .sky valide et que le dossier est toujours autorisé."
+            )
+            -3 -> PortalResult.Error(
+                message = "Dolphin a refusé le numéro de slot",
+                diagnosticCode = "DOLPHIN_BAD_SLOT",
+                technicalDetails = diagnosticContext(skylander)
+            )
+            -4 -> PortalResult.Error(
+                message = "Dolphin n'a pas accès au fichier partagé",
+                diagnosticCode = "DOLPHIN_URI_ACCESS_DENIED",
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = "Sélectionne à nouveau le dossier Skylanders dans l'application."
+            )
+            -5 -> PortalResult.Error(
+                message = "Dolphin a rejeté les données du fichier .sky",
+                diagnosticCode = "DOLPHIN_SKY_DATA_REJECTED",
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = "Teste ce fichier dans le gestionnaire Skylanders de Dolphin ou recrée uniquement ce dump."
+            )
+            PortalProtocol.ERROR_PORTAL_FULL -> PortalResult.Error(
+                message = "Le portail Dolphin est plein",
+                diagnosticCode = "PORTAL_FULL",
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = "Vide le portail. Si des figurines restent orphelines, ferme puis relance Dolphin."
+            )
+            -8 -> PortalResult.Error(
+                message = "Cette identité de figurine n’est pas reconnue par Dolphin",
+                diagnosticCode = "DOLPHIN_UNKNOWN_FIGURE",
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = "Crée le fichier avec le gestionnaire Skylanders de cette version de Dolphin."
+            )
+            -9 -> PortalResult.Error(
+                message = "Dolphin a refusé cette figurine pour le jeu actuellement lancé",
+                diagnosticCode = "DOLPHIN_FIGURE_INCOMPATIBLE",
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = "Choisis un personnage ou un objet compatible avec le jeu détecté."
+            )
+            PortalProtocol.ERROR_DOLPHIN_NOT_READY -> PortalResult.Error(
+                message = "Dolphin termine son initialisation",
+                diagnosticCode = "DOLPHIN_NATIVE_NOT_READY",
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = "Patiente quelques secondes, puis réessaie quand le jeu et le portail sont détectés."
+            )
+            PortalProtocol.ERROR_UNIDENTIFIED_NATIVE_MOUNT -> PortalResult.Error(
+                message = "Un slot Dolphin non identifié est déjà occupé",
+                diagnosticCode = "DOLPHIN_UNIDENTIFIED_NATIVE_MOUNT",
+                technicalDetails = diagnosticContext(skylander),
+                recoveryHint = "Retire la figurine ouverte directement dans le Manager Dolphin, actualise SkyPortal puis réessaie."
+            )
+            else -> PortalResult.Error(
+                message = "Dolphin a refusé le chargement",
+                diagnosticCode = "DOLPHIN_LOAD_$code",
+                technicalDetails = "Code natif : $code. ${diagnosticContext(skylander)}",
+                recoveryHint = "Vide le portail puis réessaie."
+            )
+        }
     }
 
     private fun notConnectedError() = PortalResult.Error(
@@ -904,6 +1228,12 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         diagnosticCode = "DOLPHIN_NOT_CONNECTED",
         technicalDetails = "Aucun service Binder actif.",
         recoveryHint = "Lance Dolphin SkyPortal Edition puis touche Reconnecter."
+    )
+
+    private fun bridgeClosedError() = PortalResult.Error(
+        message = "La connexion Dolphin est en cours de fermeture",
+        diagnosticCode = "BRIDGE_CLOSED",
+        recoveryHint = "Rouvre SkyPortal puis attends la reconnexion avant de réessayer."
     )
 
     private fun serviceReplacedError() = PortalResult.Error(
@@ -960,34 +1290,19 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         }
     }.onFailure { logFailure("figure-catalog", it) }.getOrDefault(emptyMap())
 
-    private fun readiness(
-        serviceState: DolphinServiceState,
-        emulation: EmulationState,
-        game: SkylandersGame?,
-        portalEnabled: Boolean?,
-        portalActivated: Boolean?
-    ): SmartPortalReadiness = when {
-        serviceState == DolphinServiceState.INITIALIZING -> SmartPortalReadiness.CONNECTING
-        emulation == EmulationState.NONE || emulation == EmulationState.STOPPING -> SmartPortalReadiness.NO_GAME
-        emulation == EmulationState.STARTING -> SmartPortalReadiness.GAME_DETECTED
-        game == null -> SmartPortalReadiness.GAME_DETECTED
-        portalEnabled == false -> SmartPortalReadiness.PORTAL_DISABLED
-        portalEnabled == true && portalActivated == false -> SmartPortalReadiness.GAME_DETECTED
-        portalEnabled == true -> SmartPortalReadiness.READY
-        else -> SmartPortalReadiness.GAME_DETECTED
-    }
-
     private fun markDisconnected(message: String) {
         val packageName = synchronized(serviceLock) {
             unlinkDeathRecipientLocked()
             service = null
             serviceGeneration++
             val packageName = activeComponent?.packageName
-            _state.value = disconnectedState(
-                message = message,
-                readiness = SmartPortalReadiness.DOLPHIN_DETECTED,
-                connectedPackage = packageName
-            )
+            if (lifecycle.allowsMutation()) {
+                _state.value = disconnectedState(
+                    message = message,
+                    readiness = SmartPortalReadiness.DOLPHIN_DETECTED,
+                    connectedPackage = packageName
+                )
+            }
             packageName
         }
         packageName?.let(::revokeAllGrants)
@@ -999,24 +1314,27 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
             unlinkDeathRecipientLocked()
             service = null
             serviceGeneration++
-            _state.value = disconnectedState(
-                message = message,
-                readiness = SmartPortalReadiness.DOLPHIN_DETECTED,
-                connectedPackage = expected.packageName
-            )
+            if (lifecycle.allowsMutation()) {
+                _state.value = disconnectedState(
+                    message = message,
+                    readiness = SmartPortalReadiness.DOLPHIN_DETECTED,
+                    connectedPackage = expected.packageName
+                )
+            }
             expected.packageName
         }
         revokeAllGrants(packageName)
     }
 
     private fun currentServiceToken(): ServiceToken? = synchronized(serviceLock) {
+        if (!lifecycle.allowsMutation()) return@synchronized null
         val current = service ?: return@synchronized null
         val packageName = activeComponent?.packageName ?: return@synchronized null
         ServiceToken(current, current.asBinder(), serviceGeneration, packageName)
     }
 
     private fun isCurrentService(expected: ServiceToken): Boolean = synchronized(serviceLock) {
-        isCurrentServiceLocked(expected)
+        lifecycle.allowsMutation() && isCurrentServiceLocked(expected)
     }
 
     private fun isCurrentServiceLocked(expected: ServiceToken): Boolean =
@@ -1027,9 +1345,44 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         expected: ServiceToken,
         transform: (PortalState) -> PortalState
     ): Boolean = synchronized(serviceLock) {
-        if (!isCurrentServiceLocked(expected)) return@synchronized false
+        if (!lifecycle.allowsMutation() || !isCurrentServiceLocked(expected)) return@synchronized false
         _state.value = transform(_state.value)
         true
+    }
+
+    private inline fun updateStateIfOpen(transform: (PortalState) -> PortalState): Boolean =
+        synchronized(serviceLock) {
+            if (!lifecycle.allowsMutation()) return@synchronized false
+            _state.value = transform(_state.value)
+            true
+        }
+
+    private fun selectTargetIfOpen(target: ComponentName): Boolean = synchronized(serviceLock) {
+        if (!lifecycle.allowsMutation()) return@synchronized false
+        activeComponent = target
+        true
+    }
+
+    private fun registerConnectionIfOpen(conn: ServiceConnection, target: ComponentName): Boolean =
+        synchronized(serviceLock) {
+            if (!lifecycle.allowsMutation() || activeComponent != target) return@synchronized false
+            connection = conn
+            true
+        }
+
+    private fun markConnectionBoundIfOpen(conn: ServiceConnection, target: ComponentName): Boolean =
+        synchronized(serviceLock) {
+            if (
+                !lifecycle.allowsMutation() ||
+                activeComponent != target ||
+                connection !== conn
+            ) return@synchronized false
+            bound = true
+            true
+        }
+
+    private fun isCurrentConnection(conn: ServiceConnection): Boolean = synchronized(serviceLock) {
+        lifecycle.allowsMutation() && connection === conn
     }
 
     private fun installService(binder: IBinder, target: ComponentName): ServiceToken? {
@@ -1037,6 +1390,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         val token: ServiceToken
         val recipient: IBinder.DeathRecipient
         synchronized(serviceLock) {
+            if (!lifecycle.allowsMutation() || activeComponent != target) return null
             unlinkDeathRecipientLocked()
             serviceGeneration++
             token = ServiceToken(remote, binder, serviceGeneration, target.packageName)
@@ -1050,7 +1404,11 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         }
         return runCatching {
             binder.linkToDeath(recipient, 0)
-            token
+            if (isCurrentService(token)) token
+            else {
+                runCatching { binder.unlinkToDeath(recipient, 0) }
+                null
+            }
         }.getOrElse { error ->
             logFailure("binder-death-link", error)
             markDisconnectedIfCurrent(token, "Impossible de surveiller le processus Dolphin")
@@ -1064,18 +1422,24 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
     }
 
     private fun disconnectCurrentBinding() {
-        val packageName = activeComponent?.packageName
-        packageName?.let(::revokeAllGrants)
-        val conn = connection
-        if (conn != null && bound) runCatching { context.unbindService(conn) }
-        bound = false
-        synchronized(serviceLock) {
+        val detached = synchronized(serviceLock) {
+            val result = DetachedBinding(
+                packageName = activeComponent?.packageName,
+                connection = connection,
+                wasBound = bound
+            )
             unlinkDeathRecipientLocked()
             service = null
             serviceGeneration++
+            connection = null
+            bound = false
+            activeComponent = null
+            result
         }
-        connection = null
-        activeComponent = null
+        if (detached.connection != null && detached.wasBound) {
+            runCatching { context.unbindService(detached.connection) }
+        }
+        detached.packageName?.let(::revokeAllGrants)
     }
 
     private suspend fun <T> binderCall(timeoutMs: Long, block: () -> T): Result<T> = runCatching {
@@ -1120,6 +1484,18 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
     }
 
     private data class GrantSlotKey(val packageName: String, val logicalSlot: Int)
+    private data class GrantedUriKey(val packageName: String, val uri: String)
+    private data class DetachedBinding(
+        val packageName: String?,
+        val connection: ServiceConnection?,
+        val wasBound: Boolean
+    )
+    private data class UncertainMountOwnership(
+        val uri: String,
+        val expectedActualSlot: Int,
+        val figure: Skylander,
+        val label: String
+    )
     private data class ServiceToken(
         val service: ISkylanderPortalService,
         val binder: IBinder,

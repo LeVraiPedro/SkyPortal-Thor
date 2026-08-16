@@ -11,6 +11,14 @@ La validation combine :
 - un parcours ADB sur une AYN Thor Max Android 13 ;
 - des fixtures générées avec les mécanismes officiels de Dolphin.
 
+## Addendum post-validation : conflit Disney Infinity
+
+Après la campagne ADB décrite dans ce document, un faux état `Portail prêt` a été signalé : SkyPortal détectait Dolphin et Spyro's Adventure, tandis que le jeu indiquait que le Portal of Power était introuvable. Les réglages Dolphin avaient simultanément activé le portail Skylanders et la base Disney Infinity. L'utilisateur a confirmé que désactiver Disney Infinity puis redémarrer complètement l'émulation rétablissait la détection du portail.
+
+L'analyse a également établi que l'ancien état `portalActivated` reflétait un booléen protocolaire initialisé à `true`, et non une preuve que le jeu avait réellement attaché puis interrogé le périphérique USB. Le correctif ajoute trois preuves distinctes — présence, attachement et handshake Skylanders — ainsi qu'une liste de bases concurrentes. `Portail prêt` exige désormais ces preuves cohérentes et aucun conflit.
+
+**La Thor n'était plus disponible pendant l'implémentation de ce correctif.** Le parsing et les décisions du compagnon sont couverts par les tests JVM. Le chemin natif `SkylanderUSB` → JNI → service a été compilé et les patchs ont été appliqués/réversés sur une copie propre, mais aucun test automatisé ne remplace sa validation de bout en bout sur la Thor. Les résultats matériels ci-dessous sont conservés comme historique de la campagne précédente ; ils ne doivent pas être interprétés comme une revalidation du nouveau binaire.
+
 ## Environnement matériel
 
 | Élément | Valeur |
@@ -38,15 +46,16 @@ Les commandes de référence sont :
 
 Résultats établis :
 
-- 31 tests unitaires réussis ;
+- 62 tests unitaires réussis ;
 - Android Lint réussi, aucune erreur bloquante et 16 avertissements non bloquants ;
 - APK Debug SkyPortal compilé ;
-- Dolphin Debug patché compilé ;
+- campagne initiale : Dolphin Debug patché compilé et installé ;
+- correctif USB : patch et intégration vérifiés localement par les tests et contrôles de build, sans installation matérielle ;
 - contrat AIDL identique des deux côtés et ordre historique préservé ;
 - patch Dolphin applicable et réversible sur la révision ciblée ;
 - syntaxe des trois workflows validée localement.
 
-Les tests couvrent les six jeux et leurs IDs régionaux connus, les API 1/2/3, le parsing des 16 slots, les générations/types, les dumps invalides, l'identité inconnue, le portail plein, la déconnexion logique, les équipes manquantes, les favoris/récents et les exclusions de scan.
+Les tests couvrent les six jeux et leurs IDs régionaux connus, les API 1/2/3, le parsing des 16 slots, les générations/types, les dumps invalides, l'identité inconnue, le portail plein, la déconnexion logique, les équipes manquantes, les favoris/récents et les exclusions de scan. La suite post-validation couvre aussi le parsing des preuves USB nullable, l'ancien JSON API 3, les décisions qui interdisent `READY` sans handshake, le conflit Disney Infinity et le maintien du chemin dégradé API 1/2. Elle n'exécute pas le chemin natif USB de bout en bout.
 
 ## Résultats matériels
 
@@ -56,7 +65,7 @@ SkyPortal reste sur l'écran inférieur logique `4`. Dolphin, son interface et l
 
 ### Smart Portal API 3
 
-Avec Spyro's Adventure actif, le service rapporte `RUNNING`, `SSPP52`, le titre du jeu et les 16 slots natifs. En partant du réglage Portal of Power désactivé, le compagnon a demandé son activation et l'en-tête est passé à `Connecté | Spyro’s Adventure | Portail prêt`.
+Avec Spyro's Adventure actif, le service historique rapporte `RUNNING`, `SSPP52`, le titre du jeu et les 16 slots natifs. En partant du réglage Portal of Power désactivé, le compagnon a demandé son activation et l'en-tête est passé à `Connecté | Spyro’s Adventure | Portail prêt`. Les chargements matériels suivants ont confirmé que le portail fonctionnait dans cette session, mais cet ancien libellé ne reposait pas encore sur le nouveau handshake USB.
 
 ### Chargement et retrait
 
@@ -100,9 +109,9 @@ Les fichiers sont Tree Rex, Pop Thorn, Snap Shot, Magic Log Holder, Anvil Rain, 
 
 Le backup contrôlé d'Anvil Rain a demandé confirmation, confirmé son retrait, puis produit une copie exacte de 1 024 octets. Le dossier `99_Backups` n'a pas été rescanné : la collection de fixtures est restée à 10 fichiers. La racine utilisateur a ensuite été restaurée et ses 32 fichiers ont de nouveau été détectés.
 
-## Signature et artefacts
+## Signature et artefacts de la campagne initiale
 
-La paire Debug installée avait un certificat SHA-256 identique :
+La paire Debug installée pendant la campagne initiale avait un certificat SHA-256 identique :
 
 ```text
 fbefc11952c49c60bfd937eb77b0a5882f898a097184391eda3b616f1cfe7f4e
@@ -115,14 +124,16 @@ app/build/outputs/apk/debug/app-debug.apk
 Source/Android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-La candidate Debug installée sur la Thor correspond exactement aux artefacts locaux vérifiés :
+La candidate Debug historique installée sur la Thor correspondait exactement aux artefacts locaux vérifiés avant le correctif USB :
 
 ```text
 SkyPortal Debug : f60da0491a476be49498bd881e03b6fe2619cac91b1fb8f16678510ba725b344
 Dolphin Debug   : 12c67afe04f1186593e7dde8ae5f51a55270316c80d18b572236be408c8822a2
 ```
 
-Sur la dernière paire exacte, Lightning Rod a de nouveau été chargé réellement puis retiré avant backup. La copie produite fait exactement 1 024 octets, la collection utilisateur est restée à 32 fichiers et un Logcat frais n'a révélé aucune erreur critique.
+Sur cette paire historique exacte, Lightning Rod a de nouveau été chargé réellement puis retiré avant backup. La copie produite fait exactement 1 024 octets, la collection utilisateur est restée à 32 fichiers et un Logcat frais n'a révélé aucune erreur critique.
+
+Ces hashes ne décrivent pas les binaires reconstruits avec le correctif USB. Leurs SHA-256 devront être recalculés avant publication et leur installation matérielle reste en attente.
 
 Une construction Release locale a aussi confirmé que les deux APK peuvent être signés avec un certificat commun. Elle utilisait toutefois une clé de test locale : elle ne doit pas être publiée comme une paire utilisateur. Les hashes d'une future construction de release signée doivent être recalculés au moment de la publication ; ils ne remplacent pas la vérification du certificat commun.
 
@@ -133,5 +144,7 @@ Une construction Release locale a aussi confirmé que les deux APK peuvent être
 - Les opérations équipe pendant reconnexion, retrait pendant scan et arrêt de Dolphin pendant chargement restent à rejouer.
 - Imaginators n'est pas pris en charge par le Manager de la révision Dolphin utilisée ; aucun Creation Crystal matériel n'a été testé.
 - L'exécution réelle des workflows sur GitHub doit être confirmée après push ; une validation de syntaxe locale n'est pas un résultat GitHub Actions.
+- Le nouveau suivi `portalUsbPresent` / `portalUsbAttached` / `portalUsbHandshakeSeen`, l'avertissement Disney Infinity et le blocage avant Binder n'ont pas encore été revalidés sur la Thor.
+- Une prochaine campagne matérielle doit tester les deux bases actives, puis Disney Infinity désactivé avec arrêt complet et relance de l'émulation, sans cocher ces scénarios sur la seule base des tests JVM.
 
 La [matrice de compatibilité](COMPATIBILITY_MATRIX.md) et la [checklist Thor](../THOR_TEST_CHECKLIST.md) indiquent le niveau de preuve de chaque scénario.

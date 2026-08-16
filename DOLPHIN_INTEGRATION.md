@@ -32,7 +32,21 @@ getFigureCatalogJson() -> JSON
 
 Les six méthodes historiques restent inchangées et dans le même ordre. Le compagnon n'appelle les deux nouvelles méthodes qu'après avoir détecté l'API 3. Les contrats API 1 et API 2 conservent un mode dégradé : ils ne fournissent ni jeu actif, ni commande du portail, ni catalogue natif complet.
 
-`getStatusJson()` expose aussi `emulationState`, `gameId`, `gameTitle`, `portalEnabled`, `portalActivated`, `canSetPortalEnabled` et `nativeSlots`.
+`getStatusJson()` expose aussi `emulationState`, `gameId`, `gameTitle`, `portalEnabled`, `portalActivated`, `portalProtocolActivated`, `portalUsbPresent`, `portalUsbAttached`, `portalUsbHandshakeSeen`, `conflictingUsbDevices`, `canSetPortalEnabled` et `nativeSlots`.
+
+Les indicateurs de portail ont des rôles distincts :
+
+| Champ | Signification |
+|---|---|
+| `portalEnabled` | réglage Dolphin `EmulateSkylanderPortal` actif |
+| `portalUsbPresent` | périphérique Skylanders présent dans le scanner USB de Dolphin |
+| `portalUsbAttached` | périphérique attaché par l'IOS USB du jeu |
+| `portalUsbHandshakeSeen` | au moins une commande USB propre au protocole Skylanders a été reçue |
+| `portalProtocolActivated` | ancien état interne du protocole Skylanders, conservé pour le diagnostic |
+| `portalActivated` | état effectif compatible avec les anciens compagnons : réglage actif, trois preuves USB cohérentes, protocole actif et aucun conflit |
+| `conflictingUsbDevices` | identifiants stables des bases concurrentes, actuellement `DISNEY_INFINITY_BASE` |
+
+`Portail prêt` exige les trois preuves USB à `true` et une liste de conflits vide. Le booléen protocolaire historique était initialisé à `true` par le cœur et ne constitue donc jamais, à lui seul, une preuve que le jeu a trouvé le portail.
 
 Le service fourni annonce l'API 3 et conserve les codes suivants :
 
@@ -46,6 +60,9 @@ Le service fourni annonce l'API 3 et conserve les codes suivants :
 -8 : ID/variant absent du catalogue natif
 -9 : figurine ou objet incompatible avec le jeu actif
 -10 : runtime natif Dolphin pas encore initialisé
+-11 : montage natif occupé mais non identifié de façon sûre
+-12 : jeu Skylanders actif, mais portail USB absent, non attaché ou sans handshake
+-13 : périphérique USB émulé concurrent, actuellement Disney Infinity
 255 : ancien signal natif « aucun slot disponible »
 ```
 
@@ -60,6 +77,9 @@ SkyPortal accepte aussi les services API 1 et API 2 et reconnaît l'ancien signa
 - Un même URI ne peut pas être monté silencieusement dans plusieurs slots logiques.
 - Avec une API 1/2 qui ne restitue pas l’URI d’un slot restauré, SkyPortal bloque tout nouveau chargement dans un autre slot jusqu’au retrait du montage non identifié. Avec l’API 3, un slot natif occupé directement dans le Manager et non revendiqué est bloquant pour la même raison.
 - Les API 1/2 n’exposent pas les slots chargés directement dans le Manager Dolphin : ne jamais utiliser le Manager en parallèle du compagnon dans ce mode. La garantie forte anti-double montage et le backup sécurisé nécessitent l’API 3.
+- API 1 et API 2 ne disposent pas des preuves USB : elles restent utilisables selon leur chemin dégradé historique, sans affirmation `Portail prêt` vérifiée.
+- Un ancien service API 3 qui omet les nouvelles clés reste lisible. Les valeurs sont conservées à `null`, l'état devient `Portail non vérifié` et le chargement Smart est bloqué avec une invitation à mettre à jour la paire, au lieu d'inventer `false` ou `true`.
+- La présence de `DISNEY_INFINITY_BASE` est prioritaire sur les autres indicateurs : SkyPortal n'active pas automatiquement le portail et refuse le chargement avant Binder.
 - Les journaux du bridge et du service n'exposent pas les URI SAF complètes.
 
 Le service exporté peut être recréé seul pendant le redémarrage de Dolphin. Il vérifie donc `DirectoryInitialization.areDolphinDirectoriesReady()` avant tout accès à `NativeConfig` ou aux API natives. Tant que l'initialisation n'est pas terminée, `getStatusJson()` renvoie un instantané vide avec `serviceState = INITIALIZING`, le catalogue est vide et une commande de chargement renvoie `-10`. Le compagnon affiche alors un état transitoire et peut réessayer sans faire crasher le processus Dolphin.
@@ -72,9 +92,13 @@ Cette garde a été ajoutée après avoir reproduit sur la Thor un `SIGSEGV` du 
 
 ```text
 emulationState, gameId, gameTitle,
-portalEnabled, portalActivated, canSetPortalEnabled,
+portalEnabled, portalActivated, portalProtocolActivated,
+portalUsbPresent, portalUsbAttached, portalUsbHandshakeSeen,
+conflictingUsbDevices, canSetPortalEnabled,
 nativeSlots[0..15]
 ```
+
+Ces ajouts restent dans le JSON existant : aucune transaction Binder n'est ajoutée et l'ordre des huit méthodes AIDL ne change pas. Un ancien compagnon ignore les clés inconnues. Le nouveau compagnon lit chaque preuve avec une valeur nullable, ce qui distingue explicitement un ancien JSON API 3 d'un portail réellement absent.
 
 `getFigureCatalogJson()` exporte les identités de la table native `list_skylanders`. Le compagnon garde son modèle central de compatibilité, mais ne duplique pas une grande base de noms indépendante quand le catalogue API 3 est disponible.
 
@@ -85,6 +109,19 @@ Le service Dolphin est protégé par la permission signature :
 Lorsque Debug et Release modifiés sont tous deux présents, l'interface permet de choisir explicitement la cible afin de ne pas charger le personnage dans le mauvais processus Dolphin.
 
 La validation matérielle V5 a utilisé `org.dolphinemu.dolphinemu.debug`, API 3, avec le compagnon `com.skyportalthor.app`. Les deux APK Debug avaient le même certificat. Le build Release installé sur l'appareil n'était pas le service API 3 testé.
+
+Après cette campagne, l'utilisateur a confirmé un conflit lorsque `EmulateSkylanderPortal` et `EmulateInfinityBase` étaient actifs simultanément : le compagnon détectait le jeu et le réglage, mais Spyro's Adventure indiquait que le portail était introuvable. Désactiver Disney Infinity puis redémarrer l'émulation a résolu le problème. Le parsing et les décisions liés à l'attachement/handshake sont couverts par les tests JVM ; le chemin natif est compilé et les patchs sont vérifiés, **mais l'ensemble n'a pas encore été rejoué de bout en bout sur la Thor, indisponible au moment du correctif**.
+
+### Conflit Disney Infinity et redémarrage
+
+Certains jeux ne lisent que la première liste de périphériques USB présentée au démarrage. Activer ou désactiver une base après ce moment ne garantit donc pas sa prise en compte. Si SkyPortal affiche `Conflit : base Disney Infinity — redémarrage requis` ou `Portail absent — redémarrage requis` :
+
+1. arrêter complètement l'émulation, sans réinitialiser les données de Dolphin ;
+2. désactiver la base Disney Infinity dans les périphériques USB émulés ;
+3. conserver le portail Skylanders activé ;
+4. relancer le jeu et attendre la confirmation du handshake USB.
+
+SkyPortal ne désactive pas silencieusement une autre base configurée par l'utilisateur.
 
 ## Construction du patch
 

@@ -24,6 +24,13 @@ class PortalStateReducerTest {
             skylandersGame = SkylandersGame.SPYROS_ADVENTURE,
             portalEnabled = true,
             portalActivated = true,
+            portalProtocolActivated = true,
+            portalUsbPresent = true,
+            portalUsbAttached = true,
+            portalUsbHandshakeSeen = true,
+            conflictingUsbDevices = listOf("DISNEY_INFINITY_BASE"),
+            portalUsbStatusValid = true,
+            portalRestartRequired = true,
             nativeSlots = listOf(NativePortalSlotState(0, true, 1, 16, 0))
         )
 
@@ -38,6 +45,13 @@ class PortalStateReducerTest {
         assertNull(disconnected.apiVersion)
         assertNull(disconnected.gameId)
         assertNull(disconnected.portalEnabled)
+        assertNull(disconnected.portalProtocolActivated)
+        assertNull(disconnected.portalUsbPresent)
+        assertNull(disconnected.portalUsbAttached)
+        assertNull(disconnected.portalUsbHandshakeSeen)
+        assertTrue(disconnected.conflictingUsbDevices.isEmpty())
+        assertFalse(disconnected.portalUsbStatusValid)
+        assertFalse(disconnected.portalRestartRequired)
         assertTrue(disconnected.slots.all { it.actualPortalSlot == -1 })
         assertTrue(disconnected.nativeSlots.isEmpty())
         assertEquals(EmulationState.NONE, disconnected.emulationState)

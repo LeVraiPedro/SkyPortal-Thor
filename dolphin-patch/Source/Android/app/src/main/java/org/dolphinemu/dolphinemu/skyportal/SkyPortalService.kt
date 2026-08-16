@@ -79,6 +79,22 @@ class SkyPortalService : Service() {
                         Log.w(TAG, "Refusing load while unclaimed native slot $nativeSlot is occupied")
                         return@synchronized ERROR_UNIDENTIFIED_NATIVE_MOUNT
                     }
+                    val emulationState = SkylanderConfig.getEmulationState()
+                    val skylandersGameActive = emulationState in EMULATION_PAUSED..EMULATION_RUNNING &&
+                        runningGameGeneration(gameId, gameTitle) != null
+                    if (skylandersGameActive && BooleanSetting.MAIN_EMULATE_INFINITY_BASE.boolean) {
+                        Log.w(TAG, "Refusing load while the Disney Infinity base is enabled")
+                        return@synchronized ERROR_CONFLICTING_USB_DEVICE
+                    }
+                    if (skylandersGameActive) {
+                        val portalUsbState = SkylanderConfig.getPortalUsbState()
+                        if (!BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean ||
+                            portalUsbState and PORTAL_USB_READY_MASK != PORTAL_USB_READY_MASK
+                        ) {
+                            Log.w(TAG, "Refusing load before the game completes the portal USB handshake")
+                            return@synchronized ERROR_PORTAL_USB_NOT_READY
+                        }
+                    }
                     val previousActual = logicalToActual[logicalSlot]
                     val loadAttempt = runCatching {
                         SkylanderConfig.loadSkylander(previousActual, uri)
@@ -253,6 +269,19 @@ class SkyPortalService : Service() {
             }
             val emulationState = SkylanderConfig.getEmulationState()
             val metadataValid = NativeLibrary.IsGameMetadataValid()
+            val portalEnabled = BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean
+            val portalUsbState = SkylanderConfig.getPortalUsbState()
+            val portalUsbPresent = portalUsbState and PORTAL_USB_PRESENT != 0
+            val portalUsbAttached = portalUsbState and PORTAL_USB_ATTACHED != 0
+            val portalUsbHandshakeSeen = portalUsbState and PORTAL_USB_HANDSHAKE_SEEN != 0
+            val conflictingUsbDevices = JSONArray()
+            if (BooleanSetting.MAIN_EMULATE_INFINITY_BASE.boolean) {
+                conflictingUsbDevices.put(CONFLICT_DISNEY_INFINITY_BASE)
+            }
+            val portalProtocolActivated = SkylanderConfig.isPortalActivated()
+            val portalEffectiveActivated = portalEnabled && portalUsbPresent &&
+                portalUsbAttached && portalUsbHandshakeSeen && portalProtocolActivated &&
+                conflictingUsbDevices.length() == 0
             JSONObject()
                 .put("apiVersion", API_VERSION)
                 .put("slots", slots)
@@ -260,8 +289,15 @@ class SkyPortalService : Service() {
                 .put("emulationState", emulationStateName(emulationState))
                 .put("gameId", if (metadataValid) NativeLibrary.GetCurrentGameID() else "")
                 .put("gameTitle", if (metadataValid) NativeLibrary.GetCurrentTitleDescription() else "")
-                .put("portalEnabled", BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean)
-                .put("portalActivated", SkylanderConfig.isPortalActivated())
+                .put("portalEnabled", portalEnabled)
+                .put("portalUsbPresent", portalUsbPresent)
+                .put("portalUsbAttached", portalUsbAttached)
+                .put("portalUsbHandshakeSeen", portalUsbHandshakeSeen)
+                // IsActivated defaults to true in Dolphin's native portal object. Gate the legacy
+                // field on a real protocol exchange so it can no longer create a false READY state.
+                .put("portalActivated", portalEffectiveActivated)
+                .put("portalProtocolActivated", portalProtocolActivated)
+                .put("conflictingUsbDevices", conflictingUsbDevices)
                 .put("canSetPortalEnabled", true)
                 .put("serviceState", "READY")
                 .toString()
@@ -309,7 +345,12 @@ class SkyPortalService : Service() {
             .put("gameId", "")
             .put("gameTitle", "")
             .put("portalEnabled", JSONObject.NULL)
+            .put("portalUsbPresent", false)
+            .put("portalUsbAttached", false)
+            .put("portalUsbHandshakeSeen", false)
             .put("portalActivated", JSONObject.NULL)
+            .put("portalProtocolActivated", JSONObject.NULL)
+            .put("conflictingUsbDevices", JSONArray())
             .put("canSetPortalEnabled", false)
             .put("serviceState", "INITIALIZING")
             .toString()
@@ -507,12 +548,21 @@ class SkyPortalService : Service() {
         const val ERROR_INCOMPATIBLE_FIGURE = -9
         const val ERROR_DOLPHIN_NOT_READY = -10
         const val ERROR_UNIDENTIFIED_NATIVE_MOUNT = -11
+        const val ERROR_PORTAL_USB_NOT_READY = -12
+        const val ERROR_CONFLICTING_USB_DEVICE = -13
         const val PORTAL_TOGGLE_OK = 0
         const val EMULATION_UNINITIALIZED = 0
+        const val EMULATION_PAUSED = 1
+        const val EMULATION_RUNNING = 2
         const val MAX_PORTAL_SLOTS = 16
         const val NATIVE_NO_SLOT = 255
         const val MAIN_THREAD_TIMEOUT_SECONDS = 5L
         const val RUNNING_TASK_TIMEOUT_SECONDS = 25L
+        private const val PORTAL_USB_PRESENT = 1 shl 0
+        private const val PORTAL_USB_ATTACHED = 1 shl 1
+        private const val PORTAL_USB_HANDSHAKE_SEEN = 1 shl 2
+        private const val PORTAL_USB_READY_MASK = 0b111
+        private const val CONFLICT_DISNEY_INFINITY_BASE = "DISNEY_INFINITY_BASE"
         private const val SKY_DUMP_SIZE_BYTES = 1_024L
         private const val MAX_EMPTY_READS = 3
         private const val TASK_QUEUED = 0

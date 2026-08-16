@@ -10,8 +10,9 @@ Le compagnon démarre en mode solo : seule la carte Joueur 1 est affichée. Le b
 
 - Détection locale de l'état d'émulation, du Game ID et du titre actuellement exécuté par Dolphin.
 - Reconnaissance centralisée de Spyro's Adventure, Giants, Swap Force, Trap Team, SuperChargers et Imaginators.
-- Lecture de l'état officiel `EmulateSkylanderPortal` et activation à chaud depuis le compagnon via l'API 3.
-- État compact `Dolphin | jeu | portail` dans l'en-tête, avec délais maximaux et reconnexion automatique.
+- Lecture séparée du réglage `EmulateSkylanderPortal` et des preuves USB réelles : présence dans le scanner Dolphin, attachement au jeu et première commande Skylanders.
+- Détection des bases USB concurrentes, notamment Disney Infinity, avec blocage du chargement et demande de redémarrage complet de l'émulation.
+- État compact `Dolphin | jeu | portail` dans l'en-tête, avec délais maximaux et reconnexion automatique. `Portail prêt` n'est affiché qu'après un échange USB confirmé avec le jeu.
 - Catalogue de figurines fourni par la table native de Dolphin : ID, variant, génération, élément et type.
 - Identification read-only des dumps aux offsets ID/variant ; le nom des dossiers n'est plus la source principale quand l'API 3 est disponible.
 - Sélecteur `Personnages | Objets`, filtre automatique adapté au jeu, et option temporaire `Toute la collection`.
@@ -75,13 +76,15 @@ Le dossier `dolphin-patch/` contient l'API 3 Smart Portal qui ajoute :
 
 - état précis de l'émulation, Game ID et titre ;
 - lecture/activation/désactivation du réglage officiel Portal of Power ;
+- présence, attachement et handshake USB réels du portail, distincts du simple réglage Dolphin ;
+- détection d'une base Disney Infinity concurrente ;
 - instantané réel des slots natifs ;
 - catalogue des figurines directement issu de `list_skylanders` ;
 - les diagnostics et protections API 2 (URI, dump invalide, portail plein et mapping persistant).
 
 Reconstruire Dolphin n'est pas obligatoire pour les fonctions V4, mais l'API 3 est nécessaire pour le mode Smart Portal complet.
 
-> **Recommandation :** utiliser l'API 3 fournie. API 1/2 restent acceptées, mais n'exposent pas le jeu ni l'état du portail et désactivent donc automatiquement les fonctions Smart dépendantes.
+> **Recommandation :** utiliser ensemble le compagnon et le Dolphin API 3 fournis par cette révision. API 1/2 restent acceptées en mode dégradé. Un ancien Dolphin API 3 sans les nouveaux indicateurs USB reste Binder-compatible, mais SkyPortal affiche alors `Portail non vérifié` et bloque le chargement Smart plutôt que d'annoncer un faux état prêt.
 
 Les deux APK doivent être signés avec la même clé, car la permission `com.skyportalthor.permission.PORTAL_CONTROL` est de niveau `signature`.
 
@@ -112,11 +115,12 @@ app/build/outputs/apk/debug/app-debug.apk
 ## Premier démarrage
 
 1. Installer le Dolphin API 3 modifié et SkyPortal Thor V5.
-2. Lancer un jeu Skylanders dans Dolphin. SkyPortal peut activer automatiquement le portail si nécessaire.
-3. Lancer le jeu sur l'écran supérieur.
+2. Dans les périphériques USB émulés de Dolphin, laisser le portail Skylanders actif et désactiver la base Disney Infinity. Ces deux bases actives simultanément peuvent empêcher certains jeux Skylanders de voir le Portal of Power.
+3. Lancer le jeu Skylanders sur l'écran supérieur. Si un réglage de base a été modifié pendant que le jeu tournait, arrêter complètement l'émulation puis relancer le jeu.
 4. Ouvrir SkyPortal sur l'écran inférieur.
-5. Toucher **Dossier** et autoriser le dossier racine contenant les `.sky`.
-6. Toucher **Joueur 1**, puis **Spyro**.
+5. Attendre `Portail prêt`, qui signifie désormais que le jeu a réellement envoyé une commande USB Skylanders.
+6. Toucher **Dossier** et autoriser le dossier racine contenant les `.sky`.
+7. Toucher **Joueur 1**, puis **Spyro**.
 
 Si une erreur survient, la fenêtre reste ouverte. Utiliser **Voir détails** pour relever le code exact. La checklist complète se trouve dans [THOR_TEST_CHECKLIST.md](THOR_TEST_CHECKLIST.md).
 
@@ -124,7 +128,9 @@ Si une erreur survient, la fenêtre reste ouverte. Utiliser **Voir détails** po
 
 La campagne V5.1 de fiabilisation a validé sur une vraie AYN Thor Android 13 : le routage sur les écrans logiques `0`/`4`, la connexion Binder API 3, la détection de Spyro's Adventure (`SSPP52`), l'activation du portail, le chargement/retrait J1-J2, les principales reconnexions, le cycle écran éteint/allumé et un backup contrôlé. **Spyro's Adventure est le seul jeu lancé sur le matériel pendant cette campagne.** Giants, Swap Force, Trap Team, SuperChargers et Imaginators sont couverts par les tests automatisés du modèle central, pas par un lancement matériel.
 
-Les contrôles automatisés comprennent 31 tests unitaires, Android Lint et la compilation Debug. Dix fixtures contrôlées ont été créées localement avec le Skylanders Manager officiel de Dolphin, dans un dossier séparé de la collection utilisateur ; aucun dump n'a été téléchargé. Sur SSA, elles ont permis de valider le filtre Personnages/Objets, les refus avant Binder, le chargement réel d'un Magic Item et la protection des backups.
+Après cette campagne, un cas de faux `Portail prêt` a été reproduit : Dolphin avait à la fois le portail Skylanders et la base Disney Infinity activés. L'utilisateur a confirmé que la désactivation de Disney Infinity, suivie d'un redémarrage de l'émulation, supprimait le problème. Le correctif distingue maintenant le réglage du portail de son utilisation USB réelle et signale le conflit. **Le parsing et les décisions du compagnon sont couverts par des tests JVM ; le chemin natif `SkylanderUSB` → JNI → service a été compilé et les patchs ont été vérifiés, mais ce chemin complet n'a pas encore été revalidé sur la Thor, indisponible au moment du correctif.** Les résultats matériels historiques ci-dessus restent valides et ne constituent pas cette revalidation.
+
+Les contrôles automatisés comprennent 62 tests unitaires, Android Lint et la compilation Debug. Ils couvrent notamment le parsing des nouveaux indicateurs USB, les décisions de disponibilité, les anciens payloads API 3 et le conflit Disney Infinity. Dix fixtures contrôlées ont été créées localement avec le Skylanders Manager officiel de Dolphin, dans un dossier séparé de la collection utilisateur ; aucun dump n'a été téléchargé. Sur SSA, elles ont permis de valider le filtre Personnages/Objets, les refus avant Binder, le chargement réel d'un Magic Item et la protection des backups.
 
 Documentation de validation :
 

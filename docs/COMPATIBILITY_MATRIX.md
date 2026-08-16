@@ -46,17 +46,31 @@ Le modèle central `SkylandersGame` regroupe les noms, générations, IDs régio
 |---|---|---|
 | Filtre automatique | uniquement les types pertinents pour le jeu détecté | compatibilité obligatoire |
 | Toute la collection | y compris les contenus normalement masqués | compatibilité toujours obligatoire ; consultation permise, chargement refusé si nécessaire |
-| API 1/2 | collection disponible sans faits Smart complets | contrôles locaux disponibles, fonctions dépendant du jeu et backup sécurisé désactivés ; ne pas utiliser le Manager simultanément |
-| API 3 | catalogue natif, jeu, portail et slots disponibles | double contrôle compagnon + Dolphin |
+| API 1/2 | collection disponible sans faits Smart complets | contrôles locaux disponibles, fonctions dépendant du jeu et backup sécurisé désactivés ; chemin de chargement dégradé conservé, sans preuve USB ni état `Portail prêt` vérifié ; ne pas utiliser le Manager simultanément |
+| Ancien JSON API 3 | catalogue, jeu, réglage du portail et slots disponibles, mais aucune preuve USB | `Portail non vérifié` ; chargement Smart bloqué jusqu'à mise à jour de la paire |
+| API 3 avec preuve USB | catalogue natif, jeu, portail, présence, attachement, handshake et conflits disponibles | chargement autorisé seulement après preuve USB cohérente et en l'absence de base concurrente |
 
 Sur la Thor, le filtre automatique SSA a montré Terrabite côté Personnages et Anvil Rain/Dragon's Peak côté Objets. `Toute la collection` a rendu les générations futures visibles, mais Snap Shot, Magic Log Holder et l'identité inconnue ont conservé leur protection et ont été refusés avant Binder avec un message français.
 
 ## API Dolphin
 
-| Version | Couverture automatisée | Couverture matérielle | Limites |
+| Version / schéma | Couverture automatisée | Couverture matérielle | Limites |
 |---|---|---|---|
 | API 1 | oui | non pendant cette campagne | pas de jeu/portail/catalogue Smart |
 | API 2 | oui | non pendant cette campagne | pas de jeu/portail/catalogue Smart complet |
-| API 3 | oui | oui, Dolphin Debug + SSA | mode Smart Portal complet |
+| API 3 historique | oui | oui, Dolphin Debug + SSA pour Binder, jeu, slots et chargements | `portalActivated` historique ne prouvait pas l'énumération USB et pouvait produire un faux `Portail prêt` |
+| API 3 avec indicateurs USB | oui | **non, revalidation Thor en attente** | mode Smart complet après `portalUsbPresent`, `portalUsbAttached` et `portalUsbHandshakeSeen` ; conflit `DISNEY_INFINITY_BASE` bloquant |
 
 La matrice doit être mise à jour seulement avec des preuves reproductibles. En particulier, créer une fixture Trap Team ou SuperChargers dans le Manager n'autorise pas à déclarer le jeu correspondant « testé sur matériel ».
+
+## Conflit entre bases USB
+
+| Configuration | Résultat attendu | Niveau de preuve actuel |
+|---|---|---|
+| Portail Skylanders seul, handshake reçu | `Portail prêt`, chargement API 3 autorisé | parsing/décision automatisés ; signal natif compilé ; bout en bout Thor en attente |
+| Portail configuré mais jamais attaché au jeu | `Redémarrage requis`, aucun chargement Binder | parsing/décision automatisés ; bout en bout Thor en attente |
+| Portail attaché sans commande Skylanders | `Portail en initialisation`, aucun chargement Binder | parsing/décision automatisés ; bout en bout Thor en attente |
+| Portail Skylanders + base Disney Infinity | conflit explicite, aucune auto-activation, aucun chargement Binder, redémarrage demandé | cause confirmée par l'utilisateur ; parsing/décision automatisés ; correctif complet Thor en attente |
+| Ancien JSON API 3 sans indicateurs USB | `Portail non vérifié`, aucune valeur inventée | automatisé |
+
+La confirmation utilisateur établit la cause du dysfonctionnement observé, mais ne remplace pas un parcours ADB du nouveau binaire. Aucune ligne de cette section ne présente donc le correctif comme revalidé matériellement.

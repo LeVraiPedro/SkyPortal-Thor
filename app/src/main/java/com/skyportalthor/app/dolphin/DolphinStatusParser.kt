@@ -24,6 +24,12 @@ internal data class DolphinStatusSnapshot(
     val gameTitle: String?,
     val portalEnabled: Boolean?,
     val portalActivated: Boolean?,
+    val portalProtocolActivated: Boolean?,
+    val portalUsbPresent: Boolean?,
+    val portalUsbAttached: Boolean?,
+    val portalUsbHandshakeSeen: Boolean?,
+    val conflictingUsbDevices: List<String>,
+    val portalUsbStatusValid: Boolean,
     val canSetPortalEnabled: Boolean,
     val issues: List<String>
 )
@@ -104,6 +110,44 @@ internal object DolphinStatusParser {
             }
         }
 
+        val conflictingDevicesJson = root.optJSONArray("conflictingUsbDevices")
+        var conflictingDevicesValid = conflictingDevicesJson != null
+        val conflictingUsbDevices = buildList {
+            val devices = conflictingDevicesJson
+            if (root.has("conflictingUsbDevices") && !root.isNull("conflictingUsbDevices") && devices == null) {
+                issues += "liste des périphériques USB concurrents invalide"
+            }
+            for (index in 0 until (devices?.length() ?: 0)) {
+                val rawCode = devices?.opt(index)
+                val code = (rawCode as? String).orEmpty().trim().uppercase()
+                if (code.isBlank()) {
+                    conflictingDevicesValid = false
+                    issues += "périphérique USB concurrent sans identifiant"
+                } else if (code !in this) {
+                    add(code)
+                }
+            }
+        }
+        val portalUsbPresent = root.optBooleanOrNull("portalUsbPresent")
+        val portalUsbAttached = root.optBooleanOrNull("portalUsbAttached")
+        val portalUsbHandshakeSeen = root.optBooleanOrNull("portalUsbHandshakeSeen")
+        val usbBooleanNames = listOf("portalUsbPresent", "portalUsbAttached", "portalUsbHandshakeSeen")
+        val usbBooleansStrict = usbBooleanNames.all { root.opt(it) is Boolean }
+        val usbEvidence = listOf(portalUsbPresent, portalUsbAttached, portalUsbHandshakeSeen)
+        if (usbEvidence.any { it != null } && usbEvidence.any { it == null }) {
+            issues += "état USB du portail incomplet"
+        }
+        if (portalUsbHandshakeSeen == true && portalUsbAttached != true) {
+            issues += "handshake USB signalé sans portail attaché"
+        }
+        if (portalUsbAttached == true && portalUsbPresent != true) {
+            issues += "portail USB attaché mais absent du scanner"
+        }
+        val portalUsbStatusValid = usbBooleansStrict && conflictingDevicesValid
+        if (usbEvidence.all { it != null } && !portalUsbStatusValid) {
+            issues += "schéma d’état USB du portail invalide"
+        }
+
         return DolphinStatusSnapshot(
             apiVersion = apiVersion,
             serviceState = serviceState,
@@ -116,6 +160,12 @@ internal object DolphinStatusParser {
             gameTitle = root.optString("gameTitle").takeIf(String::isNotBlank),
             portalEnabled = root.optBooleanOrNull("portalEnabled"),
             portalActivated = root.optBooleanOrNull("portalActivated"),
+            portalProtocolActivated = root.optBooleanOrNull("portalProtocolActivated"),
+            portalUsbPresent = portalUsbPresent,
+            portalUsbAttached = portalUsbAttached,
+            portalUsbHandshakeSeen = portalUsbHandshakeSeen,
+            conflictingUsbDevices = conflictingUsbDevices,
+            portalUsbStatusValid = portalUsbStatusValid,
             canSetPortalEnabled = root.optBoolean("canSetPortalEnabled", false) && apiVersion >= 3,
             issues = issues
         )

@@ -24,6 +24,13 @@ internal object PortalStateReducer {
         skylandersGame = null,
         portalEnabled = null,
         portalActivated = null,
+        portalProtocolActivated = null,
+        portalUsbPresent = null,
+        portalUsbAttached = null,
+        portalUsbHandshakeSeen = null,
+        conflictingUsbDevices = emptyList(),
+        portalUsbStatusValid = false,
+        portalRestartRequired = false,
         canSetPortalEnabled = false,
         nativeSlots = emptyList(),
         figureCatalog = emptyMap()
