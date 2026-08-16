@@ -34,6 +34,7 @@ import com.skyportalthor.app.portal.PortalProtocol
 import com.skyportalthor.app.portal.PortalReadinessPolicy
 import com.skyportalthor.app.storage.BackupRepository
 import com.skyportalthor.app.storage.CollectionPreferences
+import com.skyportalthor.app.storage.CollectionMigrationResult
 import com.skyportalthor.app.storage.SkylanderCollectionRepository
 import com.skyportalthor.app.ui.PortalScreen
 import com.skyportalthor.app.ui.PortalColorScheme
@@ -46,6 +47,7 @@ import kotlinx.coroutines.launch
 class PortalActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val migrationResult = CollectionPreferences(applicationContext).importExternalMigration()
 
         setContent {
             val scope = rememberCoroutineScope()
@@ -60,7 +62,21 @@ class PortalActivity : ComponentActivity() {
             var figures by remember { mutableStateOf<List<Skylander>>(emptyList()) }
             var scanning by remember { mutableStateOf(false) }
             var scanGeneration by remember { mutableIntStateOf(0) }
-            var uiMessage by remember { mutableStateOf<UiNotice?>(null) }
+            var uiMessage by remember {
+                mutableStateOf(
+                    when (val result = migrationResult) {
+                        CollectionMigrationResult.NotFound -> null
+                        CollectionMigrationResult.Imported -> UiNotice(
+                            "Préférences restaurées. Sélectionne de nouveau le dossier .sky si Android le demande.",
+                            NoticeKind.SUCCESS
+                        )
+                        is CollectionMigrationResult.Failed -> UiNotice(
+                            "Restauration des préférences impossible : ${result.reason}",
+                            NoticeKind.ERROR
+                        )
+                    }
+                )
+            }
             var playerTwoEnabled by remember { mutableStateOf(prefs.isPlayerTwoEnabled()) }
             var favoriteUris by remember { mutableStateOf(prefs.getFavoriteUris()) }
             var recentUris by remember { mutableStateOf(prefs.getRecentUris()) }

@@ -221,6 +221,7 @@ jobs:
             --exclude='keystore.properties' --exclude='.env' --exclude='.env.*' \
             --exclude='*.apk' --exclude='*.aab' --exclude='*.jks' \
             --exclude='*.keystore' --exclude='*.p12' --exclude='*.pfx' \
+            --exclude='*.pem' --exclude='*.key' \
             -C "${dolphin}" -cf - . |
             tar -C "${full_root}" -xf -
 
@@ -287,7 +288,7 @@ jobs:
             "${RUNNER_TEMP}/dolphin-source-entries.txt"
           grep -Fx 'Dolphin_SkyPortal_API3_Source/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt' \
             "${RUNNER_TEMP}/dolphin-source-entries.txt"
-          if grep -E '(^|/)\.git(/|$)|^Dolphin_SkyPortal_API3_Source/Source/Android/(app/)?build/|^Dolphin_SkyPortal_API3_Source/Source/Android/app/\.cxx/|^Dolphin_SkyPortal_API3_Source/Source/Android/\.(gradle|kotlin)/|(^|/)(local|secrets|keystore)\.properties$|(^|/)\.env(\..*)?$|\.(apk|aab|jks|keystore|p12|pfx)$' \
+          if grep -E '(^|/)\.git(/|$)|^Dolphin_SkyPortal_API3_Source/Source/Android/(app/)?build/|^Dolphin_SkyPortal_API3_Source/Source/Android/app/\.cxx/|^Dolphin_SkyPortal_API3_Source/Source/Android/\.(gradle|kotlin)/|(^|/)(local|secrets|keystore)\.properties$|(^|/)\.env(\..*)?$|\.(apk|aab|jks|keystore|p12|pfx|pem|key)$' \
               "${RUNNER_TEMP}/dolphin-source-entries.txt"; then
             echo 'Forbidden generated, secret or user content found in Dolphin source ZIP.' >&2
             exit 1

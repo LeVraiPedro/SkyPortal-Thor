@@ -116,7 +116,7 @@ Giants, Swap Force, Trap Team, SuperChargers et Imaginators n'étaient pas dispo
 
 ## Contrôles automatisés
 
-- [x] 70 tests unitaires Debug.
+- [x] 74 tests unitaires Debug, dont le format de migration des préférences.
 - [x] Détection des six jeux et de leurs IDs régionaux connus.
 - [x] Compatibilité par génération et par type.
 - [x] Distinction personnage/objet et sous-types natifs.
