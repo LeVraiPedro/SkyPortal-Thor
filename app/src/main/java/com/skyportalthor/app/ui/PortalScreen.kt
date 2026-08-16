@@ -58,6 +58,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.skyportalthor.app.data.FigureKind
 import com.skyportalthor.app.data.QuickTeam
 import com.skyportalthor.app.data.Skylander
+import com.skyportalthor.app.data.SmartPortalReadiness
 import com.skyportalthor.app.diagnostics.DiagnosticItem
 import com.skyportalthor.app.diagnostics.DiagnosticLevel
 import com.skyportalthor.app.dolphin.DolphinTargets
@@ -84,6 +85,7 @@ internal fun PortalScreen(
     onReconnect: () -> Unit,
     onSelectDolphinPackage: (String) -> Unit,
     onLaunchDolphin: () -> Unit,
+    onSetPortalEnabled: (Boolean) -> Unit,
     onLoad: suspend (Int, Skylander) -> PortalResult,
     onToggleFavorite: (Skylander) -> Unit,
     onSaveCurrentTeam: (String) -> PortalResult,
@@ -129,7 +131,8 @@ internal fun PortalScreen(
                     onReconnect = onReconnect,
                     onChooseTarget = { showDolphinTargets = true },
                     onChoosePlayerMode = { showPlayerMode = true },
-                    onLaunchDolphin = onLaunchDolphin
+                    onLaunchDolphin = onLaunchDolphin,
+                    onSetPortalEnabled = onSetPortalEnabled
                 )
 
                 when {
@@ -189,6 +192,7 @@ internal fun PortalScreen(
             recentUris = recentUris,
             portalConnected = portalState.connected,
             portalMessage = portalState.message,
+            detectedGame = portalState.skylandersGame,
             loadState = loadState,
             onLoadStateChange = { loadState = it },
             onDismiss = { pickerSlot = null },
@@ -276,7 +280,8 @@ private fun Header(
     onReconnect: () -> Unit,
     onChooseTarget: () -> Unit,
     onChoosePlayerMode: () -> Unit,
-    onLaunchDolphin: () -> Unit
+    onLaunchDolphin: () -> Unit,
+    onSetPortalEnabled: (Boolean) -> Unit
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel), shape = RoundedCornerShape(18.dp)) {
         Row(
@@ -286,7 +291,7 @@ private fun Header(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    if (portalState.connected) "SKYPORTAL THOR V4" else "SKYPORTAL V4",
+                    if (portalState.connected) "SKYPORTAL THOR V5" else "SKYPORTAL V5",
                     color = Color.White,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
@@ -294,8 +299,8 @@ private fun Header(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    if (portalState.connected) "● ${portalState.message}" else "● ${portalState.message}",
-                    color = if (portalState.connected) PortalPalette.Success else PortalPalette.Warning,
+                    smartStatusLine(portalState),
+                    color = if (portalState.readiness == SmartPortalReadiness.READY) PortalPalette.Success else PortalPalette.Warning,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -319,10 +324,25 @@ private fun Header(
                 if (!portalState.connected) {
                     OutlinedButton(onClick = onReconnect) { Text("Reconnecter") }
                 }
+                if (portalState.readiness == SmartPortalReadiness.PORTAL_DISABLED && portalState.canSetPortalEnabled) {
+                    Button(onClick = { onSetPortalEnabled(true) }) { Text("Activer le portail") }
+                }
                 Button(onClick = onLaunchDolphin) { Text("Dolphin en haut") }
             }
         }
     }
+}
+
+private fun smartStatusLine(state: PortalState): String {
+    if (!state.connected) return "● ${state.message}"
+    val game = state.skylandersGame?.displayName ?: state.gameTitle?.takeIf { it.isNotBlank() } ?: "Aucun jeu"
+    val portal = when (state.readiness) {
+        SmartPortalReadiness.ENABLING_PORTAL -> "Activation…"
+        SmartPortalReadiness.PORTAL_DISABLED -> "Portail désactivé"
+        SmartPortalReadiness.READY -> "Portail prêt"
+        else -> when (state.portalEnabled) { true -> "Portail activé"; false -> "Portail désactivé"; null -> "Portail inconnu" }
+    }
+    return "● Connecté | $game | $portal"
 }
 
 @Composable

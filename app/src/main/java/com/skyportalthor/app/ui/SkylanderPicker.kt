@@ -62,7 +62,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.skyportalthor.app.data.FigureKind
+import com.skyportalthor.app.data.FigureCompatibilityEngine
 import com.skyportalthor.app.data.Skylander
+import com.skyportalthor.app.data.SkylandersGame
 import com.skyportalthor.app.portal.PortalResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -76,6 +78,7 @@ internal fun SkylanderPickerDialog(
     recentUris: List<String>,
     portalConnected: Boolean,
     portalMessage: String,
+    detectedGame: SkylandersGame?,
     loadState: LoadUiState,
     onLoadStateChange: (LoadUiState) -> Unit,
     onDismiss: () -> Unit,
@@ -89,26 +92,43 @@ internal fun SkylanderPickerDialog(
     var query by remember(logicalSlot) { mutableStateOf("") }
     var generation by remember(logicalSlot) { mutableStateOf("Tous") }
     var element by remember(logicalSlot) { mutableStateOf("Tous") }
+    var typeFilter by remember(logicalSlot) { mutableStateOf("Tous") }
     var collectionView by remember(logicalSlot) { mutableStateOf(CollectionView.ALL) }
     var searchExpanded by remember(logicalSlot) { mutableStateOf(false) }
     var detailsExpanded by remember(logicalSlot) { mutableStateOf(false) }
     var launchInFlight by remember(logicalSlot) { mutableStateOf(false) }
+    var category by remember(logicalSlot) { mutableStateOf(FigureCategory.CHARACTERS) }
+    var smartFilterEnabled by remember(logicalSlot, detectedGame) { mutableStateOf(detectedGame != null) }
 
-    val characters = remember(figures) { figures.filter { it.kind == FigureKind.CHARACTER } }
-    val generations = remember(characters) {
-        listOf("Tous") + characters.map { it.generation }.distinct().sortedBy(::generationOrder)
+    val available = remember(figures, category, detectedGame, smartFilterEnabled) {
+        figures.filter { figure ->
+            val categoryMatches = if (category == FigureCategory.CHARACTERS) {
+                figure.kind == FigureKind.CHARACTER
+            } else {
+                figure.kind != FigureKind.CHARACTER
+            }
+            categoryMatches && (!smartFilterEnabled || FigureCompatibilityEngine.check(figure, detectedGame).compatible)
+        }
     }
-    val elements = remember(characters) {
+    val generations = remember(available) {
+        listOf("Tous") + available.map { it.generation }.distinct().sortedBy(::generationOrder)
+    }
+    val elements = remember(available) {
         val preferred = listOf("Magic", "Water", "Tech", "Fire", "Earth", "Life", "Undead", "Air", "Light", "Dark", "Kaos")
-        listOf("Tous") + characters.map { it.element }.distinct().sortedBy {
+        listOf("Tous") + available.map { it.element }.distinct().sortedBy {
             preferred.indexOf(it).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE
         }
     }
+    val types = remember(available) {
+        listOf("Tous") + available.map { it.typeLabel }.distinct().sorted()
+    }
+    val activeType = typeFilter.takeIf { it in types } ?: "Tous"
     val filtered = remember(
-        characters,
+        available,
         query,
         generation,
         element,
+        activeType,
         searchExpanded,
         collectionView,
         favoriteUris,
@@ -116,12 +136,12 @@ internal fun SkylanderPickerDialog(
     ) {
         val recentOrder = recentUris.withIndex().associate { it.value to it.index }
         val visible = if (searchExpanded) {
-            characters
+            available
         } else {
             when (collectionView) {
-                CollectionView.ALL -> characters
-                CollectionView.FAVORITES -> characters.filter { it.documentUri.toString() in favoriteUris }
-                CollectionView.RECENTS -> characters.filter { it.documentUri.toString() in recentOrder }
+                CollectionView.ALL -> available
+                CollectionView.FAVORITES -> available.filter { it.documentUri.toString() in favoriteUris }
+                CollectionView.RECENTS -> available.filter { it.documentUri.toString() in recentOrder }
             }
         }
         visible.filter { figure ->
@@ -129,7 +149,8 @@ internal fun SkylanderPickerDialog(
                 query.isBlank() || figure.name.contains(query, true) || figure.fileName.contains(query, true)
             } else {
                 (generation == "Tous" || figure.generation == generation) &&
-                    (element == "Tous" || figure.element == element)
+                    (element == "Tous" || figure.element == element) &&
+                    (activeType == "Tous" || figure.typeLabel == activeType)
             }
         }.let { result ->
             if (!searchExpanded && collectionView == CollectionView.RECENTS) {
@@ -205,7 +226,7 @@ internal fun SkylanderPickerDialog(
                             fontWeight = FontWeight.Black
                         )
                         Text(
-                            "${filtered.size} personnage(s) • toucher pour placer immédiatement",
+                            "${filtered.size} résultat(s) • toucher pour placer immédiatement",
                             color = PortalPalette.Muted,
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -228,12 +249,36 @@ internal fun SkylanderPickerDialog(
                 if (currentState !is LoadUiState.Error) {
                     if (!searchExpanded) {
                         PickerFilterRow(
+                            "Contenu",
+                            FigureCategory.entries.map { it.label },
+                            category.label,
+                            !busy
+                        ) { label ->
+                            category = FigureCategory.entries.first { it.label == label }
+                            typeFilter = "Tous"
+                        }
+                        if (detectedGame != null) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                FilterChip(
+                                    selected = smartFilterEnabled,
+                                    onClick = { smartFilterEnabled = !smartFilterEnabled },
+                                    enabled = !busy,
+                                    label = {
+                                        Text(if (smartFilterEnabled) "Compatible ${detectedGame.displayName}" else "Toute la collection")
+                                    }
+                                )
+                            }
+                        }
+                        PickerFilterRow(
                             "Vue",
                             CollectionView.entries.map { it.label },
                             collectionView.label,
                             !busy
                         ) { label -> collectionView = CollectionView.entries.first { it.label == label } }
                         PickerFilterRow("Élément", elements, element, !busy) { element = it }
+                        if (types.size > 2) {
+                            PickerFilterRow("Type", types, activeType, !busy) { typeFilter = it }
+                        }
                         PickerFilterRow("Jeu", generations, generation, !busy) { generation = it }
                     } else {
                         OutlinedTextField(
@@ -278,7 +323,7 @@ internal fun SkylanderPickerDialog(
 
                 if (currentState is LoadUiState.Error) {
                     Unit
-                } else if (characters.isEmpty()) {
+                } else if (figures.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Aucun Skylander jouable détecté", color = Color.White, fontWeight = FontWeight.Bold)
@@ -578,4 +623,9 @@ private enum class CollectionView(val label: String) {
     ALL("Tous"),
     FAVORITES("★ Favoris"),
     RECENTS("Récents")
+}
+
+private enum class FigureCategory(val label: String) {
+    CHARACTERS("Personnages"),
+    OBJECTS("Objets")
 }

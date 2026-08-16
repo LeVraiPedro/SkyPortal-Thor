@@ -9,6 +9,9 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import com.skyportalthor.ipc.ISkylanderPortalService
+import org.dolphinemu.dolphinemu.NativeLibrary
+import org.dolphinemu.dolphinemu.features.settings.model.BooleanSetting
+import org.dolphinemu.dolphinemu.features.settings.model.NativeConfig
 import org.dolphinemu.dolphinemu.features.skylanders.SkylanderConfig
 import org.json.JSONArray
 import org.json.JSONObject
@@ -118,9 +121,69 @@ class SkyPortalService : Service() {
             }
         }
 
-        override fun getStatusJson(): String = synchronized(lock) {
+        override fun setPortalEnabled(enabled: Boolean): Int = onMainThread {
+            runCatching {
+                // Persist the global choice, and also update the current emulation layer so the
+                // USB scanner observes the change immediately even with per-game settings active.
+                BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.setBoolean(
+                    NativeConfig.LAYER_BASE,
+                    enabled
+                )
+                NativeConfig.save(NativeConfig.LAYER_BASE)
+                if (SkylanderConfig.getEmulationState() != EMULATION_UNINITIALIZED) {
+                    BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.setBoolean(
+                        NativeConfig.LAYER_CURRENT,
+                        enabled
+                    )
+                }
+                if (!enabled) SkylanderConfig.getPortalSnapshot()
+                PORTAL_TOGGLE_OK
+            }.getOrElse { error ->
+                Log.e(TAG, "Failed to change emulated Skylanders portal setting", error)
+                ERROR_PORTAL_TOGGLE
+            }
+        }
+
+        override fun getFigureCatalogJson(): String = onMainThread {
+            val entries = JSONArray()
+            SkylanderConfig.getSkylanderCatalog().forEach { packed ->
+                val parts = packed.split('|', limit = 6)
+                if (parts.size == 6) {
+                    entries.put(
+                        JSONObject()
+                            .put("id", parts[0].toIntOrNull() ?: -1)
+                            .put("variant", parts[1].toIntOrNull() ?: -1)
+                            .put("name", parts[2])
+                            .put("game", parts[3].toIntOrNull() ?: -1)
+                            .put("element", parts[4].toIntOrNull() ?: -1)
+                            .put("type", parts[5].toIntOrNull() ?: -1)
+                    )
+                }
+            }
+            JSONObject().put("version", 1).put("figures", entries).toString()
+        }
+
+        override fun getStatusJson(): String = onMainThread { synchronized(lock) {
+            val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
+            val nativeSlots = JSONArray()
+            for (offset in nativeSnapshot.indices step 4) {
+                val slot = nativeSnapshot[offset]
+                val status = nativeSnapshot[offset + 1]
+                nativeSlots.put(
+                    JSONObject()
+                        .put("slot", slot)
+                        .put("occupied", status != 0)
+                        .put("status", status)
+                        .put("id", nativeSnapshot[offset + 2])
+                        .put("variant", nativeSnapshot[offset + 3])
+                )
+            }
             val slots = JSONArray()
             for (logical in 0 until LOGICAL_SLOT_COUNT) {
+                val actual = logicalToActual[logical]
+                val nativeOccupied = actual in 0 until MAX_PORTAL_SLOTS &&
+                    nativeSnapshot.getOrElse(actual * 4 + 1) { 0 } != 0
+                if (actual >= 0 && !nativeOccupied) clearLogicalSlot(logical)
                 slots.put(
                     JSONObject()
                         .put("logicalSlot", logical)
@@ -129,11 +192,20 @@ class SkyPortalService : Service() {
                         .put("uri", uris[logical] ?: "")
                 )
             }
+            val emulationState = SkylanderConfig.getEmulationState()
+            val metadataValid = NativeLibrary.IsGameMetadataValid()
             JSONObject()
                 .put("apiVersion", API_VERSION)
                 .put("slots", slots)
+                .put("nativeSlots", nativeSlots)
+                .put("emulationState", emulationStateName(emulationState))
+                .put("gameId", if (metadataValid) NativeLibrary.GetCurrentGameID() else "")
+                .put("gameTitle", if (metadataValid) NativeLibrary.GetCurrentTitleDescription() else "")
+                .put("portalEnabled", BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean)
+                .put("portalActivated", SkylanderConfig.isPortalActivated())
+                .put("canSetPortalEnabled", true)
                 .toString()
-        }
+        } }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -142,6 +214,15 @@ class SkyPortalService : Service() {
         logicalToActual[logical] = -1
         labels[logical] = null
         uris[logical] = null
+    }
+
+    private fun emulationStateName(state: Int): String = when (state) {
+        0 -> "NONE"
+        1 -> "PAUSED"
+        2 -> "RUNNING"
+        3 -> "STOPPING"
+        4 -> "STARTING"
+        else -> "UNKNOWN"
     }
 
     private fun <T> onMainThread(block: () -> T): T {
@@ -183,13 +264,16 @@ class SkyPortalService : Service() {
 
     companion object {
         private const val TAG = "SkyPortalService"
-        const val API_VERSION = 2
+        const val API_VERSION = 3
         const val LOGICAL_SLOT_COUNT = 8
         const val ERROR_OPEN_FAILED = -2
         const val ERROR_BAD_SLOT = -3
         const val ERROR_URI_ACCESS = -4
         const val ERROR_SKY_DATA = -5
         const val ERROR_PORTAL_FULL = -6
+        const val ERROR_PORTAL_TOGGLE = -7
+        const val PORTAL_TOGGLE_OK = 0
+        const val EMULATION_UNINITIALIZED = 0
         const val MAX_PORTAL_SLOTS = 16
         const val NATIVE_NO_SLOT = 255
         const val MAIN_THREAD_TIMEOUT_SECONDS = 5L

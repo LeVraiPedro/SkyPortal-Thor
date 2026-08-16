@@ -1,4 +1,4 @@
-# SkyPortal Thor V4
+# SkyPortal Thor V5 — Smart Portal
 
 Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor.
 
@@ -6,14 +6,26 @@ Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (
 
 Le compagnon démarre en mode solo : seule la carte Joueur 1 est affichée. Le bouton `1J` de l'en-tête ouvre le réglage permettant d'activer Joueur 2 ; ce choix est conservé entre les lancements.
 
-## Nouveautés V4
+## Nouveautés V5
+
+- Détection locale de l'état d'émulation, du Game ID et du titre actuellement exécuté par Dolphin.
+- Reconnaissance centralisée de Spyro's Adventure, Giants, Swap Force, Trap Team, SuperChargers et Imaginators.
+- Lecture de l'état officiel `EmulateSkylanderPortal` et activation à chaud depuis le compagnon via l'API 3.
+- État compact `Dolphin | jeu | portail` dans l'en-tête, avec délais maximaux et reconnexion automatique.
+- Catalogue de figurines fourni par la table native de Dolphin : ID, variant, génération, élément et type.
+- Identification read-only des dumps aux offsets ID/variant ; le nom des dossiers n'est plus la source principale quand l'API 3 est disponible.
+- Sélecteur `Personnages | Objets`, filtre automatique adapté au jeu, et option temporaire `Toute la collection`.
+- Moteur de compatibilité central : un dump incompatible est expliqué et n'est jamais envoyé à Dolphin.
+- Instantané des 16 slots natifs et diagnostic Smart Portal enrichi.
+
+## Fonctionnalités V4 conservées
 
 - Favoris persistants directement sur les cartes des Skylanders.
 - Vue Récents ordonnée selon les derniers chargements réussis.
 - Équipes rapides solo ou duo enregistrées depuis les slots actifs.
 - Chargement d'une équipe en une action avec activation automatique du mode 2J si nécessaire.
 - Assistant de diagnostic pour l'écran inférieur, SAF, la collection, Dolphin, les signatures APK, Binder et la version de l'API.
-- Distinction explicite entre les contrôles automatiques et l'activation du Portal of Power qui doit encore être confirmée dans Dolphin.
+- Diagnostic lisible de la connexion Binder, du jeu actif, de l'API et du Portal of Power, avec activation directe en API 3.
 
 La V3 remplace la collection permanente de la V2 par un portail tactile :
 
@@ -47,7 +59,7 @@ Consulter [CHANGELOG.md](CHANGELOG.md) pour la liste détaillée.
 AYN Thor
 ├─ écran supérieur : Dolphin SkyPortal Edition
 │  └─ SkylanderConfig → Portal of Power émulé
-└─ écran inférieur : SkyPortal Thor V4
+└─ écran inférieur : SkyPortal Thor V5
    ├─ sélection tactile J1 / J2 / slots 3 à 8
    ├─ dossier persistant via Storage Access Framework
    └─ Binder/AIDL → SkyPortalService dans Dolphin
@@ -57,17 +69,19 @@ SkyPortal ne modifie jamais directement un personnage monté. Dolphin reste le s
 
 ## Compatibilité Dolphin
 
-L'interface AIDL reste identique à celle de la V2. La V3 fonctionne donc avec le Dolphin déjà patché en API 1.
+Les six premières méthodes AIDL restent dans le même ordre : la V5 garde son mode dégradé avec les services API 1 et API 2.
 
-Le dossier `dolphin-patch/` contient une révision API 2 facultative qui ajoute :
+Le dossier `dolphin-patch/` contient l'API 3 Smart Portal qui ajoute :
 
-- des codes distincts pour accès URI, dump invalide et portail plein ;
-- des journaux Logcat sans URI complète ;
-- un mapping des slots conservé lors de la recréation du service dans le même processus Dolphin.
+- état précis de l'émulation, Game ID et titre ;
+- lecture/activation/désactivation du réglage officiel Portal of Power ;
+- instantané réel des slots natifs ;
+- catalogue des figurines directement issu de `list_skylanders` ;
+- les diagnostics et protections API 2 (URI, dump invalide, portail plein et mapping persistant).
 
-Reconstruire Dolphin n'est pas obligatoire pour utiliser la nouvelle interface. Cela améliore seulement le diagnostic et la robustesse du service.
+Reconstruire Dolphin n'est pas obligatoire pour les fonctions V4, mais l'API 3 est nécessaire pour le mode Smart Portal complet.
 
-> **Recommandation :** l'API 1 reste utilisable pendant une session, mais son ancien service peut oublier la correspondance des slots si SkyPortal est fermé ou recréé alors qu'un personnage est encore monté. Pour les sessions longues et les backups après relance, utiliser le service API 2 fourni. Avec l'API 1, retirer les personnages avant de fermer SkyPortal ; si un slot disparaît après une relance, redémarrer Dolphin avant de recharger un dump.
+> **Recommandation :** utiliser l'API 3 fournie. API 1/2 restent acceptées, mais n'exposent pas le jeu ni l'état du portail et désactivent donc automatiquement les fonctions Smart dépendantes.
 
 Les deux APK doivent être signés avec la même clé, car la permission `com.skyportalthor.permission.PORTAL_CONTROL` est de niveau `signature`.
 
@@ -95,8 +109,8 @@ app/build/outputs/apk/debug/app-debug.apk
 
 ## Premier démarrage
 
-1. Installer le Dolphin modifié et SkyPortal Thor V3.
-2. Activer `Emulated USB Devices > Skylanders Portal` dans Dolphin.
+1. Installer le Dolphin API 3 modifié et SkyPortal Thor V5.
+2. Lancer un jeu Skylanders dans Dolphin. SkyPortal peut activer automatiquement le portail si nécessaire.
 3. Lancer le jeu sur l'écran supérieur.
 4. Ouvrir SkyPortal sur l'écran inférieur.
 5. Toucher **Dossier** et autoriser le dossier racine contenant les `.sky`.
@@ -106,4 +120,4 @@ Si une erreur survient, la fenêtre reste ouverte. Utiliser **Voir détails** po
 
 ## Validation effectuée
 
-La V3 a été compilée, passée dans les tests unitaires et Android Lint, puis installée sur une AYN Thor Android 13. Le test réel a détecté les 32 dumps existants et validé le flux **Joueur 1 → Magic → Spyro → succès Binder/Dolphin**, ainsi que l'affichage du slot occupé et de ses quatre actions.
+La V5 est validée par tests unitaires, Android Lint, compilation des deux APK et essais ADB sur AYN Thor Android 13. Voir [THOR_TEST_CHECKLIST.md](THOR_TEST_CHECKLIST.md) pour le relevé détaillé.

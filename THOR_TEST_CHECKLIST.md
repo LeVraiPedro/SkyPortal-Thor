@@ -1,4 +1,14 @@
-# Test V4 sur AYN Thor / Android 13
+# Test V5 Smart Portal sur AYN Thor / Android 13
+
+## Smart Portal V5
+
+- [ ] L'en-tête détecte automatiquement Spyro's Adventure et son Game ID.
+- [ ] Portail désactivé : l'en-tête propose `Activer le portail` et l'API 3 l'active sans ouvrir les réglages Dolphin.
+- [ ] L'état devient `Connecté | Spyro’s Adventure | Portail prêt` en moins de 5 secondes.
+- [ ] Le sélecteur propose `Personnages | Objets` et masque Traps, véhicules et cristaux pour Spyro's Adventure.
+- [ ] `Toute la collection` révèle les contenus masqués ; toucher un contenu incompatible affiche la raison sans appel Dolphin.
+- [ ] Le diagnostic affiche jeu, ID, émulation, portail, capacité d'activation, API 3 et slots natifs.
+- [ ] Après arrêt/redémarrage de Dolphin, le compagnon se reconnecte et réconcilie les slots.
 
 ## Fonctions V4
 
@@ -10,12 +20,29 @@
 - [ ] Une équipe duo active le mode 2J puis charge les deux personnages.
 - [ ] Un fichier d'équipe déplacé ou supprimé est signalé comme introuvable.
 - [ ] `Diagnostic` vérifie l'écran 4, SAF, la collection, Dolphin, la signature, Binder et l'API.
-- [ ] Le diagnostic rappelle que l'activation du portail dans le jeu reste une vérification manuelle.
+- [ ] Avec une API 1/2, le diagnostic explique que l'activation automatique exige l'API 3.
+
+## Relevé réel du 16 août 2026
+
+Validé sur AYN Thor Max Android 13, écrans logiques `0` (supérieur) et `4` (`Screen-2`, inférieur) :
+
+- [x] SkyPortal V5 `0.5.0`/code `7` reste sur l'écran inférieur pendant que Dolphin et Spyro's Adventure tournent en haut.
+- [x] Dolphin Debug API 3 détecte `Spyro’s Adventure`, Game ID `SSPP52`, état `RUNNING`.
+- [x] En partant de `EmulateSkylanderPortal = False`, SkyPortal l'active à chaud et le réglage persistant repasse à `True`.
+- [x] L'en-tête devient `Connecté | Spyro’s Adventure | Portail prêt`.
+- [x] Le sélecteur Smart affiche `Personnages | Objets`, la compatibilité automatique et les métadonnées issues du dump/catalogue natif.
+- [x] Chargement réel de Lightning Rod en J1, retrait réel, puis chargement de Sonic Boom en J2.
+- [x] Après recréation de SkyPortal, Sonic Boom est réconcilié dans J2 ; après arrêt complet de Dolphin, les slots natifs disparus sont vidés sans faux succès.
+- [x] Après redémarrage de Dolphin et du jeu, reconnexion automatique, nouvelle détection du Game ID et portail prêt.
+- [x] Le diagnostic affiche API 3, jeu, ID, état d'émulation, état du portail et 16 slots natifs.
+- [x] Aucune exception fatale ni ANR SkyPortal/Dolphin observée dans Logcat pendant ce parcours.
+
+Non reproductible avec la collection présente : blocage tactile d'un dump incompatible (les 32 dumps détectés sont des personnages Spyro's Adventure). Ce cas est couvert par les tests unitaires du moteur de compatibilité.
 
 ## 1. Préparation
 
 - Dolphin SkyPortal Edition et SkyPortal Thor doivent être signés avec la même clé.
-- Dans Dolphin, activer `Emulated USB Devices > Skylanders Portal`.
+- Avec l'API 3, laisser d'abord le portail désactivé afin de tester son activation depuis SkyPortal.
 - Lancer le jeu sur l'écran supérieur et SkyPortal sur l'écran inférieur.
 - Dans SkyPortal, toucher **Dossier** et sélectionner la racine qui contient les fichiers `.sky`.
 
@@ -99,4 +126,4 @@ adb logcat -c
 adb logcat | Select-String "SkyPortalBridge|SkyPortalService|Skylander|SecurityException"
 ```
 
-À relever en cas d'échec : le code affiché par la V3, le package Dolphin ciblé, la version API du service et les lignes Logcat correspondantes.
+À relever en cas d'échec : le code affiché par la V5, le package Dolphin ciblé, la version API, le Game ID, l'état du portail et les lignes Logcat correspondantes.

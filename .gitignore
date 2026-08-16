@@ -11,3 +11,5 @@ captures/
 *.keystore
 /skyportal-*.png
 /skyportal-*.xml
+/artifacts/
+/device-backups/

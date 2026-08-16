@@ -10,11 +10,18 @@ import android.os.DeadObjectException
 import android.os.IBinder
 import android.util.Log
 import com.skyportalthor.app.data.Skylander
+import com.skyportalthor.app.data.DolphinFigureCatalog
+import com.skyportalthor.app.data.EmulationState
+import com.skyportalthor.app.data.FigureCompatibilityEngine
+import com.skyportalthor.app.data.FigureKey
+import com.skyportalthor.app.data.SkylandersGame
+import com.skyportalthor.app.data.SmartPortalReadiness
 import com.skyportalthor.app.portal.PortalBridge
 import com.skyportalthor.app.portal.PortalResult
 import com.skyportalthor.app.portal.PortalProtocol
 import com.skyportalthor.app.portal.PortalSlotState
 import com.skyportalthor.app.portal.PortalState
+import com.skyportalthor.app.portal.NativePortalSlotState
 import com.skyportalthor.ipc.ISkylanderPortalService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,7 +70,8 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 _state.update {
                     it.copy(
                         connected = false,
-                        connectedPackage = null,
+                    connectedPackage = null,
+                    readiness = SmartPortalReadiness.DOLPHIN_ABSENT,
                         message = "Dolphin SkyPortal Edition introuvable"
                     )
                 }
@@ -82,6 +90,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
             _state.update {
                 it.copy(
                     connected = false,
+                    readiness = SmartPortalReadiness.CONNECTING,
                     connectedPackage = target.packageName,
                     message = "Connexion à ${DolphinTargets.label(target.packageName)}…"
                 )
@@ -100,6 +109,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                             _state.update {
                                 it.copy(
                                     connected = ok,
+                                    readiness = if (ok) SmartPortalReadiness.DOLPHIN_DETECTED else SmartPortalReadiness.ERROR,
                                     connectedPackage = target.packageName,
                                     apiVersion = runCatching { service?.apiVersion }.getOrNull(),
                                     message = if (ok) {
@@ -207,6 +217,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
             }
 
             val slotsArray = root.optJSONArray("slots")
+            val apiVersion = root.optInt("apiVersion", _state.value.apiVersion ?: 1)
             val current = _state.value
             val currentFigures = current.slots.associateBy { it.logicalSlot }
             val statusUris = arrayOfNulls<String>(LOGICAL_SLOT_COUNT)
@@ -257,14 +268,47 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     releaseSlotGrant(targetPackage, slot.logicalSlot)
                 }
             }
+            val emulationState = runCatching {
+                EmulationState.valueOf(root.optString("emulationState", "NONE"))
+            }.getOrDefault(EmulationState.UNKNOWN)
+            val gameId = root.optString("gameId").takeIf { it.isNotBlank() }
+            val gameTitle = root.optString("gameTitle").takeIf { it.isNotBlank() }
+            val detectedGame = SkylandersGame.detect(gameId, gameTitle)
+            val portalEnabled = root.optBooleanOrNull("portalEnabled")
+            val canSetPortal = root.optBoolean("canSetPortalEnabled", false) && apiVersion >= 3
+            val nativeArray = root.optJSONArray("nativeSlots")
+            val nativeSlots = (0 until (nativeArray?.length() ?: 0)).mapNotNull { index ->
+                nativeArray?.optJSONObject(index)?.let { item ->
+                    NativePortalSlotState(
+                        slot = item.optInt("slot", -1),
+                        occupied = item.optBoolean("occupied", false),
+                        status = item.optInt("status", 0),
+                        figureId = item.optInt("id", -1).takeIf { it >= 0 },
+                        variantId = item.optInt("variant", -1).takeIf { it >= 0 }
+                    )
+                }
+            }
+            val catalog = if (apiVersion >= 3 && current.figureCatalog.isEmpty()) {
+                loadCatalog(currentService)
+            } else current.figureCatalog
             _state.value = current.copy(
                 connected = true,
                 connectedPackage = targetPackage,
-                apiVersion = root.optInt("apiVersion", current.apiVersion ?: 1),
+                apiVersion = apiVersion,
                 message = invalidActualSlot?.let {
                     "${DolphinTargets.label(targetPackage)} connecté, statut de portail invalide ($it)"
                 } ?: "${DolphinTargets.label(targetPackage)} connecté",
-                slots = newSlots
+                slots = newSlots,
+                emulationState = emulationState,
+                gameId = gameId,
+                gameTitle = gameTitle,
+                skylandersGame = detectedGame,
+                portalEnabled = portalEnabled,
+                portalActivated = root.optBooleanOrNull("portalActivated"),
+                canSetPortalEnabled = canSetPortal,
+                nativeSlots = nativeSlots,
+                figureCatalog = catalog,
+                readiness = readiness(emulationState, detectedGame, portalEnabled)
             )
     }
 
@@ -286,6 +330,28 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     return@withLock notConnectedError()
                 }
 
+                if (_state.value.skylandersGame != null && _state.value.portalEnabled == false) {
+                    return@withLock PortalResult.Error(
+                        message = "Le Portal of Power est désactivé dans Dolphin",
+                        diagnosticCode = "PORTAL_DISABLED",
+                        recoveryHint = if (_state.value.canSetPortalEnabled) {
+                            "Utilise Activer le portail dans l’en-tête puis réessaie."
+                        } else {
+                            "Active Emulated USB Devices > Skylanders Portal dans Dolphin."
+                        }
+                    )
+                }
+
+                FigureCompatibilityEngine.check(skylander, _state.value.skylandersGame).let { compatibility ->
+                    if (!compatibility.compatible) {
+                        return@withLock PortalResult.Error(
+                            message = compatibility.reason ?: "Cette figurine est incompatible avec le jeu actif",
+                            diagnosticCode = "FIGURE_INCOMPATIBLE",
+                            technicalDetails = "Jeu=${_state.value.skylandersGame?.displayName}; type=${skylander.typeLabel}; génération=${skylander.generation}",
+                            recoveryHint = "Choisis une figurine compatible ou lance le jeu correspondant."
+                        )
+                    }
+                }
                 preflightSkylander(skylander)?.let { return@withLock it }
                 val packageName = activeComponent?.packageName ?: return@withLock notConnectedError()
                 val newUri = skylander.documentUri.toString()
@@ -401,6 +467,31 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 )
             }
             PortalResult.Success(message = "Tous les slots ont été retirés")
+        }
+    }
+
+    override suspend fun setPortalEnabled(enabled: Boolean): PortalResult = withContext(Dispatchers.IO) {
+        operationMutex.withLock {
+            val currentService = service ?: return@withLock notConnectedError()
+            if ((_state.value.apiVersion ?: 1) < 3 || !_state.value.canSetPortalEnabled) {
+                return@withLock PortalResult.Error(
+                    "Cette version de Dolphin ne permet pas d’activer le portail depuis SkyPortal",
+                    "PORTAL_TOGGLE_UNSUPPORTED",
+                    recoveryHint = "Installe le patch Dolphin API 3 ou active le portail dans les réglages Dolphin."
+                )
+            }
+            _state.update { it.copy(readiness = SmartPortalReadiness.ENABLING_PORTAL, message = "Activation du portail…") }
+            val code = runCatching { currentService.setPortalEnabled(enabled) }.getOrElse { error ->
+                if (error is DeadObjectException) markDisconnectedIfCurrent(currentService, "Connexion Dolphin perdue")
+                return@withLock binderError(error)
+            }
+            if (!isCurrentService(currentService)) return@withLock serviceReplacedError()
+            if (code != 0) {
+                _state.update { it.copy(readiness = SmartPortalReadiness.ERROR, message = "Activation du portail refusée") }
+                return@withLock PortalResult.Error("Dolphin n’a pas pu modifier l’état du portail", "PORTAL_TOGGLE_$code")
+            }
+            refreshLocked()
+            PortalResult.Success(message = if (enabled) "Portal of Power activé" else "Portal of Power désactivé")
         }
     }
 
@@ -572,9 +663,40 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         append(" • API : ${_state.value.apiVersion ?: "inconnue"}")
     }
 
+    private fun loadCatalog(currentService: ISkylanderPortalService) = runCatching {
+        val array = JSONObject(currentService.figureCatalogJson).getJSONArray("figures")
+        buildMap {
+            for (index in 0 until array.length()) {
+                val item = array.getJSONObject(index)
+                val metadata = DolphinFigureCatalog.decode(
+                    id = item.getInt("id"),
+                    variant = item.getInt("variant"),
+                    name = item.getString("name"),
+                    game = item.getInt("game"),
+                    element = item.getInt("element"),
+                    type = item.getInt("type")
+                )
+                put(metadata.key, metadata)
+            }
+        }
+    }.onFailure { logFailure("figure-catalog", it) }.getOrDefault(emptyMap())
+
+    private fun readiness(
+        emulation: EmulationState,
+        game: SkylandersGame?,
+        portalEnabled: Boolean?
+    ): SmartPortalReadiness = when {
+        emulation == EmulationState.NONE || emulation == EmulationState.STOPPING -> SmartPortalReadiness.NO_GAME
+        emulation == EmulationState.STARTING -> SmartPortalReadiness.GAME_DETECTED
+        game == null -> SmartPortalReadiness.GAME_DETECTED
+        portalEnabled == false -> SmartPortalReadiness.PORTAL_DISABLED
+        portalEnabled == true -> SmartPortalReadiness.READY
+        else -> SmartPortalReadiness.GAME_DETECTED
+    }
+
     private fun markDisconnected(message: String) {
         service = null
-        _state.update { it.copy(connected = false, message = message) }
+        _state.update { it.copy(connected = false, readiness = SmartPortalReadiness.DOLPHIN_DETECTED, message = message) }
     }
 
     private fun markDisconnectedIfCurrent(expected: ISkylanderPortalService, message: String) {
@@ -618,3 +740,6 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         private const val SKY_DUMP_SIZE_BYTES = 1_024L
     }
 }
+
+private fun JSONObject.optBooleanOrNull(name: String): Boolean? =
+    if (has(name) && !isNull(name)) optBoolean(name) else null

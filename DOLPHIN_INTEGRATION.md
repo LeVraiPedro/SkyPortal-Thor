@@ -1,6 +1,6 @@
 # SkyPortal Thor ↔ Dolphin Android
 
-## État V3
+## État V5 / API 3
 Le bridge n'est plus théorique : il est défini en AIDL et un service Dolphin minimal est fourni dans `dolphin-patch/`.
 
 ### Flux de chargement
@@ -16,7 +16,7 @@ Le bridge n'est plus théorique : il est défini en AIDL et un service Dolphin m
 ### Pourquoi ne pas modifier directement le dump dans SkyPortal
 Pendant qu'une figurine est montée, Dolphin peut écrire XP, or et progression. SkyPortal ne doit jamais écrire simultanément dans le même fichier.
 
-### API AIDL compatible V1/V2
+### API AIDL compatible V1/V2/V3
 ```text
 getApiVersion() -> Int
 ping() -> Boolean
@@ -24,9 +24,15 @@ load(logicalSlot, uri, displayName) -> actualPortalSlot
 remove(logicalSlot) -> Boolean
 clear()
 getStatusJson() -> JSON
+setPortalEnabled(enabled) -> code résultat
+getFigureCatalogJson() -> JSON
 ```
 
-La signature AIDL n'a pas changé. Le service fourni annonce l'API 2 et ajoute les codes suivants :
+Les six méthodes historiques restent inchangées et dans le même ordre. Le compagnon n'appelle les deux nouvelles méthodes qu'après avoir détecté l'API 3.
+
+`getStatusJson()` expose aussi `emulationState`, `gameId`, `gameTitle`, `portalEnabled`, `portalActivated`, `canSetPortalEnabled` et `nativeSlots`.
+
+Le service fourni annonce l'API 3 et conserve les codes suivants :
 
 ```text
 -4 : URI inaccessible dans le processus Dolphin

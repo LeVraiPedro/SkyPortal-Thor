@@ -3,15 +3,17 @@
 Base vérifiée : `dolphin-emu/dolphin` commit `54070da5851e12f2d1a4389daa528e4fb81327ce`.
 
 ## But
-Exposer uniquement les opérations Skylanders déjà présentes dans Dolphin Android :
+Exposer les opérations Skylanders et l'état Smart Portal nécessaires au compagnon :
 - load
 - remove
 - clear
-- status
+- status, état d'émulation et jeu actif
+- activation/désactivation du réglage officiel Portal of Power
+- instantané natif des slots et catalogue d'identification
 
-Le cœur USB / Portal of Power de Dolphin n'est pas modifié.
+Le protocole USB et les écritures de progression ne sont pas modifiés. Le cœur reçoit seulement une méthode de snapshot verrouillée et read-only.
 
-Cette révision du service annonce `API_VERSION = 2`, mais conserve exactement la même interface AIDL que la V2.
+Cette révision annonce `API_VERSION = 3`. Les six méthodes API 1/2 restent inchangées et les deux méthodes V3 sont ajoutées à la fin de l'AIDL.
 
 ## Fichiers à copier
 Copier depuis ce dossier :
@@ -20,6 +22,8 @@ Copier depuis ce dossier :
 - `Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt`
 
 vers les mêmes chemins dans le dépôt Dolphin.
+
+Le script applique ensuite `smart-portal-core.patch`, limité à `SkylanderConfig.kt/.cpp` et `Skylander.h/.cpp`.
 
 ## AndroidManifest.xml
 Dans `Source/Android/app/src/main/AndroidManifest.xml`, ajouter :
@@ -69,7 +73,7 @@ L'application expose 8 slots logiques. Dolphin peut gérer jusqu'à 16 entrées 
 
 Le mapping est conservé dans le processus Dolphin lors d'une simple recréation du service Binder. Un redémarrage complet du processus réinitialise naturellement le mapping et le portail natif ensemble.
 
-Cette conservation est la principale raison de préférer l'API 2 : l'ancien service API 1 peut perdre son mapping si l'application compagnon est fermée alors que des figurines sont encore montées.
+L'API 3 réconcilie en plus ce mapping avec l'occupation réelle des 16 slots natifs.
 
 ## Codes de chargement
 
@@ -86,9 +90,17 @@ Le retour natif `255` est converti en `-6` au lieu d'être annoncé comme un slo
 ## Test minimal
 1. Compiler/installer le Dolphin modifié.
 2. Compiler/installer SkyPortal Thor avec la même signature.
-3. Lancer Skylanders dans Dolphin et activer le portail émulé.
+3. Lancer Skylanders dans Dolphin avec le portail désactivé pour vérifier son activation depuis SkyPortal.
 4. Lancer SkyPortal Thor sur l'écran inférieur.
 5. Choisir le dossier `Skylanders`.
 6. Appuyer sur `Reconnecter` si nécessaire.
+
+Pour une copie Git peu profonde dont le `versionCode` calculé serait inférieur à celui déjà installé, le script ajoute un override facultatif :
+
+```powershell
+.\gradlew.bat :app:assembleDebug -PskyPortalVersionCode=43010
+```
+
+Omettre cette propriété conserve intégralement le calcul de version officiel de Dolphin.
 7. Toucher J1 puis une carte `.sky` pour la charger.
 8. Vérifier que le Skylander apparaît dans le jeu sans ouvrir le manager Dolphin.

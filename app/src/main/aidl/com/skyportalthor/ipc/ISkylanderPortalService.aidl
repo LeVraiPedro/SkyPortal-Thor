@@ -7,4 +7,6 @@ interface ISkylanderPortalService {
     boolean remove(int logicalSlot);
     void clear();
     String getStatusJson();
+    int setPortalEnabled(boolean enabled);
+    String getFigureCatalogJson();
 }

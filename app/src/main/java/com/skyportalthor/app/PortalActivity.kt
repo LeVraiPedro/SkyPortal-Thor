@@ -18,6 +18,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.skyportalthor.app.data.Skylander
+import com.skyportalthor.app.data.DolphinFigureCatalog
+import com.skyportalthor.app.data.FigureKey
+import com.skyportalthor.app.data.SmartPortalReadiness
 import com.skyportalthor.app.data.QuickTeam
 import com.skyportalthor.app.diagnostics.DiagnosticAssistant
 import com.skyportalthor.app.dolphin.DolphinLauncher
@@ -57,6 +60,7 @@ class PortalActivity : ComponentActivity() {
             var favoriteUris by remember { mutableStateOf(prefs.getFavoriteUris()) }
             var recentUris by remember { mutableStateOf(prefs.getRecentUris()) }
             var quickTeams by remember { mutableStateOf(prefs.getQuickTeams()) }
+            var autoActivationAttemptedFor by remember { mutableStateOf<String?>(null) }
             val reconciledPortalState = remember(portalState, figures) {
                 val figuresByUri = figures.associateBy { it.documentUri.toString() }
                 portalState.copy(
@@ -78,7 +82,7 @@ class PortalActivity : ComponentActivity() {
                     if (generation == scanGeneration) {
                         figures = result.onFailure {
                             uiMessage = UiNotice("Lecture du dossier impossible : ${it.message}", NoticeKind.ERROR)
-                        }.getOrDefault(emptyList())
+                        }.getOrDefault(emptyList()).enrich(portalState.figureCatalog)
                     }
                 } finally {
                     if (generation == scanGeneration) scanning = false
@@ -112,7 +116,31 @@ class PortalActivity : ComponentActivity() {
             LaunchedEffect(bridge) {
                 while (isActive) {
                     delay(2_000L)
-                    if (bridge.state.value.connected) bridge.refresh()
+                    if (bridge.state.value.connected) {
+                        bridge.refresh()
+                    } else {
+                        bridge.connect(prefs.getDolphinPackage())
+                    }
+                }
+            }
+
+            LaunchedEffect(portalState.figureCatalog) {
+                if (portalState.figureCatalog.isNotEmpty()) {
+                    figures = figures.enrich(portalState.figureCatalog)
+                }
+            }
+
+            LaunchedEffect(portalState.readiness, portalState.gameId) {
+                val key = portalState.gameId ?: portalState.gameTitle
+                if (
+                    portalState.readiness == SmartPortalReadiness.PORTAL_DISABLED &&
+                    portalState.canSetPortalEnabled && key != null && autoActivationAttemptedFor != key
+                ) {
+                    autoActivationAttemptedFor = key
+                    when (val result = bridge.setPortalEnabled(true)) {
+                        is PortalResult.Error -> uiMessage = UiNotice(result.message, NoticeKind.ERROR)
+                        is PortalResult.Success -> uiMessage = UiNotice(result.message ?: "Portail activé", NoticeKind.SUCCESS)
+                    }
                 }
             }
 
@@ -175,6 +203,14 @@ class PortalActivity : ComponentActivity() {
                         val target = portalState.connectedPackage ?: prefs.getDolphinPackage()
                         if (!DolphinLauncher.launchOnPrimaryDisplay(this@PortalActivity, target)) {
                             uiMessage = UiNotice("Dolphin n'est pas installé sur la Thor", NoticeKind.ERROR)
+                        }
+                    },
+                    onSetPortalEnabled = { enabled ->
+                        scope.launch {
+                            when (val result = bridge.setPortalEnabled(enabled)) {
+                                is PortalResult.Success -> uiMessage = UiNotice(result.message ?: "État du portail modifié", NoticeKind.SUCCESS)
+                                is PortalResult.Error -> uiMessage = UiNotice(result.message, NoticeKind.ERROR)
+                            }
                         }
                     },
                     onLoad = { logicalSlot, figure ->
@@ -298,3 +334,19 @@ class PortalActivity : ComponentActivity() {
         }
     }
 }
+
+private fun List<Skylander>.enrich(catalog: Map<FigureKey, com.skyportalthor.app.data.FigureMetadata>): List<Skylander> =
+    map { figure ->
+        val id = figure.figureId
+        val variant = figure.variantId
+        val metadata = if (id != null && variant != null) catalog[FigureKey(id, variant)] else null
+        if (metadata == null) figure else figure.copy(
+            name = metadata.canonicalName,
+            element = metadata.element,
+            generation = DolphinFigureCatalog.generationName(metadata.generation),
+            kind = metadata.kind,
+            typeLabel = metadata.typeLabel,
+            generationNumber = metadata.generation,
+            identifiedByDolphin = true
+        )
+    }

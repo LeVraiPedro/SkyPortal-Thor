@@ -1,5 +1,31 @@
 # Changelog — SkyPortal Thor
 
+## V5 (0.5.0) — 16 août 2026
+
+### Smart Portal
+
+- API Dolphin 3 : état d'émulation, Game ID, titre, état du portail, commande d'activation et slots natifs.
+- Détection centralisée des six générations de jeux et architecture extensible `SkylandersGame`.
+- En-tête compact indiquant connexion, jeu et disponibilité du portail.
+- Activation automatique sûre du réglage officiel Dolphin lorsque le jeu Skylanders actif en a besoin.
+- Reconnexion automatique après arrêt/redémarrage du processus Dolphin.
+
+### Collection et compatibilité
+
+- Lecture read-only des ID/variant à l'intérieur de chaque dump.
+- Catalogue de métadonnées exporté depuis la table native `list_skylanders` de Dolphin.
+- Distinction Personnages/Objets et types Giant, SWAP, Trap Master, Mini, Item, Trap, Vehicle et Trophy.
+- Sous-filtre de type affiché automatiquement lorsque plusieurs catégories natives sont présentes.
+- Filtre automatique selon le jeu actif, désactivable temporairement avec `Toute la collection`.
+- Blocage avant Binder des figurines d'une génération future ou d'un type non pris en charge, avec explication en français.
+
+### Robustesse et diagnostic
+
+- Réconciliation du mapping logique avec un instantané verrouillé des 16 slots natifs.
+- Compatibilité conservée avec API 1/API 2 en mode dégradé.
+- Diagnostic du jeu, ID, état d'émulation, portail, capacité d'activation, API et slots natifs.
+- Version Android `0.5.0` / code `7`.
+
 ## V4 (0.4.0) — 16 août 2026
 
 ### Collection

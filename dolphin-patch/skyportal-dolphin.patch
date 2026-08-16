@@ -1,5 +1,5 @@
 diff --git a/Source/Android/app/build.gradle.kts b/Source/Android/app/build.gradle.kts
-index 2fc4cb7a94..2669407ab1 100644
+index 2fc4cb7..774df65 100644
 --- a/Source/Android/app/build.gradle.kts
 +++ b/Source/Android/app/build.gradle.kts
 @@ -15,6 +15,7 @@ android {
@@ -10,8 +10,19 @@ index 2fc4cb7a94..2669407ab1 100644
      }
  
      compileOptions {
+@@ -40,7 +41,9 @@ android {
+         minSdk = 24
+         targetSdk = 37
+ 
+-        versionCode = getBuildVersionCode()
++        // Optional override for an upgrade build made from a shallow checkout.
++        versionCode = providers.gradleProperty("skyPortalVersionCode").orNull
++            ?.toIntOrNull() ?: getBuildVersionCode()
+ 
+         versionName = getGitVersion()
+ 
 diff --git a/Source/Android/app/src/main/AndroidManifest.xml b/Source/Android/app/src/main/AndroidManifest.xml
-index 96876acd46..57f2917269 100644
+index 96876ac..57f2917 100644
 --- a/Source/Android/app/src/main/AndroidManifest.xml
 +++ b/Source/Android/app/src/main/AndroidManifest.xml
 @@ -1,6 +1,10 @@
@@ -37,3 +48,480 @@ index 96876acd46..57f2917269 100644
      </application>
  
  </manifest>
+diff --git a/Source/Android/app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl b/Source/Android/app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl
+new file mode 100644
+index 0000000..20e2a9e
+--- /dev/null
++++ b/Source/Android/app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl
+@@ -0,0 +1,12 @@
++package com.skyportalthor.ipc;
++
++interface ISkylanderPortalService {
++    int getApiVersion();
++    boolean ping();
++    int load(int logicalSlot, String uri, String displayName);
++    boolean remove(int logicalSlot);
++    void clear();
++    String getStatusJson();
++    int setPortalEnabled(boolean enabled);
++    String getFigureCatalogJson();
++}
+diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
+index b8cf8a4..867a7d6 100644
+--- a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
++++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
+@@ -12,6 +12,21 @@ object SkylanderConfig {
+     private external fun getSkylanderMap(): Map<SkylanderPair, String>
+     private external fun getInverseSkylanderMap(): Map<String, SkylanderPair>
+ 
++    /** Packed entries: id|variant|name|game|element|type, from Dolphin's native table. */
++    @JvmStatic
++    external fun getSkylanderCatalog(): Array<String>
++
++    /** Four integers per native slot: slot, status, figure id, variant id. */
++    @JvmStatic
++    external fun getPortalSnapshot(): IntArray
++
++    /** Core::State ordinal: uninitialized, paused, running, stopping, starting. */
++    @JvmStatic
++    external fun getEmulationState(): Int
++
++    @JvmStatic
++    external fun isPortalActivated(): Boolean
++
+     @JvmStatic
+     external fun removeSkylander(slot: Int): Boolean
+ 
+diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
+new file mode 100644
+index 0000000..2adff19
+--- /dev/null
++++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
+@@ -0,0 +1,292 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++package org.dolphinemu.dolphinemu.skyportal
++
++import android.app.Service
++import android.content.Intent
++import android.net.Uri
++import android.os.Handler
++import android.os.IBinder
++import android.os.Looper
++import android.util.Log
++import com.skyportalthor.ipc.ISkylanderPortalService
++import org.dolphinemu.dolphinemu.NativeLibrary
++import org.dolphinemu.dolphinemu.features.settings.model.BooleanSetting
++import org.dolphinemu.dolphinemu.features.settings.model.NativeConfig
++import org.dolphinemu.dolphinemu.features.skylanders.SkylanderConfig
++import org.json.JSONArray
++import org.json.JSONObject
++import java.util.concurrent.CountDownLatch
++import java.util.concurrent.TimeUnit
++import java.util.concurrent.atomic.AtomicInteger
++import java.util.concurrent.atomic.AtomicReference
++
++/**
++ * Minimal local companion API for SkyPortal Thor.
++ *
++ * The native Skylanders implementation remains owned by Dolphin. This service only exposes the
++ * already-existing load/remove functions to a separately signed companion app.
++ */
++class SkyPortalService : Service() {
++    private val mainHandler = Handler(Looper.getMainLooper())
++
++    private val binder = object : ISkylanderPortalService.Stub() {
++        override fun getApiVersion(): Int = API_VERSION
++
++        override fun ping(): Boolean = true
++
++        override fun load(logicalSlot: Int, uri: String?, displayName: String?): Int {
++            if (logicalSlot !in 0 until LOGICAL_SLOT_COUNT) return ERROR_BAD_SLOT
++            if (uri.isNullOrBlank()) return ERROR_OPEN_FAILED
++
++            val uriAccess = runCatching {
++                contentResolver.openFileDescriptor(Uri.parse(uri), "rw")?.use { descriptor ->
++                    check(descriptor.fileDescriptor.valid()) { "Invalid file descriptor" }
++                    check(descriptor.statSize != 0L) { "Empty .sky file" }
++                    check(descriptor.statSize == -1L || descriptor.statSize == SKY_DUMP_SIZE_BYTES) {
++                        "Invalid .sky size: ${descriptor.statSize} bytes"
++                    }
++                } ?: error("Document provider returned no file descriptor")
++            }
++            if (uriAccess.isFailure) {
++                Log.e(TAG, "Cannot open shared .sky URI", uriAccess.exceptionOrNull())
++                return ERROR_URI_ACCESS
++            }
++
++            return onMainThread {
++                synchronized(lock) {
++                    val previousActual = logicalToActual[logicalSlot]
++                    val loadAttempt = runCatching {
++                        SkylanderConfig.loadSkylander(previousActual, uri)
++                    }
++                    val pair = loadAttempt.getOrElse { error ->
++                        Log.e(TAG, "SkylanderConfig rejected the .sky data", error)
++                        return@synchronized ERROR_SKY_DATA
++                    } ?: return@synchronized ERROR_SKY_DATA
++
++                    val actual = pair.first ?: return@synchronized ERROR_SKY_DATA
++                    if (actual == NATIVE_NO_SLOT || actual !in 0 until MAX_PORTAL_SLOTS) {
++                        Log.w(TAG, "Portal is full; native slot=$actual")
++                        // JNI has already removed the previous native slot before attempting the
++                        // replacement, so keeping the old logical mapping would create a phantom.
++                        clearLogicalSlot(logicalSlot)
++                        return@synchronized ERROR_PORTAL_FULL
++                    }
++                    logicalToActual[logicalSlot] = actual
++                    labels[logicalSlot] = pair.second ?: displayName ?: "Unknown"
++                    uris[logicalSlot] = uri
++                    actual
++                }
++            }
++        }
++
++        override fun remove(logicalSlot: Int): Boolean {
++            if (logicalSlot !in 0 until LOGICAL_SLOT_COUNT) return false
++            return onMainThread {
++                synchronized(lock) {
++                    val actual = logicalToActual[logicalSlot]
++                    if (actual < 0) return@synchronized true
++                    val removal = runCatching { SkylanderConfig.removeSkylander(actual) }
++                    removal.exceptionOrNull()?.let { error ->
++                        Log.e(TAG, "Failed to remove native portal slot $actual", error)
++                        return@synchronized false
++                    }
++                    // A false native result means the slot is already empty/removing. In both cases
++                    // the logical mapping is stale and can be cleared safely.
++                    clearLogicalSlot(logicalSlot)
++                    true
++                }
++            }
++        }
++
++        override fun clear() {
++            onMainThread {
++                synchronized(lock) {
++                    var firstFailure: Throwable? = null
++                    for (logical in 0 until LOGICAL_SLOT_COUNT) {
++                        val actual = logicalToActual[logical]
++                        if (actual < 0) {
++                            clearLogicalSlot(logical)
++                            continue
++                        }
++                        val removal = runCatching { SkylanderConfig.removeSkylander(actual) }
++                        removal.onSuccess {
++                            clearLogicalSlot(logical)
++                        }.onFailure { error ->
++                            Log.e(TAG, "Failed to clear native portal slot $actual", error)
++                            if (firstFailure == null) firstFailure = error
++                        }
++                    }
++                    firstFailure?.let { throw IllegalStateException("One or more portal slots could not be cleared", it) }
++                }
++            }
++        }
++
++        override fun setPortalEnabled(enabled: Boolean): Int = onMainThread {
++            runCatching {
++                // Persist the global choice, and also update the current emulation layer so the
++                // USB scanner observes the change immediately even with per-game settings active.
++                BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.setBoolean(
++                    NativeConfig.LAYER_BASE,
++                    enabled
++                )
++                NativeConfig.save(NativeConfig.LAYER_BASE)
++                if (SkylanderConfig.getEmulationState() != EMULATION_UNINITIALIZED) {
++                    BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.setBoolean(
++                        NativeConfig.LAYER_CURRENT,
++                        enabled
++                    )
++                }
++                if (!enabled) SkylanderConfig.getPortalSnapshot()
++                PORTAL_TOGGLE_OK
++            }.getOrElse { error ->
++                Log.e(TAG, "Failed to change emulated Skylanders portal setting", error)
++                ERROR_PORTAL_TOGGLE
++            }
++        }
++
++        override fun getFigureCatalogJson(): String = onMainThread {
++            val entries = JSONArray()
++            SkylanderConfig.getSkylanderCatalog().forEach { packed ->
++                val parts = packed.split('|', limit = 6)
++                if (parts.size == 6) {
++                    entries.put(
++                        JSONObject()
++                            .put("id", parts[0].toIntOrNull() ?: -1)
++                            .put("variant", parts[1].toIntOrNull() ?: -1)
++                            .put("name", parts[2])
++                            .put("game", parts[3].toIntOrNull() ?: -1)
++                            .put("element", parts[4].toIntOrNull() ?: -1)
++                            .put("type", parts[5].toIntOrNull() ?: -1)
++                    )
++                }
++            }
++            JSONObject().put("version", 1).put("figures", entries).toString()
++        }
++
++        override fun getStatusJson(): String = onMainThread { synchronized(lock) {
++            val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
++            val nativeSlots = JSONArray()
++            for (offset in nativeSnapshot.indices step 4) {
++                val slot = nativeSnapshot[offset]
++                val status = nativeSnapshot[offset + 1]
++                nativeSlots.put(
++                    JSONObject()
++                        .put("slot", slot)
++                        .put("occupied", status != 0)
++                        .put("status", status)
++                        .put("id", nativeSnapshot[offset + 2])
++                        .put("variant", nativeSnapshot[offset + 3])
++                )
++            }
++            val slots = JSONArray()
++            for (logical in 0 until LOGICAL_SLOT_COUNT) {
++                val actual = logicalToActual[logical]
++                val nativeOccupied = actual in 0 until MAX_PORTAL_SLOTS &&
++                    nativeSnapshot.getOrElse(actual * 4 + 1) { 0 } != 0
++                if (actual >= 0 && !nativeOccupied) clearLogicalSlot(logical)
++                slots.put(
++                    JSONObject()
++                        .put("logicalSlot", logical)
++                        .put("actualSlot", logicalToActual[logical])
++                        .put("label", labels[logical] ?: "")
++                        .put("uri", uris[logical] ?: "")
++                )
++            }
++            val emulationState = SkylanderConfig.getEmulationState()
++            val metadataValid = NativeLibrary.IsGameMetadataValid()
++            JSONObject()
++                .put("apiVersion", API_VERSION)
++                .put("slots", slots)
++                .put("nativeSlots", nativeSlots)
++                .put("emulationState", emulationStateName(emulationState))
++                .put("gameId", if (metadataValid) NativeLibrary.GetCurrentGameID() else "")
++                .put("gameTitle", if (metadataValid) NativeLibrary.GetCurrentTitleDescription() else "")
++                .put("portalEnabled", BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean)
++                .put("portalActivated", SkylanderConfig.isPortalActivated())
++                .put("canSetPortalEnabled", true)
++                .toString()
++        } }
++    }
++
++    override fun onBind(intent: Intent?): IBinder = binder
++
++    private fun clearLogicalSlot(logical: Int) {
++        logicalToActual[logical] = -1
++        labels[logical] = null
++        uris[logical] = null
++    }
++
++    private fun emulationStateName(state: Int): String = when (state) {
++        0 -> "NONE"
++        1 -> "PAUSED"
++        2 -> "RUNNING"
++        3 -> "STOPPING"
++        4 -> "STARTING"
++        else -> "UNKNOWN"
++    }
++
++    private fun <T> onMainThread(block: () -> T): T {
++        if (Looper.myLooper() == Looper.getMainLooper()) return block()
++
++        val result = AtomicReference<T>()
++        val error = AtomicReference<Throwable?>()
++        val latch = CountDownLatch(1)
++        val executionState = AtomicInteger(TASK_QUEUED)
++        val task = Runnable {
++            if (!executionState.compareAndSet(TASK_QUEUED, TASK_RUNNING)) {
++                latch.countDown()
++                return@Runnable
++            }
++            try {
++                result.set(block())
++            } catch (t: Throwable) {
++                error.set(t)
++            } finally {
++                latch.countDown()
++            }
++        }
++        check(mainHandler.post(task)) { "SkyPortal Dolphin main thread rejected the IPC task" }
++
++        if (!latch.await(MAIN_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
++            if (!executionState.compareAndSet(TASK_QUEUED, TASK_CANCELLED)) {
++                // Once native execution has started, wait for its real result. Reporting a timeout
++                // here would let a load/remove happen later after the companion already showed an
++                // error (a confusing "ghost" portal action).
++                latch.await()
++            } else {
++                mainHandler.removeCallbacks(task)
++                throw IllegalStateException("SkyPortal Dolphin IPC timed out before execution")
++            }
++        }
++        error.get()?.let { throw it }
++        return result.get()
++    }
++
++    companion object {
++        private const val TAG = "SkyPortalService"
++        const val API_VERSION = 3
++        const val LOGICAL_SLOT_COUNT = 8
++        const val ERROR_OPEN_FAILED = -2
++        const val ERROR_BAD_SLOT = -3
++        const val ERROR_URI_ACCESS = -4
++        const val ERROR_SKY_DATA = -5
++        const val ERROR_PORTAL_FULL = -6
++        const val ERROR_PORTAL_TOGGLE = -7
++        const val PORTAL_TOGGLE_OK = 0
++        const val EMULATION_UNINITIALIZED = 0
++        const val MAX_PORTAL_SLOTS = 16
++        const val NATIVE_NO_SLOT = 255
++        const val MAIN_THREAD_TIMEOUT_SECONDS = 5L
++        private const val SKY_DUMP_SIZE_BYTES = 1_024L
++        private const val TASK_QUEUED = 0
++        private const val TASK_RUNNING = 1
++        private const val TASK_CANCELLED = 2
++
++        // Keep the logical mapping across Service recreation while Dolphin's process/native portal
++        // remains alive. A process restart resets both this state and the native portal together.
++        private val lock = Any()
++        private val logicalToActual = IntArray(LOGICAL_SLOT_COUNT) { -1 }
++        private val labels = arrayOfNulls<String>(LOGICAL_SLOT_COUNT)
++        private val uris = arrayOfNulls<String>(LOGICAL_SLOT_COUNT)
++    }
++}
+diff --git a/Source/Android/jni/SkylanderConfig.cpp b/Source/Android/jni/SkylanderConfig.cpp
+index 51c621c..c4bca56 100644
+--- a/Source/Android/jni/SkylanderConfig.cpp
++++ b/Source/Android/jni/SkylanderConfig.cpp
+@@ -5,13 +5,71 @@
+ 
+ #include <array>
+ 
++#include <fmt/format.h>
++
+ #include "AndroidCommon/AndroidCommon.h"
+ #include "AndroidCommon/IDCache.h"
+ #include "Core/IOS/USB/Emulated/Skylanders/Skylander.h"
++#include "Core/Core.h"
+ #include "Core/System.h"
+ 
+ extern "C" {
+ 
++JNIEXPORT jint JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getEmulationState(
++    JNIEnv* env, jclass clazz)
++{
++  return static_cast<jint>(Core::GetState(Core::System::GetInstance()));
++}
++
++JNIEXPORT jboolean JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_isPortalActivated(
++    JNIEnv* env, jclass clazz)
++{
++  return static_cast<jboolean>(
++      Core::System::GetInstance().GetSkylanderPortal().IsActivated());
++}
++
++JNIEXPORT jobjectArray JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getSkylanderCatalog(
++    JNIEnv* env, jclass clazz)
++{
++  jclass string_class = env->FindClass("java/lang/String");
++  jobjectArray result = env->NewObjectArray(
++      static_cast<jsize>(IOS::HLE::USB::list_skylanders.size()), string_class, nullptr);
++  jsize index = 0;
++  for (const auto& [ids, data] : IOS::HLE::USB::list_skylanders)
++  {
++    const std::string packed = fmt::format("{}|{}|{}|{}|{}|{}", ids.first, ids.second,
++                                           data.name, static_cast<int>(data.game),
++                                           static_cast<int>(data.element),
++                                           static_cast<int>(data.type));
++    env->SetObjectArrayElement(result, index++, ToJString(env, packed));
++  }
++  return result;
++}
++
++JNIEXPORT jintArray JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getPortalSnapshot(
++    JNIEnv* env, jclass clazz)
++{
++  constexpr jsize values_per_slot = 4;
++  const auto snapshot = Core::System::GetInstance().GetSkylanderPortal().GetSlotSnapshot();
++  std::array<jint, MAX_SKYLANDERS * values_per_slot> packed{};
++  for (u8 slot = 0; slot < MAX_SKYLANDERS; ++slot)
++  {
++    const auto& entry = snapshot[slot];
++    const size_t offset = slot * values_per_slot;
++    packed[offset] = slot;
++    packed[offset + 1] = entry.occupied ? entry.status : 0;
++    packed[offset + 2] = entry.figure_id;
++    packed[offset + 3] = entry.variant_id;
++  }
++  jintArray result = env->NewIntArray(static_cast<jsize>(packed.size()));
++  env->SetIntArrayRegion(result, 0, static_cast<jsize>(packed.size()), packed.data());
++  return result;
++}
++
+ JNIEXPORT jobject JNICALL
+ Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getSkylanderMap(JNIEnv* env,
+                                                                                    jclass clazz)
+diff --git a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
+index 14017ee..e92641c 100644
+--- a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
++++ b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
+@@ -1373,6 +1373,27 @@ Skylander* SkylanderPortal::GetSkylander(u8 slot)
+   return &skylanders[slot];
+ }
+ 
++std::array<SkylanderSlotSnapshot, MAX_SKYLANDERS> SkylanderPortal::GetSlotSnapshot()
++{
++  std::lock_guard lock(sky_mutex);
++  std::array<SkylanderSlotSnapshot, MAX_SKYLANDERS> snapshot{};
++  for (u8 slot = 0; slot < MAX_SKYLANDERS; ++slot)
++  {
++    const auto& skylander = skylanders[slot];
++    auto& entry = snapshot[slot];
++    entry.status = skylander.status;
++    entry.occupied = skylander.figure && skylander.figure->FileIsOpen() &&
++                     (skylander.status & Skylander::READY);
++    if (entry.occupied)
++    {
++      const FigureData data = skylander.figure->GetData();
++      entry.figure_id = data.figure_id;
++      entry.variant_id = data.variant_id;
++    }
++  }
++  return snapshot;
++}
++
+ Type NormalizeSkylanderType(Type type)
+ {
+   switch (type)
+diff --git a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
+index 9de058f..6787f1c 100644
+--- a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
++++ b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
+@@ -126,6 +126,14 @@ struct SkylanderLEDColor final
+   u8 blue = 0;
+ };
+ 
++struct SkylanderSlotSnapshot final
++{
++  bool occupied = false;
++  u8 status = Skylander::REMOVED;
++  u16 figure_id = 0;
++  u16 variant_id = 0;
++};
++
+ class SkylanderPortal final
+ {
+ public:
+@@ -142,6 +150,7 @@ public:
+   bool RemoveSkylander(u8 sky_num);
+   u8 LoadSkylander(std::unique_ptr<SkylanderFigure> figure);
+   Skylander* GetSkylander(u8 slot);
++  std::array<SkylanderSlotSnapshot, MAX_SKYLANDERS> GetSlotSnapshot();
+   std::pair<u16, u16> CalculateIDs(const std::array<u8, 0x40 * 0x10>& file_data);
+ 
+ private:

@@ -39,14 +39,9 @@ class DiagnosticAssistant(private val context: Context) {
         if (targetPackage != null) add(checkSignature(targetPackage))
         add(checkBinder(portalState))
         add(checkApi(portalState))
-        add(
-            DiagnosticItem(
-                title = "Portail dans le jeu",
-                level = DiagnosticLevel.INFO,
-                detail = "L'API actuelle ne confirme pas si l'émulation du Portal of Power est activée dans le jeu.",
-                recovery = "Dans Dolphin, active Emulated USB Devices > Skylanders Portal avant de lancer le jeu."
-            )
-        )
+        add(checkGame(portalState))
+        add(checkPortal(portalState))
+        add(checkNativeSlots(portalState))
     }
 
     private fun checkLowerDisplay(): DiagnosticItem {
@@ -182,12 +177,63 @@ class DiagnosticAssistant(private val context: Context) {
             "API Dolphin",
             DiagnosticLevel.WARNING,
             "API 1 compatible, avec diagnostic et restauration de slots limités.",
-            "Le patch Dolphin API 2 du dépôt est recommandé."
+            "Le patch Dolphin API 3 du dépôt est recommandé."
+        )
+        2 -> DiagnosticItem(
+            "API Dolphin",
+            DiagnosticLevel.WARNING,
+            "API 2 compatible pour les slots, sans détection du jeu ni activation Smart Portal.",
+            "Installe le patch Dolphin API 3 pour toutes les fonctions V5."
         )
         else -> DiagnosticItem(
             "API Dolphin",
             DiagnosticLevel.SUCCESS,
             "API $api active."
+        )
+    }
+
+    private fun checkGame(state: PortalState): DiagnosticItem = when {
+        state.gameId == null -> DiagnosticItem(
+            "Jeu Dolphin", DiagnosticLevel.INFO,
+            "Aucun jeu n’est actuellement détecté (${state.emulationState})."
+        )
+        state.skylandersGame != null -> DiagnosticItem(
+            "Jeu Dolphin", DiagnosticLevel.SUCCESS,
+            "${state.skylandersGame.displayName} — ID ${state.gameId} — ${state.emulationState}. Smart Portal compatible."
+        )
+        else -> DiagnosticItem(
+            "Jeu Dolphin", DiagnosticLevel.WARNING,
+            "${state.gameTitle ?: "Jeu sans titre"} — ID ${state.gameId}. Ce jeu n’est pas reconnu comme un jeu Skylanders.",
+            "Le filtre Smart Portal reste inactif pour éviter de masquer des fichiers à tort."
+        )
+    }
+
+    private fun checkPortal(state: PortalState): DiagnosticItem = when (state.portalEnabled) {
+        true -> DiagnosticItem(
+            "Portal of Power", DiagnosticLevel.SUCCESS,
+            "Portail émulé activé. État protocolaire interne : ${if (state.portalActivated == true) "actif" else "en attente du jeu"}."
+        )
+        false -> DiagnosticItem(
+            "Portal of Power", DiagnosticLevel.ERROR,
+            "Le portail émulé est désactivé. Activation par API : ${if (state.canSetPortalEnabled) "disponible" else "indisponible"}.",
+            if (state.canSetPortalEnabled) "Utilise Activer le portail dans l’en-tête." else "Active-le dans Dolphin ou installe l’API 3."
+        )
+        null -> DiagnosticItem(
+            "Portal of Power", DiagnosticLevel.WARNING,
+            "État non exposé par cette version de l’API Dolphin.",
+            "L’API 3 est recommandée pour Smart Portal."
+        )
+    }
+
+    private fun checkNativeSlots(state: PortalState): DiagnosticItem {
+        if (state.apiVersion == null || state.apiVersion < 3) {
+            return DiagnosticItem("Slots natifs", DiagnosticLevel.INFO, "Instantané natif indisponible avec l’API ${state.apiVersion ?: "inconnue"}.")
+        }
+        val occupied = state.nativeSlots.filter { it.occupied }
+        return DiagnosticItem(
+            "Slots natifs", DiagnosticLevel.SUCCESS,
+            if (occupied.isEmpty()) "Les 16 slots natifs sont libres."
+            else occupied.joinToString(prefix = "Occupés : ") { "#${it.slot} (${it.figureId}/${it.variantId})" }
         )
     }
 

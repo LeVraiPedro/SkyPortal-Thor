@@ -1,0 +1,161 @@
+diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
+index b8cf8a4..867a7d6 100644
+--- a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
++++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
+@@ -12,6 +12,21 @@ object SkylanderConfig {
+     private external fun getSkylanderMap(): Map<SkylanderPair, String>
+     private external fun getInverseSkylanderMap(): Map<String, SkylanderPair>
+ 
++    /** Packed entries: id|variant|name|game|element|type, from Dolphin's native table. */
++    @JvmStatic
++    external fun getSkylanderCatalog(): Array<String>
++
++    /** Four integers per native slot: slot, status, figure id, variant id. */
++    @JvmStatic
++    external fun getPortalSnapshot(): IntArray
++
++    /** Core::State ordinal: uninitialized, paused, running, stopping, starting. */
++    @JvmStatic
++    external fun getEmulationState(): Int
++
++    @JvmStatic
++    external fun isPortalActivated(): Boolean
++
+     @JvmStatic
+     external fun removeSkylander(slot: Int): Boolean
+ 
+diff --git a/Source/Android/jni/SkylanderConfig.cpp b/Source/Android/jni/SkylanderConfig.cpp
+index 51c621c..c4bca56 100644
+--- a/Source/Android/jni/SkylanderConfig.cpp
++++ b/Source/Android/jni/SkylanderConfig.cpp
+@@ -5,13 +5,71 @@
+ 
+ #include <array>
+ 
++#include <fmt/format.h>
++
+ #include "AndroidCommon/AndroidCommon.h"
+ #include "AndroidCommon/IDCache.h"
+ #include "Core/IOS/USB/Emulated/Skylanders/Skylander.h"
++#include "Core/Core.h"
+ #include "Core/System.h"
+ 
+ extern "C" {
+ 
++JNIEXPORT jint JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getEmulationState(
++    JNIEnv* env, jclass clazz)
++{
++  return static_cast<jint>(Core::GetState(Core::System::GetInstance()));
++}
++
++JNIEXPORT jboolean JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_isPortalActivated(
++    JNIEnv* env, jclass clazz)
++{
++  return static_cast<jboolean>(
++      Core::System::GetInstance().GetSkylanderPortal().IsActivated());
++}
++
++JNIEXPORT jobjectArray JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getSkylanderCatalog(
++    JNIEnv* env, jclass clazz)
++{
++  jclass string_class = env->FindClass("java/lang/String");
++  jobjectArray result = env->NewObjectArray(
++      static_cast<jsize>(IOS::HLE::USB::list_skylanders.size()), string_class, nullptr);
++  jsize index = 0;
++  for (const auto& [ids, data] : IOS::HLE::USB::list_skylanders)
++  {
++    const std::string packed = fmt::format("{}|{}|{}|{}|{}|{}", ids.first, ids.second,
++                                           data.name, static_cast<int>(data.game),
++                                           static_cast<int>(data.element),
++                                           static_cast<int>(data.type));
++    env->SetObjectArrayElement(result, index++, ToJString(env, packed));
++  }
++  return result;
++}
++
++JNIEXPORT jintArray JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getPortalSnapshot(
++    JNIEnv* env, jclass clazz)
++{
++  constexpr jsize values_per_slot = 4;
++  const auto snapshot = Core::System::GetInstance().GetSkylanderPortal().GetSlotSnapshot();
++  std::array<jint, MAX_SKYLANDERS * values_per_slot> packed{};
++  for (u8 slot = 0; slot < MAX_SKYLANDERS; ++slot)
++  {
++    const auto& entry = snapshot[slot];
++    const size_t offset = slot * values_per_slot;
++    packed[offset] = slot;
++    packed[offset + 1] = entry.occupied ? entry.status : 0;
++    packed[offset + 2] = entry.figure_id;
++    packed[offset + 3] = entry.variant_id;
++  }
++  jintArray result = env->NewIntArray(static_cast<jsize>(packed.size()));
++  env->SetIntArrayRegion(result, 0, static_cast<jsize>(packed.size()), packed.data());
++  return result;
++}
++
+ JNIEXPORT jobject JNICALL
+ Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getSkylanderMap(JNIEnv* env,
+                                                                                    jclass clazz)
+diff --git a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
+index 14017ee..e92641c 100644
+--- a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
++++ b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
+@@ -1373,6 +1373,27 @@ Skylander* SkylanderPortal::GetSkylander(u8 slot)
+   return &skylanders[slot];
+ }
+ 
++std::array<SkylanderSlotSnapshot, MAX_SKYLANDERS> SkylanderPortal::GetSlotSnapshot()
++{
++  std::lock_guard lock(sky_mutex);
++  std::array<SkylanderSlotSnapshot, MAX_SKYLANDERS> snapshot{};
++  for (u8 slot = 0; slot < MAX_SKYLANDERS; ++slot)
++  {
++    const auto& skylander = skylanders[slot];
++    auto& entry = snapshot[slot];
++    entry.status = skylander.status;
++    entry.occupied = skylander.figure && skylander.figure->FileIsOpen() &&
++                     (skylander.status & Skylander::READY);
++    if (entry.occupied)
++    {
++      const FigureData data = skylander.figure->GetData();
++      entry.figure_id = data.figure_id;
++      entry.variant_id = data.variant_id;
++    }
++  }
++  return snapshot;
++}
++
+ Type NormalizeSkylanderType(Type type)
+ {
+   switch (type)
+diff --git a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
+index 9de058f..6787f1c 100644
+--- a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
++++ b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
+@@ -126,6 +126,14 @@ struct SkylanderLEDColor final
+   u8 blue = 0;
+ };
+ 
++struct SkylanderSlotSnapshot final
++{
++  bool occupied = false;
++  u8 status = Skylander::REMOVED;
++  u16 figure_id = 0;
++  u16 variant_id = 0;
++};
++
+ class SkylanderPortal final
+ {
+ public:
+@@ -142,6 +150,7 @@ public:
+   bool RemoveSkylander(u8 sky_num);
+   u8 LoadSkylander(std::unique_ptr<SkylanderFigure> figure);
+   Skylander* GetSkylander(u8 slot);
++  std::array<SkylanderSlotSnapshot, MAX_SKYLANDERS> GetSlotSnapshot();
+   std::pair<u16, u16> CalculateIDs(const std::array<u8, 0x40 * 0x10>& file_data);
+ 
+ private:

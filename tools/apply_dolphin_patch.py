@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import subprocess
 from pathlib import Path
 
 PERMISSION_BLOCK = '''    <permission\n        android:name="com.skyportalthor.permission.PORTAL_CONTROL"\n        android:protectionLevel="signature" />\n'''
@@ -29,12 +30,20 @@ def patch_manifest(path: Path) -> None:
 
 def patch_gradle(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
-    if "aidl = true" in text:
-        return
-    marker = "        resValues = true\n"
-    if marker not in text:
-        raise RuntimeError("buildFeatures/resValues marker not found")
-    text = text.replace(marker, marker + "        aidl = true\n", 1)
+    if "aidl = true" not in text:
+        marker = "        resValues = true\n"
+        if marker not in text:
+            raise RuntimeError("buildFeatures/resValues marker not found")
+        text = text.replace(marker, marker + "        aidl = true\n", 1)
+
+    if "skyPortalVersionCode" not in text:
+        marker = "        versionCode = getBuildVersionCode()"
+        if marker not in text:
+            raise RuntimeError("defaultConfig/versionCode marker not found")
+        replacement = '''        // Optional override for an upgrade build made from a shallow checkout.
+        versionCode = providers.gradleProperty("skyPortalVersionCode").orNull
+            ?.toIntOrNull() ?: getBuildVersionCode()'''
+        text = text.replace(marker, replacement, 1)
     path.write_text(text, encoding="utf-8")
 
 
@@ -46,6 +55,7 @@ def main() -> None:
     repo = args.dolphin_repo.resolve()
     here = Path(__file__).resolve().parents[1]
     patch_root = here / "dolphin-patch" / "Source" / "Android" / "app" / "src" / "main"
+    core_patch = here / "dolphin-patch" / "smart-portal-core.patch"
 
     manifest = repo / "Source/Android/app/src/main/AndroidManifest.xml"
     gradle = repo / "Source/Android/app/build.gradle.kts"
@@ -72,6 +82,21 @@ def main() -> None:
     print("patched: Source/Android/app/src/main/AndroidManifest.xml")
     patch_gradle(gradle)
     print("patched: Source/Android/app/build.gradle.kts")
+    reverse_check = subprocess.run(
+        ["git", "apply", "--reverse", "--check", str(core_patch)], cwd=repo,
+        capture_output=True, text=True
+    )
+    if reverse_check.returncode == 0:
+        print("already patched: native Smart Portal API")
+    else:
+        check = subprocess.run(
+            ["git", "apply", "--check", str(core_patch)], cwd=repo,
+            capture_output=True, text=True
+        )
+        if check.returncode != 0:
+            raise RuntimeError(f"Native Smart Portal patch cannot be applied:\n{check.stderr}")
+        subprocess.run(["git", "apply", str(core_patch)], cwd=repo, check=True)
+        print("patched: native Smart Portal catalog and slot snapshot")
     print("SkyPortal patch applied successfully.")
 
 
