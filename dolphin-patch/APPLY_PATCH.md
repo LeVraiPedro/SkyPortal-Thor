@@ -2,6 +2,15 @@
 
 Base vérifiée : `dolphin-emu/dolphin` commit `54070da5851e12f2d1a4389daa528e4fb81327ce`.
 
+Le script refuse une autre révision avant toute écriture :
+
+```powershell
+python tools/apply_dolphin_patch.py C:\chemin\vers\dolphin
+```
+
+`--allow-unsupported` ne doit être utilisé que pour un portage explicite, après revue du diff,
+compilation et nouvelle validation. Il ne garantit pas la compatibilité avec la révision choisie.
+
 ## But
 Exposer les opérations Skylanders et l'état Smart Portal nécessaires au compagnon :
 - load
@@ -16,6 +25,11 @@ Exposer les opérations Skylanders et l'état Smart Portal nécessaires au compa
 Le protocole USB et les écritures de progression ne sont pas modifiés. Le cœur reçoit un snapshot verrouillé des slots et des indicateurs atomiques read-only sur le cycle USB du portail.
 
 Cette révision annonce `API_VERSION = 3`. Les six méthodes API 1/2 restent inchangées et les deux méthodes V3 sont ajoutées à la fin de l'AIDL.
+
+Les overlays AIDL et Kotlin propres à SkyPortal portent
+`SPDX-License-Identifier: GPL-2.0-or-later`. Les fichiers Dolphin modifiés conservent leurs avis de
+copyright et identifiants SPDX amont ; ils ne doivent pas être supprimés lors de l'application, de
+la génération du patch ou de la redistribution.
 
 ## Fichiers à copier
 Copier depuis ce dossier :
@@ -171,5 +185,33 @@ Omettre cette propriété conserve intégralement le calcul de version officiel 
 
 La cause du conflit a été confirmée par l'utilisateur sur sa configuration : la désactivation de
 Disney Infinity suivie du redémarrage de l'émulation permettait au jeu de retrouver le portail.
-L'implémentation décrite ici dispose de contrôles automatisés et de build, mais **les étapes 7 à 11
-n'ont pas encore été revalidées sur la Thor, indisponible au moment du correctif**.
+Le chemin nominal des étapes 7 à 9 a ensuite été revalidé sur la Thor avec le binaire corrigé.
+L'activation volontaire des deux bases de l'étape 10, puis la transition complète de retour de
+l'étape 11, restent à rejouer sur ce binaire final.
+
+## Paquet de redistribution publique
+
+Une release qui publie le Dolphin modifié doit joindre les trois artefacts suivants :
+
+```text
+Dolphin_SkyPortal_API3.apk
+Dolphin_SkyPortal_API3_Source.zip
+Dolphin_SkyPortal_API3_SHA256.txt
+```
+
+Le workflow fournit aussi `Dolphin_SkyPortal_API3_Rebuild_Kit.zip` pour la traçabilité.
+
+L'archive source est le code source correspondant durable de l'APK, et non un patch isolé. Elle
+contient l'arborescence Dolphin modifiée complète utilisée pour la construction, fondée sur le
+commit amont `54070da5851e12f2d1a4389daa528e4fb81327ce`, sous-modules compris. Elle conserve
+`COPYING`, le dossier `LICENSES/`, les sources intégrées et tous les avis copyright/SPDX de Dolphin.
+Elle inclut aussi la licence et le NOTICE SkyPortal sous des noms distincts, sans remplacer les
+documents amont de Dolphin.
+
+Le kit de reconstruction publié au même endroit contient les overlays, les patches, le script
+d'application, les modifications Manifest/Gradle, les options de build et des instructions
+reproductibles. Le kit seul ne remplace jamais l'archive source complète.
+
+Le fichier SHA-256 couvre au minimum l'APK, l'archive source et le kit. Ces fichiers restent disponibles
+ensemble aussi longtemps que le binaire est distribué. Aucun keystore, mot de passe ou autre secret
+de signature ne doit être inclus.

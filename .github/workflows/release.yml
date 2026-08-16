@@ -1,3 +1,5 @@
+# Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
 name: Release SkyPortal
 
 on:
@@ -18,6 +20,9 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0
+
+      - name: Validate licensing and repository contents
+        run: python3 tools/check_licensing.py
 
       - name: Verify tag, version and main ancestry
         shell: bash
@@ -56,6 +61,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          umask 077
           test -n "${KEYSTORE_BASE64}"
           test -n "${STORE_PASSWORD}"
           test -n "${KEY_ALIAS}"
@@ -87,20 +93,48 @@ jobs:
           apk="app/build/outputs/apk/release/app-release.apk"
           test -f "${apk}"
           "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose --print-certs "${apk}"
+          certificate_sha256="$(
+            "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --print-certs "${apk}" |
+              sed -n 's/^Signer #1 certificate SHA-256 digest: //p' |
+              head -n 1
+          )"
+          test -n "${certificate_sha256}"
           output="dist/SkyPortal-Thor-${GITHUB_REF_NAME}.apk"
           cp "${apk}" "${output}"
-          sha256sum "${output}" > "${output}.sha256"
           printf '%s\n' \
             'SkyPortal communique uniquement avec un Dolphin SkyPortal signé par le même certificat.' \
             'Pour produire une paire vérifiée, utiliser le workflow manuel full-pair-build.' \
+            'Code source distribué sous GPL-2.0-or-later ; voir LICENSE et NOTICE.md dans l’archive source.' \
             > dist/COMPATIBILITY_NOTICE.txt
+          source_archive="dist/SkyPortal-Thor-${GITHUB_REF_NAME}-source.zip"
+          source_prefix="SkyPortal-Thor-${GITHUB_REF_NAME}/"
           git archive \
             --format=zip \
-            --prefix="SkyPortal-Thor-${GITHUB_REF_NAME}/" \
-            --output="dist/SkyPortal-Thor-${GITHUB_REF_NAME}-source.zip" \
+            --prefix="${source_prefix}" \
+            --output="${source_archive}" \
             "${GITHUB_SHA}"
-          sha256sum "dist/SkyPortal-Thor-${GITHUB_REF_NAME}-source.zip" \
-            > "dist/SkyPortal-Thor-${GITHUB_REF_NAME}-source.zip.sha256"
+          unzip -Z1 "${source_archive}" > "${RUNNER_TEMP}/skyportal-source-entries.txt"
+          grep -Fx "${source_prefix}LICENSE" "${RUNNER_TEMP}/skyportal-source-entries.txt"
+          grep -Fx "${source_prefix}NOTICE.md" "${RUNNER_TEMP}/skyportal-source-entries.txt"
+          cat > dist/RELEASE_INFO.txt <<EOF
+          Project: SkyPortal Thor
+          Repository: https://github.com/${GITHUB_REPOSITORY}
+          Tag: ${GITHUB_REF_NAME}
+          Commit: ${GITHUB_SHA}
+          Version: ${APP_VERSION}
+          Version code: ${APP_VERSION_CODE}
+          Source license: GPL-2.0-or-later
+          APK certificate SHA-256: ${certificate_sha256}
+          Dolphin integration base commit: 54070da5851e12f2d1a4389daa528e4fb81327ce
+          EOF
+          (
+            cd dist
+            find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -printf '%f\n' |
+              LC_ALL=C sort |
+              while IFS= read -r file; do sha256sum "${file}"; done \
+                > SHA256SUMS.txt
+            sha256sum --check SHA256SUMS.txt
+          )
 
       - name: Create GitHub Release
         env:
@@ -109,6 +143,7 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" dist/* \
             --verify-tag \
             --generate-notes \
+            --notes "Code source sous licence GPL-2.0-or-later. L’archive source, RELEASE_INFO.txt et SHA256SUMS.txt permettent de vérifier cette publication." \
             --title "SkyPortal Thor ${GITHUB_REF_NAME}"
 
       - name: Upload release build reports on failure

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Apply the SkyPortal Thor Android service patch to a Dolphin source checkout."""
 from __future__ import annotations
 
@@ -7,8 +9,38 @@ import shutil
 import subprocess
 from pathlib import Path
 
+SUPPORTED_DOLPHIN_COMMIT = "54070da5851e12f2d1a4389daa528e4fb81327ce"
+
 PERMISSION_BLOCK = '''    <permission\n        android:name="com.skyportalthor.permission.PORTAL_CONTROL"\n        android:protectionLevel="signature" />\n'''
 SERVICE_BLOCK = '''        <service\n            android:name=".skyportal.SkyPortalService"\n            android:exported="true"\n            android:permission="com.skyportalthor.permission.PORTAL_CONTROL" />\n\n'''
+
+
+def verify_dolphin_revision(repo: Path, allow_unsupported: bool) -> None:
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or "git rev-parse failed"
+        raise SystemExit(f"Cannot determine the Dolphin source revision: {detail}")
+
+    current_commit = result.stdout.strip().lower()
+    if current_commit == SUPPORTED_DOLPHIN_COMMIT:
+        print(f"verified: Dolphin commit {current_commit}")
+        return
+
+    message = (
+        f"Unsupported Dolphin revision {current_commit}; "
+        f"this patch is verified for {SUPPORTED_DOLPHIN_COMMIT}."
+    )
+    if not allow_unsupported:
+        raise SystemExit(
+            message
+            + " Re-run with --allow-unsupported only after reviewing and testing the resulting diff."
+        )
+    print(f"WARNING: {message} Continuing because --allow-unsupported was specified.")
 
 
 def patch_manifest(path: Path) -> None:
@@ -48,8 +80,18 @@ def patch_gradle(path: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Apply the SkyPortal API 3 integration to a Dolphin source checkout."
+    )
     parser.add_argument("dolphin_repo", type=Path, help="Path to a dolphin-emu/dolphin checkout")
+    parser.add_argument(
+        "--allow-unsupported",
+        action="store_true",
+        help=(
+            "allow a Dolphin HEAD other than the pinned supported commit; "
+            "the resulting source must be reviewed and tested"
+        ),
+    )
     args = parser.parse_args()
 
     repo = args.dolphin_repo.resolve()
@@ -61,6 +103,7 @@ def main() -> None:
     gradle = repo / "Source/Android/app/build.gradle.kts"
     if not manifest.exists() or not gradle.exists():
         raise SystemExit("This does not look like a Dolphin repository checkout")
+    verify_dolphin_revision(repo, args.allow_unsupported)
 
     targets = [
         (

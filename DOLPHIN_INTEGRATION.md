@@ -130,7 +130,18 @@ SkyPortal ne désactive pas silencieusement une autre base configurée par l'uti
 
 ## Construction du patch
 
-Le patch est prévu pour la révision Dolphin épinglée et documentée par le workflow manuel `full-pair-build.yml`. L'outil `tools/apply_dolphin_patch.py` applique le patch sans chemins absolus propres à une machine.
+Le patch est vérifié sur la révision Dolphin amont
+`54070da5851e12f2d1a4389daa528e4fb81327ce`. L'outil
+`tools/apply_dolphin_patch.py` vérifie ce commit **avant toute modification** et applique les
+overlays ainsi que le patch natif sans chemin absolu propre à une machine :
+
+```powershell
+python tools/apply_dolphin_patch.py C:\chemin\vers\dolphin
+```
+
+Une autre révision est refusée par défaut. L'option `--allow-unsupported` existe uniquement pour
+un portage volontaire dont le diff, la compilation et les tests ont été revus de nouveau ; elle ne
+transforme pas cette révision en base officiellement prise en charge.
 
 Avant de distribuer une paire :
 
@@ -141,3 +152,42 @@ Avant de distribuer une paire :
 5. ne jamais joindre la clé privée aux artefacts.
 
 Voir [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md) pour la procédure complète.
+
+## Redistribution publique du Dolphin modifié
+
+Dolphin et les ajouts SkyPortal intégrés à son arborescence sont distribués sous les conditions de
+licence applicables au projet Dolphin. Tous les avis de copyright et identifiants SPDX existants
+doivent être conservés. Le fichier `COPYING` de Dolphin et les textes concernés de son dossier
+`LICENSES/` doivent accompagner le code source correspondant.
+
+Une publication binaire doit fournir ensemble, sur un emplacement durable :
+
+```text
+Dolphin_SkyPortal_API3.apk
+Dolphin_SkyPortal_API3_Source.zip
+Dolphin_SkyPortal_API3_SHA256.txt
+Dolphin_SkyPortal_API3_Rebuild_Kit.zip (traçabilité et reconstruction)
+```
+
+`Dolphin_SkyPortal_API3_Source.zip` ne doit pas être un simple patch dépendant d'une copie amont
+éphémère. Il contient l'arborescence source Dolphin modifiée complète du binaire publié, basée sur
+le commit amont `54070da5851e12f2d1a4389daa528e4fb81327ce`, sous-modules compris. Il conserve
+également `COPYING`, les fichiers `LICENSES/` applicables, les sources ajoutées et un manifeste de
+provenance, ainsi que `SKYPORTAL_LICENSE.txt` et `SKYPORTAL_NOTICE.md`.
+
+Le kit de reconstruction publié au même endroit conserve les éléments de traçabilité :
+
+- `smart-portal-core.patch` et `skyportal-dolphin.patch` ;
+- les overlays AIDL et Kotlin ajoutés, ainsi que les modifications Manifest et Gradle ;
+- `tools/apply_dolphin_patch.py` et tout autre script réellement utilisé pour produire l'APK ;
+- les options de construction, dont un éventuel `-PskyPortalVersionCode=...` ;
+- des instructions reproductibles indiquant les outils, commandes et variantes de build.
+
+Le code source complet et le kit doivent rester associés. Publier uniquement le kit de patches ou
+uniquement un lien vers le dépôt amont ne constitue pas ici le paquet de code source correspondant
+attendu.
+
+`Dolphin_SkyPortal_API3_SHA256.txt` doit contenir au minimum les SHA-256 de l'APK, de l'archive
+source et du kit. Les artefacts doivent rester accessibles ensemble pendant toute la durée de mise à
+disposition du binaire. La clé de signature et ses secrets ne font jamais partie de l'archive
+source ni des artefacts publics.

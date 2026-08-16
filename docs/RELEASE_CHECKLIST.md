@@ -85,7 +85,20 @@ SKYPORTAL_KEY_PASSWORD
 
 Ils doivent être configurés dans GitHub Actions, jamais committés. Le workflow manuel peut produire une paire de test avec une clé éphémère, mais celle-ci ne doit pas être présentée comme compatible avec une installation utilisateur existante.
 
-## 6. Pull request
+## 6. Licence et code source correspondant
+
+- [x] `LICENSE`, `LICENSES/GPL-2.0-or-later.txt` et `NOTICE.md` sont présents et cohérents.
+- [x] Les sources originales SkyPortal portent `SPDX-License-Identifier: GPL-2.0-or-later`.
+- [x] Les avis Dolphin et Apache-2.0 existants sont conservés sans réattribution.
+- [x] La CI vérifie les documents de licence, les en-têtes SPDX et l’absence de données interdites suivies par Git.
+- [x] L’archive source du compagnon contient `LICENSE` et `NOTICE.md`.
+- [x] Le workflow de paire produit un code source Dolphin complet ainsi qu’un kit de reconstruction avec commit amont, patchs, ajouts, script et instructions.
+- [ ] Configurer les quatre secrets de signature avant toute release officielle ; ils sont actuellement absents du dépôt et ne doivent jamais y être ajoutés.
+- [ ] Pour tout APK Dolphin publié, joindre durablement le code source correspondant et son SHA-256 dans la même release.
+- [ ] Faire relire les attributions et la portée de la licence par une personne compétente avant la première publication sous cette licence.
+- [ ] Ne pas republier silencieusement les anciennes archives v0.3/v0.4 dépourvues de licence ; publier un correctif explicitement identifié si elles doivent rester distribuées.
+
+## 7. Pull request
 
 - [ ] Créer des commits cohérents pour le correctif USB et relire chaque périmètre.
 - [ ] Pousser le correctif sur `agent/v5-1-validation-release` sans réécrire l'historique partagé.
@@ -100,7 +113,7 @@ Titre proposé :
 SkyPortal Thor V5.1 — validation, hardening and release automation
 ```
 
-## 7. Publication
+## 8. Publication
 
 - [ ] Vérifier une dernière fois l'absence de release/tag `v0.5.0` avant de créer le tag.
 - [ ] Générer les notes depuis [CHANGELOG.md](../CHANGELOG.md).
