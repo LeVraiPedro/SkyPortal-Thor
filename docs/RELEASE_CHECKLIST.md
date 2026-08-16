@@ -12,7 +12,7 @@ Version candidate : **0.5.0**, `versionCode 7`. Conserver ce numéro tant qu'auc
 
 ## 2. Qualité Android
 
-- [x] `:app:testDebugUnitTest` : 74 tests réussis localement, dont le parsing et les décisions des nouvelles preuves USB, l'ancien JSON API 3, le conflit Disney Infinity, le schéma natif v2, la bascule de cible, la migration des préférences et le chemin dégradé API 1/2.
+- [x] `:app:testDebugUnitTest` : 75 tests réussis localement, dont le parsing et les décisions des nouvelles preuves USB, l'ancien JSON API 3, le conflit Disney Infinity, le schéma natif v2, la bascule de cible, la migration des préférences (y compris ses entrées vides héritées) et le chemin dégradé API 1/2.
 - [x] `:app:lintDebug` : réussi localement, aucune erreur bloquante.
 - [x] `:app:assembleDebug` : réussi localement.
 - [x] Rejouer les trois commandes sur l'état exact qui sera commité.
