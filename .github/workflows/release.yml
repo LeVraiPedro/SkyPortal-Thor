@@ -99,14 +99,14 @@ jobs:
               head -n 1
           )"
           test -n "${certificate_sha256}"
-          output="dist/SkyPortal-Thor-${GITHUB_REF_NAME}.apk"
+          output="dist/SkyPortal_Thor_${GITHUB_REF_NAME}.apk"
           cp "${apk}" "${output}"
           printf '%s\n' \
             'SkyPortal communique uniquement avec un Dolphin SkyPortal signé par le même certificat.' \
             'Pour produire une paire vérifiée, utiliser le workflow manuel full-pair-build.' \
             'Code source distribué sous GPL-2.0-or-later ; voir LICENSE et NOTICE.md dans l’archive source.' \
             > dist/COMPATIBILITY_NOTICE.txt
-          source_archive="dist/SkyPortal-Thor-${GITHUB_REF_NAME}-source.zip"
+          source_archive="dist/SkyPortal_Thor_${GITHUB_REF_NAME}_Source.zip"
           source_prefix="SkyPortal-Thor-${GITHUB_REF_NAME}/"
           git archive \
             --format=zip \
@@ -136,15 +136,17 @@ jobs:
             sha256sum --check SHA256SUMS.txt
           )
 
-      - name: Create GitHub Release
+      - name: Create draft GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          notes_file="docs/RELEASE_NOTES_${GITHUB_REF_NAME^^}.md"
+          test -f "${notes_file}"
           gh release create "${GITHUB_REF_NAME}" dist/* \
+            --draft \
             --verify-tag \
-            --generate-notes \
-            --notes "Code source sous licence GPL-2.0-or-later. L’archive source, RELEASE_INFO.txt et SHA256SUMS.txt permettent de vérifier cette publication." \
-            --title "SkyPortal Thor ${GITHUB_REF_NAME}"
+            --notes-file "${notes_file}" \
+            --title "SkyPortal Thor V5 — Smart Portal"
 
       - name: Upload release build reports on failure
         if: failure()
