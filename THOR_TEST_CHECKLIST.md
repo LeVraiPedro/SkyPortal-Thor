@@ -10,15 +10,15 @@ Cette checklist distingue les observations faites sur la console des couvertures
 | Écran supérieur | affichage logique `0`, 1920 × 1080 |
 | Écran inférieur | affichage logique `4`, 1240 × 1080 |
 | SkyPortal | `com.skyportalthor.app`, 0.5.0, code 7 |
-| Dolphin testé | `org.dolphinemu.dolphinemu.debug`, API SkyPortal 3 |
+| Dolphin testé | `org.dolphinemu.dolphinemu`, Dolphin SkyPortal API 3 Release |
 | Jeu réellement lancé | Skylanders: Spyro's Adventure |
 | Game ID réellement détecté | `SSPP52` |
 | Collection utilisateur | 32 dumps détectés, non supprimés et non réinitialisés |
-| Signature | certificat identique pour la paire Debug testée |
+| Signature | certificat de release persistant identique pour les deux APK |
 
 Le numéro de série ADB, les URI SAF et les chemins propres au PC ne sont volontairement pas publiés.
 
-> **Portée des preuves :** les résultats historiques sont complétés par une revalidation ciblée du nouveau binaire le 16 août 2026. Le chemin USB normal avec Disney Infinity désactivé et le remplacement de figurines ont été rejoués de bout en bout. Le conflit avec les deux bases simultanément actives reste non testé sur ce binaire.
+> **Portée des preuves :** les résultats historiques sont complétés par la validation de la paire Release officielle le 16 août 2026. Le chemin USB normal, les remplacements en jeu et le conflit volontaire avec Disney Infinity ont été rejoués de bout en bout avec les APK exacts destinés à la publication.
 
 ## Résultats matériels établis
 
@@ -49,14 +49,14 @@ Après l'arrêt forcé de Dolphin, l'accueil AYN Cocoon a temporairement recouve
 
 Le correctif sépare désormais quatre informations : réglage du portail, présence dans le scanner Dolphin, attachement USB et première commande Skylanders reçue. Il expose aussi `DISNEY_INFINITY_BASE` comme périphérique concurrent. Le snapshot natif v2 sépare en plus le fichier réellement monté de l'état protocolaire transitoire.
 
-- [ ] Avec portail Skylanders et base Disney Infinity activés, l'en-tête affiche le conflit et ne passe jamais à `Portail prêt`.
-- [ ] Dans ce conflit, l'activation automatique et le chargement d'un `.sky` sont bloqués avant l'appel Binder, avec un message demandant de désactiver Disney Infinity puis de redémarrer l'émulation.
+- [x] Avec portail Skylanders et base Disney Infinity activés, l'en-tête affiche le conflit et ne passe jamais à `Portail prêt`.
+- [x] Dans ce conflit, l'activation automatique et le chargement d'un `.sky` sont bloqués avant l'appel Binder, avec un message demandant de désactiver Disney Infinity puis de redémarrer l'émulation.
 - [x] Après désactivation de Disney Infinity et redémarrage complet de l'émulation, le jeu effectue le handshake USB et l'en-tête atteint `Portail prêt`.
 - [x] Avec le seul portail Skylanders actif, chargement et retrait réels fonctionnent toujours sans doublon ni faux succès.
-- [x] J1 remplace Lightning Rod par Sonic Boom puis Whirlwind sans `Dropping stale logical portal mapping`, faux échec ou slot dupliqué.
+- [x] En jeu, J1 remplace Whirlwind par Sonic Boom puis Lightning Rod sans `Dropping stale logical portal mapping`, faux échec ou slot dupliqué ; le HUD et le personnage Dolphin changent réellement.
 - [x] Le diagnostic affiche le schéma natif v2 fiable et 16 slots libres après le retrait final.
 - [x] Trois tests natifs ARM64 ciblent le remplacement et l'allocation pendant `mounted=true / status=REMOVED`.
-- [ ] L'arrêt du jeu ou de Dolphin efface la preuve USB ; une ancienne session ne laisse jamais un état prêt fantôme.
+- [x] L'arrêt brutal de Dolphin efface le jeu, les slots et la preuve USB ; après relance, `SSPP52` et les preuves USB sont redétectés sans état prêt fantôme.
 - [ ] Un changement du réglage USB pendant une émulation déjà lancée affiche `Redémarrage requis` au lieu de promettre une activation à chaud suffisante.
 
 ## Fixtures contrôlées

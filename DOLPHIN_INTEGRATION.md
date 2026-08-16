@@ -115,7 +115,7 @@ La validation matérielle V5 a utilisé `org.dolphinemu.dolphinemu.debug`, API 3
 
 Après cette campagne, l'utilisateur a confirmé un conflit lorsque `EmulateSkylanderPortal` et `EmulateInfinityBase` étaient actifs simultanément : le compagnon détectait le jeu et le réglage, mais Spyro's Adventure indiquait que le portail était introuvable. Désactiver Disney Infinity puis redémarrer l'émulation a résolu le problème.
 
-La paire corrigée a ensuite été rejouée de bout en bout sur la Thor avec Disney Infinity désactivé : présence, attachement et trafic protocolaire à `true`, `SSPP52`, `Portail prêt`, double remplacement J1 et retrait confirmé. Le scénario volontaire avec **les deux bases actives** reste à exécuter sur ce binaire.
+La paire Release officielle a ensuite été rejouée de bout en bout sur la Thor avec Disney Infinity désactivé : présence, attachement et trafic protocolaire à `true`, `SSPP52`, `Portail prêt`, remplacements J1 en jeu, J2, retrait et reconnexions confirmés. Le scénario volontaire avec **les deux bases actives** a également été validé : conflit explicite, aucun faux état prêt et aucun chargement Binder ; après restauration de Disney Infinity désactivé et redémarrage complet, le portail redevient prêt.
 
 ### Conflit Disney Infinity et redémarrage
 
