@@ -2,6 +2,29 @@
 
 ## V5 (0.5.0) — 16 août 2026
 
+### Validation et durcissement V5.1
+
+- Validation réelle sur AYN Thor Android 13, écrans logiques `0` et `4`, avec Dolphin Debug API 3 et Spyro's Adventure (`SSPP52`).
+- Vérification du chargement/retrait natif J1-J2, de l'activation automatique du portail et de la réconciliation après recréation de SkyPortal ou redémarrage de Dolphin.
+- Validation stricte des dumps de 1 024 octets : en-tête, checksums, ID et variant, sans écriture côté SkyPortal.
+- Rejet avant l'appel Binder des dumps invalides, des modèles maîtres, des identités inconnues et des contenus incompatibles avec le jeu actif.
+- Confirmation du slot réellement monté avant d'annoncer un succès ; prise en charge explicite des retours portail plein `255` et `-6`.
+- Sérialisation renforcée des opérations, délais Binder bornés, `DeathRecipient`, invalidation des résultats obsolètes et nettoyage des slots après perte du processus Dolphin.
+- Backup d'un contenu actif sérialisé avec son retrait confirmé ; une copie partielle est supprimée en cas d'échec.
+- Exclusion du scan pour `99_Backups`, `device-backups`, `test-fixtures` et `.skyportal-test-fixtures`.
+- Suite portée à 31 tests unitaires couvrant jeux, compatibilité, dumps, AIDL, API 1/2/3, confirmation des chargements, montages non identifiés, garde d'identité Dolphin, slots et logique de collection.
+- Ajout des workflows GitHub Actions `android-ci.yml`, `release.yml` et `full-pair-build.yml` ; ce dernier exige une signature commune et une révision Dolphin épinglée.
+- Création de fixtures contrôlées avec le Skylanders Manager de Dolphin pour les principales générations et catégories, hors collection utilisateur.
+- Validation matérielle du filtre SSA : Terrabite côté Personnages, Anvil Rain et Dragon's Peak côté Objets, avec affichage des générations futures via `Toute la collection`.
+- Refus matériel avant Binder de Snap Shot, Magic Log Holder et d'une identité inconnue ; chargement et retrait réels d'Anvil Rain.
+- Validation du backup d'Anvil Rain : retrait confirmé, copie exacte de 1 024 octets et exclusion de `99_Backups` du scan.
+- Validation de la reprise après écran éteint/allumé, accueil Android et recréation du compagnon, sans doublon de slot.
+- Correction d'un crash natif découvert au rebond du service Dolphin avant initialisation : garde `DirectoryInitialization`, état transitoire `INITIALIZING` et code `-10`.
+- Correction de la grille Objets trop basse sur l'écran inférieur réel grâce à des filtres repliables.
+- Documentation de la matrice de compatibilité, de la validation matérielle et de la procédure de release.
+
+> Pendant cette campagne, seul Spyro's Adventure a été lancé sur le matériel. Les cinq autres jeux restent validés automatiquement, sans revendication de test physique.
+
 ### Smart Portal
 
 - API Dolphin 3 : état d'émulation, Game ID, titre, état du portail, commande d'activation et slots natifs.

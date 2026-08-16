@@ -1,0 +1,122 @@
+name: Release SkyPortal
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag, version and main ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)"
+          code="$(grep -oP 'versionCode\s*=\s*\K[0-9]+' app/build.gradle.kts)"
+          test "${GITHUB_REF_NAME}" = "v${version}"
+          git fetch origin main
+          git merge-base --is-ancestor "${GITHUB_SHA}" origin/main
+          echo "APP_VERSION=${version}" >> "${GITHUB_ENV}"
+          echo "APP_VERSION_CODE=${code}" >> "${GITHUB_ENV}"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@4733eaac7c1b0da527e4206b7671e0061de1ce37 # v6
+        with:
+          cache-provider: basic
+
+      - name: Prepare release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SKYPORTAL_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.SKYPORTAL_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SKYPORTAL_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SKYPORTAL_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${KEYSTORE_BASE64}"
+          test -n "${STORE_PASSWORD}"
+          test -n "${KEY_ALIAS}"
+          test -n "${KEY_PASSWORD}"
+          printf '%s' "${KEYSTORE_BASE64}" | base64 --decode \
+            > "${RUNNER_TEMP}/skyportal-release.jks"
+          chmod 600 "${RUNNER_TEMP}/skyportal-release.jks"
+
+      - name: Test, lint and build signed release
+        env:
+          SKYPORTAL_STORE_FILE: ${{ runner.temp }}/skyportal-release.jks
+          SKYPORTAL_STORE_PASSWORD: ${{ secrets.SKYPORTAL_KEYSTORE_PASSWORD }}
+          SKYPORTAL_KEY_ALIAS: ${{ secrets.SKYPORTAL_KEY_ALIAS }}
+          SKYPORTAL_KEY_PASSWORD: ${{ secrets.SKYPORTAL_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f "${RUNNER_TEMP}/skyportal-release.jks"
+
+      - name: Verify signature and prepare artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -f "${apk}"
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose --print-certs "${apk}"
+          output="dist/SkyPortal-Thor-${GITHUB_REF_NAME}.apk"
+          cp "${apk}" "${output}"
+          sha256sum "${output}" > "${output}.sha256"
+          printf '%s\n' \
+            'SkyPortal communique uniquement avec un Dolphin SkyPortal signé par le même certificat.' \
+            'Pour produire une paire vérifiée, utiliser le workflow manuel full-pair-build.' \
+            > dist/COMPATIBILITY_NOTICE.txt
+          git archive \
+            --format=zip \
+            --prefix="SkyPortal-Thor-${GITHUB_REF_NAME}/" \
+            --output="dist/SkyPortal-Thor-${GITHUB_REF_NAME}-source.zip" \
+            "${GITHUB_SHA}"
+          sha256sum "dist/SkyPortal-Thor-${GITHUB_REF_NAME}-source.zip" \
+            > "dist/SkyPortal-Thor-${GITHUB_REF_NAME}-source.zip.sha256"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --verify-tag \
+            --generate-notes \
+            --title "SkyPortal Thor ${GITHUB_REF_NAME}"
+
+      - name: Upload release build reports on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-failure-reports-${{ github.sha }}
+          path: |
+            app/build/reports/
+            app/build/outputs/logs/
+          if-no-files-found: ignore

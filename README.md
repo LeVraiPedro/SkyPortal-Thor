@@ -1,6 +1,6 @@
 # SkyPortal Thor V5 — Smart Portal
 
-Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor.
+Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor. La version Android candidate actuelle est **0.5.0** (`versionCode 7`).
 
 Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (`Screen-2`) de la Thor, même si l'icône SkyPortal est touchée depuis l'écran inférieur. L'écran supérieur reste ainsi libre pour Dolphin.
 
@@ -85,6 +85,8 @@ Reconstruire Dolphin n'est pas obligatoire pour les fonctions V4, mais l'API 3 e
 
 Les deux APK doivent être signés avec la même clé, car la permission `com.skyportalthor.permission.PORTAL_CONTROL` est de niveau `signature`.
 
+La paire Debug utilisée pendant la validation matérielle possède bien une signature identique. Cela ne garantit pas qu'un APK SkyPortal arbitraire fonctionnera avec un autre build Dolphin : les deux artefacts distribués ensemble doivent être construits et signés comme une paire.
+
 ## Compilation
 
 Prérequis :
@@ -120,4 +122,16 @@ Si une erreur survient, la fenêtre reste ouverte. Utiliser **Voir détails** po
 
 ## Validation effectuée
 
-La V5 est validée par tests unitaires, Android Lint, compilation des deux APK et essais ADB sur AYN Thor Android 13. Voir [THOR_TEST_CHECKLIST.md](THOR_TEST_CHECKLIST.md) pour le relevé détaillé.
+La campagne V5.1 de fiabilisation a validé sur une vraie AYN Thor Android 13 : le routage sur les écrans logiques `0`/`4`, la connexion Binder API 3, la détection de Spyro's Adventure (`SSPP52`), l'activation du portail, le chargement/retrait J1-J2, les principales reconnexions, le cycle écran éteint/allumé et un backup contrôlé. **Spyro's Adventure est le seul jeu lancé sur le matériel pendant cette campagne.** Giants, Swap Force, Trap Team, SuperChargers et Imaginators sont couverts par les tests automatisés du modèle central, pas par un lancement matériel.
+
+Les contrôles automatisés comprennent 31 tests unitaires, Android Lint et la compilation Debug. Dix fixtures contrôlées ont été créées localement avec le Skylanders Manager officiel de Dolphin, dans un dossier séparé de la collection utilisateur ; aucun dump n'a été téléchargé. Sur SSA, elles ont permis de valider le filtre Personnages/Objets, les refus avant Binder, le chargement réel d'un Magic Item et la protection des backups.
+
+Documentation de validation :
+
+- [checklist matérielle Thor](THOR_TEST_CHECKLIST.md) ;
+- [matrice de compatibilité](docs/COMPATIBILITY_MATRIX.md) ;
+- [rapport de validation V5](docs/VALIDATION_V5.md) ;
+- [checklist de release](docs/RELEASE_CHECKLIST.md) ;
+- [intégration Dolphin](DOLPHIN_INTEGRATION.md).
+
+Les workflows GitHub Actions présents dans `.github/workflows/` couvrent la CI Android, la préparation d'une release sur tag et, manuellement, la construction d'une paire SkyPortal/Dolphin avec signature commune. Aucune clé privée n'est stockée dans le dépôt.
