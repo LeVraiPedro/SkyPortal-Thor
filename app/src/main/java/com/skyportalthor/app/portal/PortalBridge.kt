@@ -40,13 +40,16 @@ data class PortalState(
     val portalUsbStatusValid: Boolean = false,
     val portalRestartRequired: Boolean = false,
     val canSetPortalEnabled: Boolean = false,
+    val nativeSlotSchemaVersion: Int = 0,
     val nativeSlots: List<NativePortalSlotState> = emptyList(),
     val figureCatalog: Map<FigureKey, FigureMetadata> = emptyMap()
 )
 
 data class NativePortalSlotState(
     val slot: Int,
+    /** True while Dolphin still has the backing .sky file open, independently of [status]. */
     val occupied: Boolean,
+    /** Raw Portal of Power protocol state; transitions do not prove that the file is unmounted. */
     val status: Int,
     val figureId: Int? = null,
     val variantId: Int? = null

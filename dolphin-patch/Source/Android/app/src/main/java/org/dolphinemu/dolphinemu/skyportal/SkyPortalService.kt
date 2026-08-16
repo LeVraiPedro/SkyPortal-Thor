@@ -74,7 +74,10 @@ class SkyPortalService : Service() {
                         return@synchronized ERROR_INCOMPATIBLE_FIGURE
                     }
                     val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
-                    reconcileLogicalMappings(nativeSnapshot)
+                    if (!reconcileLogicalMappings(nativeSnapshot)) {
+                        Log.e(TAG, "Refusing load because the native portal snapshot is invalid")
+                        return@synchronized ERROR_UNIDENTIFIED_NATIVE_MOUNT
+                    }
                     firstUnclaimedOccupiedNativeSlot(nativeSnapshot)?.let { nativeSlot ->
                         Log.w(TAG, "Refusing load while unclaimed native slot $nativeSlot is occupied")
                         return@synchronized ERROR_UNIDENTIFIED_NATIVE_MOUNT
@@ -112,17 +115,66 @@ class SkyPortalService : Service() {
                         clearLogicalSlot(logicalSlot)
                         return@synchronized ERROR_PORTAL_FULL
                     }
+                    val mountedFigure = nativeSlot(
+                        SkylanderConfig.getPortalSnapshot(),
+                        actual
+                    )
+                    if (mountedFigure == null) {
+                        // The native call returned a slot, so ownership is uncertain until an exact
+                        // snapshot can be read. Keep the URI/mapping and throw: the companion treats
+                        // Binder exceptions as uncertain and retains its URI grant.
+                        rememberLogicalMount(logicalSlot, actual, displayName, uri, identity)
+                        throw IllegalStateException(
+                            "Native portal snapshot became invalid after loading slot $actual"
+                        )
+                    }
+                    if (!mountedFigure.mounted) {
+                        Log.e(
+                            TAG,
+                            "Native load returned an unmounted slot $actual"
+                        )
+                        clearLogicalSlot(logicalSlot)
+                        return@synchronized ERROR_SKY_DATA
+                    }
+                    if (mountedFigure.figureId != identity.first ||
+                        mountedFigure.variantId != identity.second
+                    ) {
+                        Log.e(TAG, "Native load identity mismatch at slot $actual; attempting cleanup")
+                        runCatching { SkylanderConfig.removeSkylander(actual) }
+                        val afterCleanup = nativeSlot(SkylanderConfig.getPortalSnapshot(), actual)
+                        if (afterCleanup != null && !afterCleanup.mounted) {
+                            clearLogicalSlot(logicalSlot)
+                            return@synchronized ERROR_SKY_DATA
+                        }
+                        val retainedIdentity = if (afterCleanup?.mounted == true) {
+                            afterCleanup.figureId to afterCleanup.variantId
+                        } else {
+                            identity
+                        }
+                        rememberLogicalMount(
+                            logicalSlot,
+                            actual,
+                            displayName,
+                            uri,
+                            retainedIdentity
+                        )
+                        throw IllegalStateException(
+                            "Native load identity could not be cleaned up at slot $actual"
+                        )
+                    }
                     for (otherLogical in 0 until LOGICAL_SLOT_COUNT) {
                         if (otherLogical != logicalSlot && logicalToActual[otherLogical] == actual) {
                             Log.w(TAG, "Dropping duplicate logical mapping for native slot $actual")
                             clearLogicalSlot(otherLogical)
                         }
                     }
-                    logicalToActual[logicalSlot] = actual
-                    labels[logicalSlot] = pair.second ?: displayName ?: "Unknown"
-                    uris[logicalSlot] = uri
-                    figureIds[logicalSlot] = identity.first
-                    variantIds[logicalSlot] = identity.second
+                    rememberLogicalMount(
+                        logicalSlot,
+                        actual,
+                        pair.second ?: displayName,
+                        uri,
+                        identity
+                    )
                     actual
                 }
             }
@@ -138,7 +190,10 @@ class SkyPortalService : Service() {
                 synchronized(lock) {
                     val previouslyMapped = logicalToActual[logicalSlot]
                     val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
-                    reconcileLogicalMappings(nativeSnapshot)
+                    if (!reconcileLogicalMappings(nativeSnapshot)) {
+                        Log.e(TAG, "Refusing removal because the native portal snapshot is invalid")
+                        return@synchronized false
+                    }
                     if (previouslyMapped >= 0 && logicalToActual[logicalSlot] < 0) {
                         Log.w(TAG, "Refusing removal because logical slot $logicalSlot changed natively")
                         return@synchronized false
@@ -150,14 +205,35 @@ class SkyPortalService : Service() {
                     val actual = logicalToActual[logicalSlot]
                     if (actual < 0) return@synchronized true
                     val removal = runCatching { SkylanderConfig.removeSkylander(actual) }
-                    removal.exceptionOrNull()?.let { error ->
+                    val nativeAccepted = removal.getOrElse { error ->
                         Log.e(TAG, "Failed to remove native portal slot $actual", error)
                         return@synchronized false
                     }
-                    // A false native result means the slot is already empty/removing. In both cases
-                    // the logical mapping is stale and can be cleared safely.
-                    clearLogicalSlot(logicalSlot)
-                    true
+                    val remaining = nativeSlot(SkylanderConfig.getPortalSnapshot(), actual)
+                    when {
+                        remaining == null -> {
+                            Log.e(TAG, "Cannot confirm removal: native snapshot is invalid")
+                            false
+                        }
+                        !remaining.mounted -> {
+                            clearLogicalSlot(logicalSlot)
+                            true
+                        }
+                        remaining.figureId != figureIds[logicalSlot] ||
+                            remaining.variantId != variantIds[logicalSlot] -> {
+                            Log.w(TAG, "Native slot $actual changed identity during removal")
+                            clearLogicalSlot(logicalSlot)
+                            false
+                        }
+                        else -> {
+                            Log.w(
+                                TAG,
+                                "Native slot $actual is still mounted after removal " +
+                                    "(accepted=$nativeAccepted, status=${remaining.status})"
+                            )
+                            false
+                        }
+                    }
                 }
             }
         }
@@ -171,7 +247,15 @@ class SkyPortalService : Service() {
             }
             onMainThread {
                 synchronized(lock) {
-                    reconcileLogicalMappings(SkylanderConfig.getPortalSnapshot())
+                    val initialSnapshot = SkylanderConfig.getPortalSnapshot()
+                    if (!reconcileLogicalMappings(initialSnapshot)) {
+                        throw IllegalStateException("Native portal snapshot is invalid; clear refused")
+                    }
+                    firstUnclaimedOccupiedNativeSlot(initialSnapshot)?.let { nativeSlot ->
+                        throw IllegalStateException(
+                            "Native portal slot $nativeSlot is mounted without a logical owner; clear refused"
+                        )
+                    }
                     var firstFailure: Throwable? = null
                     for (logical in 0 until LOGICAL_SLOT_COUNT) {
                         val actual = logicalToActual[logical]
@@ -180,12 +264,58 @@ class SkyPortalService : Service() {
                             continue
                         }
                         val removal = runCatching { SkylanderConfig.removeSkylander(actual) }
-                        removal.onSuccess {
-                            clearLogicalSlot(logical)
-                        }.onFailure { error ->
+                        removal.onFailure { error ->
                             Log.e(TAG, "Failed to clear native portal slot $actual", error)
                             if (firstFailure == null) firstFailure = error
+                        }.onSuccess { accepted ->
+                            val remaining = nativeSlot(SkylanderConfig.getPortalSnapshot(), actual)
+                            if (remaining == null) {
+                                Log.e(TAG, "Cannot confirm clear: native snapshot is invalid")
+                                if (firstFailure == null) {
+                                    firstFailure = IllegalStateException(
+                                        "Native portal snapshot became invalid while clearing"
+                                    )
+                                }
+                            } else if (!remaining.mounted) {
+                                clearLogicalSlot(logical)
+                            } else {
+                                val sameFigure = remaining.figureId == figureIds[logical] &&
+                                    remaining.variantId == variantIds[logical]
+                                if (!sameFigure) clearLogicalSlot(logical)
+                                Log.w(
+                                    TAG,
+                                    "Native slot $actual remained mounted while clearing " +
+                                        "(accepted=$accepted, sameFigure=$sameFigure)"
+                                )
+                                if (firstFailure == null) {
+                                    firstFailure = IllegalStateException(
+                                        "Native portal slot $actual remained mounted"
+                                    )
+                                }
+                            }
                         }
+                    }
+                    val finalSnapshot = SkylanderConfig.getPortalSnapshot()
+                    if (!isValidNativeSnapshot(finalSnapshot)) {
+                        if (firstFailure == null) {
+                            firstFailure = IllegalStateException(
+                                "Native portal snapshot became invalid after clearing"
+                            )
+                        }
+                    } else {
+                        val remainingMount = (0 until MAX_PORTAL_SLOTS).firstOrNull { slot ->
+                            nativeSlot(finalSnapshot, slot)?.mounted == true
+                        }
+                        if (remainingMount != null && firstFailure == null) {
+                            firstFailure = IllegalStateException(
+                                "Native portal slot $remainingMount remained mounted after clearing"
+                            )
+                        }
+                    }
+                    if (logicalToActual.any { it >= 0 } && firstFailure == null) {
+                        firstFailure = IllegalStateException(
+                            "One or more logical portal slots remained mapped after clearing"
+                        )
                     }
                     firstFailure?.let { throw IllegalStateException("One or more portal slots could not be cleared", it) }
                 }
@@ -243,18 +373,24 @@ class SkyPortalService : Service() {
         override fun getStatusJson(): String = onMainThread { synchronized(lock) {
             if (!nativeRuntimeReady()) return@synchronized uninitializedStatusJson()
             val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
-            reconcileLogicalMappings(nativeSnapshot)
+            if (!reconcileLogicalMappings(nativeSnapshot)) {
+                Log.e(TAG, "Native portal snapshot has an invalid layout")
+                // Do not synthesize empty slots: a Binder failure makes the companion retain its
+                // last confirmed ownership instead of reconciling against false emptiness.
+                throw IllegalStateException("Native portal snapshot has an invalid layout")
+            }
             val nativeSlots = JSONArray()
-            for (offset in nativeSnapshot.indices step 4) {
-                val slot = nativeSnapshot[offset]
-                val status = nativeSnapshot[offset + 1]
+            for (slot in 0 until MAX_PORTAL_SLOTS) {
+                val nativeSlot = nativeSlot(nativeSnapshot, slot) ?: continue
                 nativeSlots.put(
                     JSONObject()
-                        .put("slot", slot)
-                        .put("occupied", status != 0)
-                        .put("status", status)
-                        .put("id", nativeSnapshot[offset + 2])
-                        .put("variant", nativeSnapshot[offset + 3])
+                        .put("slot", nativeSlot.slot)
+                        // `occupied` means Dolphin owns an open .sky file. It deliberately remains
+                        // true while status walks REMOVING/REMOVED/ADDED during replacement.
+                        .put("occupied", nativeSlot.mounted)
+                        .put("status", nativeSlot.status)
+                        .put("id", nativeSlot.figureId)
+                        .put("variant", nativeSlot.variantId)
                 )
             }
             val slots = JSONArray()
@@ -284,6 +420,10 @@ class SkyPortalService : Service() {
                 conflictingUsbDevices.length() == 0
             JSONObject()
                 .put("apiVersion", API_VERSION)
+                // Schema 2 guarantees nativeSlots[].occupied is FileIsOpen ownership and is
+                // independent from nativeSlots[].status. API 3 payloads without this capability
+                // used status as occupancy and must not confirm a replacement in transition.
+                .put("nativeSlotSchemaVersion", NATIVE_SLOT_SCHEMA_VERSION)
                 .put("slots", slots)
                 .put("nativeSlots", nativeSlots)
                 .put("emulationState", emulationStateName(emulationState))
@@ -339,6 +479,7 @@ class SkyPortalService : Service() {
         }
         return JSONObject()
             .put("apiVersion", API_VERSION)
+            .put("nativeSlotSchemaVersion", NATIVE_SLOT_SCHEMA_VERSION)
             .put("slots", slots)
             .put("nativeSlots", nativeSlots)
             .put("emulationState", "NONE")
@@ -367,19 +508,34 @@ class SkyPortalService : Service() {
         variantIds[logical] = -1
     }
 
+    private fun rememberLogicalMount(
+        logical: Int,
+        actual: Int,
+        label: String?,
+        uri: String,
+        identity: Pair<Int, Int>
+    ) {
+        logicalToActual[logical] = actual
+        labels[logical] = label ?: "Unknown"
+        uris[logical] = uri
+        figureIds[logical] = identity.first
+        variantIds[logical] = identity.second
+    }
+
     /**
      * The Android Skylanders Manager can mutate native slots while the companion is connected.
      * Never use a cached native slot for a destructive operation until its identity is confirmed.
      */
-    private fun reconcileLogicalMappings(nativeSnapshot: IntArray) {
+    private fun reconcileLogicalMappings(nativeSnapshot: IntArray): Boolean {
+        if (!isValidNativeSnapshot(nativeSnapshot)) return false
         val claimedNativeSlots = mutableSetOf<Int>()
         for (logical in 0 until LOGICAL_SLOT_COUNT) {
             val actual = logicalToActual[logical]
             if (actual < 0) continue
-            val nativeOccupied = actual in 0 until MAX_PORTAL_SLOTS &&
-                nativeSnapshot.getOrElse(actual * 4 + 1) { 0 } != 0
-            val nativeId = if (nativeOccupied) nativeSnapshot.getOrElse(actual * 4 + 2) { -1 } else -1
-            val nativeVariant = if (nativeOccupied) nativeSnapshot.getOrElse(actual * 4 + 3) { -1 } else -1
+            val mountedSlot = nativeSlot(nativeSnapshot, actual)?.takeIf { it.mounted }
+            val nativeOccupied = mountedSlot != null
+            val nativeId = mountedSlot?.figureId ?: -1
+            val nativeVariant = mountedSlot?.variantId ?: -1
             val identityMatches = figureIds[logical] >= 0 &&
                 figureIds[logical] == nativeId && variantIds[logical] == nativeVariant
             val uniqueMapping = claimedNativeSlots.add(actual)
@@ -388,12 +544,38 @@ class SkyPortalService : Service() {
                 clearLogicalSlot(logical)
             }
         }
+        return true
     }
 
     private fun firstUnclaimedOccupiedNativeSlot(nativeSnapshot: IntArray): Int? {
         val claimed = logicalToActual.filter { it in 0 until MAX_PORTAL_SLOTS }.toSet()
         return (0 until MAX_PORTAL_SLOTS).firstOrNull { slot ->
-            nativeSnapshot.getOrElse(slot * 4 + 1) { 0 } != 0 && slot !in claimed
+            nativeSlot(nativeSnapshot, slot)?.mounted == true && slot !in claimed
+        }
+    }
+
+    private fun nativeSlot(nativeSnapshot: IntArray, slot: Int): NativeSlotState? {
+        if (slot !in 0 until MAX_PORTAL_SLOTS) return null
+        if (!isValidNativeSnapshot(nativeSnapshot)) return null
+        val offset = slot * NATIVE_SNAPSHOT_STRIDE
+        if (nativeSnapshot[offset + NATIVE_SLOT_OFFSET] != slot) return null
+        val mounted = nativeSnapshot[offset + NATIVE_MOUNTED_OFFSET] != 0
+        return NativeSlotState(
+            slot = slot,
+            mounted = mounted,
+            status = nativeSnapshot[offset + NATIVE_STATUS_OFFSET],
+            figureId = if (mounted) nativeSnapshot[offset + NATIVE_FIGURE_ID_OFFSET] else -1,
+            variantId = if (mounted) nativeSnapshot[offset + NATIVE_VARIANT_OFFSET] else -1
+        )
+    }
+
+    private fun isValidNativeSnapshot(nativeSnapshot: IntArray): Boolean {
+        if (nativeSnapshot.size != MAX_PORTAL_SLOTS * NATIVE_SNAPSHOT_STRIDE) return false
+        return (0 until MAX_PORTAL_SLOTS).all { slot ->
+            val offset = slot * NATIVE_SNAPSHOT_STRIDE
+            nativeSnapshot[offset + NATIVE_SLOT_OFFSET] == slot &&
+                nativeSnapshot[offset + NATIVE_MOUNTED_OFFSET] in 0..1 &&
+                nativeSnapshot[offset + NATIVE_STATUS_OFFSET] in NATIVE_STATUS_REMOVED..NATIVE_STATUS_ADDED
         }
     }
 
@@ -558,6 +740,7 @@ class SkyPortalService : Service() {
         const val NATIVE_NO_SLOT = 255
         const val MAIN_THREAD_TIMEOUT_SECONDS = 5L
         const val RUNNING_TASK_TIMEOUT_SECONDS = 25L
+        private const val NATIVE_SLOT_SCHEMA_VERSION = 2
         private const val PORTAL_USB_PRESENT = 1 shl 0
         private const val PORTAL_USB_ATTACHED = 1 shl 1
         private const val PORTAL_USB_HANDSHAKE_SEEN = 1 shl 2
@@ -565,6 +748,14 @@ class SkyPortalService : Service() {
         private const val CONFLICT_DISNEY_INFINITY_BASE = "DISNEY_INFINITY_BASE"
         private const val SKY_DUMP_SIZE_BYTES = 1_024L
         private const val MAX_EMPTY_READS = 3
+        private const val NATIVE_SNAPSHOT_STRIDE = 5
+        private const val NATIVE_SLOT_OFFSET = 0
+        private const val NATIVE_MOUNTED_OFFSET = 1
+        private const val NATIVE_STATUS_OFFSET = 2
+        private const val NATIVE_FIGURE_ID_OFFSET = 3
+        private const val NATIVE_VARIANT_OFFSET = 4
+        private const val NATIVE_STATUS_REMOVED = 0
+        private const val NATIVE_STATUS_ADDED = 3
         private const val TASK_QUEUED = 0
         private const val TASK_RUNNING = 1
         private const val TASK_CANCELLED = 2
@@ -584,5 +775,13 @@ class SkyPortalService : Service() {
         val variant: Int,
         val generation: Int,
         val type: Int
+    )
+
+    private data class NativeSlotState(
+        val slot: Int,
+        val mounted: Boolean,
+        val status: Int,
+        val figureId: Int,
+        val variantId: Int
     )
 }

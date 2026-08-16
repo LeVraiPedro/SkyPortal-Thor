@@ -17,7 +17,7 @@ Après la campagne ADB décrite dans ce document, un faux état `Portail prêt` 
 
 L'analyse a également établi que l'ancien état `portalActivated` reflétait un booléen protocolaire initialisé à `true`, et non une preuve que le jeu avait réellement attaché puis interrogé le périphérique USB. Le correctif ajoute trois preuves distinctes — présence, attachement et handshake Skylanders — ainsi qu'une liste de bases concurrentes. `Portail prêt` exige désormais ces preuves cohérentes et aucun conflit.
 
-**La Thor n'était plus disponible pendant l'implémentation de ce correctif.** Le parsing et les décisions du compagnon sont couverts par les tests JVM. Le chemin natif `SkylanderUSB` → JNI → service a été compilé et les patchs ont été appliqués/réversés sur une copie propre, mais aucun test automatisé ne remplace sa validation de bout en bout sur la Thor. Les résultats matériels ci-dessous sont conservés comme historique de la campagne précédente ; ils ne doivent pas être interprétés comme une revalidation du nouveau binaire.
+La Thor a été reconnectée après l'implémentation. La paire corrigée a été installée en mise à jour, sans `pm clear`, désinstallation ni suppression de données. Le chemin normal `SkylanderUSB` → JNI → service → compagnon a été validé avec Disney Infinity désactivé. Le conflit produit par les deux bases simultanément actives n'a pas été rejoué sur le nouveau binaire et reste explicitement en attente.
 
 ## Environnement matériel
 
@@ -46,11 +46,12 @@ Les commandes de référence sont :
 
 Résultats établis :
 
-- 62 tests unitaires réussis ;
+- 70 tests unitaires réussis ;
 - Android Lint réussi, aucune erreur bloquante et 16 avertissements non bloquants ;
 - APK Debug SkyPortal compilé ;
 - campagne initiale : Dolphin Debug patché compilé et installé ;
-- correctif USB : patch et intégration vérifiés localement par les tests et contrôles de build, sans installation matérielle ;
+- correctifs USB et montage : patchs vérifiés, paire installée et parcours ciblé rejoué sur la Thor ;
+- trois tests natifs ciblés réussis sur la Thor ARM64 ;
 - contrat AIDL identique des deux côtés et ordre historique préservé ;
 - patch Dolphin applicable et réversible sur la révision ciblée ;
 - syntaxe des trois workflows validée localement.
@@ -77,6 +78,8 @@ Avec Spyro's Adventure actif, le service historique rapporte `RUNNING`, `SSPP52`
 - `Toute la collection` a montré les générations futures sans supprimer la protection de compatibilité.
 - Snap Shot, Magic Log Holder et une identité inconnue ont été refusés avant Binder avec une explication française.
 - Anvil Rain a été chargé puis retiré réellement dans SSA.
+- Sur la paire finale, Lightning Rod a été remplacé dans J1 par Sonic Boom puis Whirlwind ; chaque changement a été confirmé par le même slot natif sans mapping obsolète ni faux échec.
+- Après retrait final, le diagnostic a confirmé le schéma natif v2 et les 16 slots libres.
 
 La première vérification sur l'écran inférieur réel a révélé une grille Objets trop basse. Les filtres ont été rendus repliables ; la grille et ses catégories ont ensuite été revalidées sur la Thor.
 
@@ -88,12 +91,15 @@ La première vérification sur l'écran inférieur réel a révélé une grille 
 - Après arrêt normal de l'émulation, l'ancien jeu et les anciens slots ne sont pas restés affichés comme actifs.
 - Avec Lightning Rod monté, l'extinction/rallumage de l'écran et un passage par l'accueil ont conservé un unique slot actif.
 - Après force-stop/relaunch du compagnon, le PID Dolphin est resté inchangé et Lightning Rod a été réconcilié sans doublon.
+- Ce dernier scénario a été rejoué avec la paire finale après le correctif de remplacement, puis Lightning Rod a été retiré avec confirmation.
 
 ### Logcat
 
 Le premier arrêt forcé de Dolphin a découvert un défaut réel : le processus service-only rebondissait avant l'initialisation native et un accès prématuré à `NativeConfig` provoquait un `SIGSEGV`. La correction vérifie `DirectoryInitialization`, publie l'état transitoire `INITIALIZING` et renvoie `-10` aux commandes tant que le runtime n'est pas prêt.
 
 Après rebuild et réinstallation, le scénario a été rejoué. Le compagnon est resté vivant, les slots ont été effacés sans fantôme, le service a rebondi, puis SSA `SSPP52` a été détecté à nouveau après relance. Le Logcat frais ne contient aucun crash natif ou applicatif, aucun ANR et aucun spam `DeadObjectException`.
+
+Sur le parcours final Lightning Rod → Sonic Boom → Whirlwind → retrait, Logcat ne contient ni `Dropping stale logical portal mapping`, ni échec de confirmation, crash, ANR ou `SecurityException`.
 
 ### Anomalie d'affichage observée
 
@@ -133,7 +139,14 @@ Dolphin Debug   : 12c67afe04f1186593e7dde8ae5f51a55270316c80d18b572236be408c8822
 
 Sur cette paire historique exacte, Lightning Rod a de nouveau été chargé réellement puis retiré avant backup. La copie produite fait exactement 1 024 octets, la collection utilisateur est restée à 32 fichiers et un Logcat frais n'a révélé aucune erreur critique.
 
-Ces hashes ne décrivent pas les binaires reconstruits avec le correctif USB. Leurs SHA-256 devront être recalculés avant publication et leur installation matérielle reste en attente.
+La paire Debug finale installée correspond exactement aux artefacts locaux :
+
+```text
+SkyPortal Debug : a5919d036317d8baa8267d10c13cb3eedd330589e088800d9916952c5d715491
+Dolphin Debug   : 27f45e12172b750bbe9f5919d800829573e24a3ccd34c714cc1fa4939d7ae9f1
+```
+
+Les deux APK utilisent le même certificat Debug SHA-256 `fbefc11952c49c60bfd937eb77b0a5882f898a097184391eda3b616f1cfe7f4e`.
 
 Une construction Release locale a aussi confirmé que les deux APK peuvent être signés avec un certificat commun. Elle utilisait toutefois une clé de test locale : elle ne doit pas être publiée comme une paire utilisateur. Les hashes d'une future construction de release signée doivent être recalculés au moment de la publication ; ils ne remplacent pas la vérification du certificat commun.
 
@@ -144,7 +157,7 @@ Une construction Release locale a aussi confirmé que les deux APK peuvent être
 - Les opérations équipe pendant reconnexion, retrait pendant scan et arrêt de Dolphin pendant chargement restent à rejouer.
 - Imaginators n'est pas pris en charge par le Manager de la révision Dolphin utilisée ; aucun Creation Crystal matériel n'a été testé.
 - L'exécution réelle des workflows sur GitHub doit être confirmée après push ; une validation de syntaxe locale n'est pas un résultat GitHub Actions.
-- Le nouveau suivi `portalUsbPresent` / `portalUsbAttached` / `portalUsbHandshakeSeen`, l'avertissement Disney Infinity et le blocage avant Binder n'ont pas encore été revalidés sur la Thor.
-- Une prochaine campagne matérielle doit tester les deux bases actives, puis Disney Infinity désactivé avec arrêt complet et relance de l'émulation, sans cocher ces scénarios sur la seule base des tests JVM.
+- Le nouveau suivi `portalUsbPresent` / `portalUsbAttached` / `portalUsbHandshakeSeen` est validé dans le chemin normal, mais le conflit et le blocage avant Binder avec les deux bases actives restent à rejouer.
+- Une prochaine campagne matérielle doit activer simultanément les deux bases, vérifier `PORTAL_CONFLICT`, puis restaurer Disney Infinity désactivé et relancer complètement l'émulation.
 
 La [matrice de compatibilité](COMPATIBILITY_MATRIX.md) et la [checklist Thor](../THOR_TEST_CHECKLIST.md) indiquent le niveau de preuve de chaque scénario.

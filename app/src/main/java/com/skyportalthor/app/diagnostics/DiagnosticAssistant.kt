@@ -13,6 +13,7 @@ import com.skyportalthor.app.dolphin.DolphinTargets
 import com.skyportalthor.app.data.SmartPortalReadiness
 import com.skyportalthor.app.data.EmulationState
 import com.skyportalthor.app.portal.PortalReadinessPolicy
+import com.skyportalthor.app.portal.PortalProtocol
 import com.skyportalthor.app.portal.PortalState
 import java.security.MessageDigest
 
@@ -46,6 +47,7 @@ class DiagnosticAssistant(private val context: Context) {
         add(checkApi(portalState))
         add(checkGame(portalState))
         add(checkPortal(portalState))
+        add(checkNativeSlotSchema(portalState))
         add(checkNativeSlots(portalState))
     }
 
@@ -307,6 +309,22 @@ class DiagnosticAssistant(private val context: Context) {
             "Slots natifs", DiagnosticLevel.SUCCESS,
             if (occupied.isEmpty()) "Les 16 slots natifs sont libres."
             else occupied.joinToString(prefix = "Occupés : ") { "#${it.slot} (${it.figureId}/${it.variantId})" }
+        )
+    }
+
+    private fun checkNativeSlotSchema(state: PortalState): DiagnosticItem = when {
+        state.apiVersion == null || state.apiVersion < 3 -> DiagnosticItem(
+            "Schéma slots natifs", DiagnosticLevel.INFO,
+            "Non disponible avec l’API ${state.apiVersion ?: "inconnue"}."
+        )
+        state.nativeSlotSchemaVersion >= PortalProtocol.RELIABLE_NATIVE_SLOT_SCHEMA -> DiagnosticItem(
+            "Schéma slots natifs", DiagnosticLevel.SUCCESS,
+            "v${state.nativeSlotSchemaVersion} fiable — montage fichier distinct de l’état protocolaire."
+        )
+        else -> DiagnosticItem(
+            "Schéma slots natifs", DiagnosticLevel.WARNING,
+            "Ancien ou absent : Dolphin ne peut pas confirmer qu’un fichier est réellement démonté.",
+            "Mets à jour Dolphin SkyPortal Edition avant tout chargement, backup ou vidage."
         )
     }
 

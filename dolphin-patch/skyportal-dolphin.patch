@@ -67,7 +67,7 @@ index 0000000..20e2a9e
 +    String getFigureCatalogJson();
 +}
 diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
-index b8cf8a4..aca6196 100644
+index b8cf8a4..5b33818 100644
 --- a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
 +++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
 @@ -12,6 +12,25 @@ object SkylanderConfig {
@@ -78,7 +78,7 @@ index b8cf8a4..aca6196 100644
 +    @JvmStatic
 +    external fun getSkylanderCatalog(): Array<String>
 +
-+    /** Four integers per native slot: slot, status, figure id, variant id. */
++    /** Five integers per native slot: slot, mounted, protocol status, figure id, variant id. */
 +    @JvmStatic
 +    external fun getPortalSnapshot(): IntArray
 +
@@ -98,10 +98,10 @@ index b8cf8a4..aca6196 100644
 
 diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
 new file mode 100644
-index 0000000..f42b699
+index 0000000..5679aef
 --- /dev/null
 +++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
-@@ -0,0 +1,588 @@
+@@ -0,0 +1,787 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +package org.dolphinemu.dolphinemu.skyportal
 +
@@ -178,7 +178,10 @@ index 0000000..f42b699
 +                        return@synchronized ERROR_INCOMPATIBLE_FIGURE
 +                    }
 +                    val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
-+                    reconcileLogicalMappings(nativeSnapshot)
++                    if (!reconcileLogicalMappings(nativeSnapshot)) {
++                        Log.e(TAG, "Refusing load because the native portal snapshot is invalid")
++                        return@synchronized ERROR_UNIDENTIFIED_NATIVE_MOUNT
++                    }
 +                    firstUnclaimedOccupiedNativeSlot(nativeSnapshot)?.let { nativeSlot ->
 +                        Log.w(TAG, "Refusing load while unclaimed native slot $nativeSlot is occupied")
 +                        return@synchronized ERROR_UNIDENTIFIED_NATIVE_MOUNT
@@ -216,17 +219,66 @@ index 0000000..f42b699
 +                        clearLogicalSlot(logicalSlot)
 +                        return@synchronized ERROR_PORTAL_FULL
 +                    }
++                    val mountedFigure = nativeSlot(
++                        SkylanderConfig.getPortalSnapshot(),
++                        actual
++                    )
++                    if (mountedFigure == null) {
++                        // The native call returned a slot, so ownership is uncertain until an exact
++                        // snapshot can be read. Keep the URI/mapping and throw: the companion treats
++                        // Binder exceptions as uncertain and retains its URI grant.
++                        rememberLogicalMount(logicalSlot, actual, displayName, uri, identity)
++                        throw IllegalStateException(
++                            "Native portal snapshot became invalid after loading slot $actual"
++                        )
++                    }
++                    if (!mountedFigure.mounted) {
++                        Log.e(
++                            TAG,
++                            "Native load returned an unmounted slot $actual"
++                        )
++                        clearLogicalSlot(logicalSlot)
++                        return@synchronized ERROR_SKY_DATA
++                    }
++                    if (mountedFigure.figureId != identity.first ||
++                        mountedFigure.variantId != identity.second
++                    ) {
++                        Log.e(TAG, "Native load identity mismatch at slot $actual; attempting cleanup")
++                        runCatching { SkylanderConfig.removeSkylander(actual) }
++                        val afterCleanup = nativeSlot(SkylanderConfig.getPortalSnapshot(), actual)
++                        if (afterCleanup != null && !afterCleanup.mounted) {
++                            clearLogicalSlot(logicalSlot)
++                            return@synchronized ERROR_SKY_DATA
++                        }
++                        val retainedIdentity = if (afterCleanup?.mounted == true) {
++                            afterCleanup.figureId to afterCleanup.variantId
++                        } else {
++                            identity
++                        }
++                        rememberLogicalMount(
++                            logicalSlot,
++                            actual,
++                            displayName,
++                            uri,
++                            retainedIdentity
++                        )
++                        throw IllegalStateException(
++                            "Native load identity could not be cleaned up at slot $actual"
++                        )
++                    }
 +                    for (otherLogical in 0 until LOGICAL_SLOT_COUNT) {
 +                        if (otherLogical != logicalSlot && logicalToActual[otherLogical] == actual) {
 +                            Log.w(TAG, "Dropping duplicate logical mapping for native slot $actual")
 +                            clearLogicalSlot(otherLogical)
 +                        }
 +                    }
-+                    logicalToActual[logicalSlot] = actual
-+                    labels[logicalSlot] = pair.second ?: displayName ?: "Unknown"
-+                    uris[logicalSlot] = uri
-+                    figureIds[logicalSlot] = identity.first
-+                    variantIds[logicalSlot] = identity.second
++                    rememberLogicalMount(
++                        logicalSlot,
++                        actual,
++                        pair.second ?: displayName,
++                        uri,
++                        identity
++                    )
 +                    actual
 +                }
 +            }
@@ -242,7 +294,10 @@ index 0000000..f42b699
 +                synchronized(lock) {
 +                    val previouslyMapped = logicalToActual[logicalSlot]
 +                    val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
-+                    reconcileLogicalMappings(nativeSnapshot)
++                    if (!reconcileLogicalMappings(nativeSnapshot)) {
++                        Log.e(TAG, "Refusing removal because the native portal snapshot is invalid")
++                        return@synchronized false
++                    }
 +                    if (previouslyMapped >= 0 && logicalToActual[logicalSlot] < 0) {
 +                        Log.w(TAG, "Refusing removal because logical slot $logicalSlot changed natively")
 +                        return@synchronized false
@@ -254,14 +309,35 @@ index 0000000..f42b699
 +                    val actual = logicalToActual[logicalSlot]
 +                    if (actual < 0) return@synchronized true
 +                    val removal = runCatching { SkylanderConfig.removeSkylander(actual) }
-+                    removal.exceptionOrNull()?.let { error ->
++                    val nativeAccepted = removal.getOrElse { error ->
 +                        Log.e(TAG, "Failed to remove native portal slot $actual", error)
 +                        return@synchronized false
 +                    }
-+                    // A false native result means the slot is already empty/removing. In both cases
-+                    // the logical mapping is stale and can be cleared safely.
-+                    clearLogicalSlot(logicalSlot)
-+                    true
++                    val remaining = nativeSlot(SkylanderConfig.getPortalSnapshot(), actual)
++                    when {
++                        remaining == null -> {
++                            Log.e(TAG, "Cannot confirm removal: native snapshot is invalid")
++                            false
++                        }
++                        !remaining.mounted -> {
++                            clearLogicalSlot(logicalSlot)
++                            true
++                        }
++                        remaining.figureId != figureIds[logicalSlot] ||
++                            remaining.variantId != variantIds[logicalSlot] -> {
++                            Log.w(TAG, "Native slot $actual changed identity during removal")
++                            clearLogicalSlot(logicalSlot)
++                            false
++                        }
++                        else -> {
++                            Log.w(
++                                TAG,
++                                "Native slot $actual is still mounted after removal " +
++                                    "(accepted=$nativeAccepted, status=${remaining.status})"
++                            )
++                            false
++                        }
++                    }
 +                }
 +            }
 +        }
@@ -275,7 +351,15 @@ index 0000000..f42b699
 +            }
 +            onMainThread {
 +                synchronized(lock) {
-+                    reconcileLogicalMappings(SkylanderConfig.getPortalSnapshot())
++                    val initialSnapshot = SkylanderConfig.getPortalSnapshot()
++                    if (!reconcileLogicalMappings(initialSnapshot)) {
++                        throw IllegalStateException("Native portal snapshot is invalid; clear refused")
++                    }
++                    firstUnclaimedOccupiedNativeSlot(initialSnapshot)?.let { nativeSlot ->
++                        throw IllegalStateException(
++                            "Native portal slot $nativeSlot is mounted without a logical owner; clear refused"
++                        )
++                    }
 +                    var firstFailure: Throwable? = null
 +                    for (logical in 0 until LOGICAL_SLOT_COUNT) {
 +                        val actual = logicalToActual[logical]
@@ -284,12 +368,58 @@ index 0000000..f42b699
 +                            continue
 +                        }
 +                        val removal = runCatching { SkylanderConfig.removeSkylander(actual) }
-+                        removal.onSuccess {
-+                            clearLogicalSlot(logical)
-+                        }.onFailure { error ->
++                        removal.onFailure { error ->
 +                            Log.e(TAG, "Failed to clear native portal slot $actual", error)
 +                            if (firstFailure == null) firstFailure = error
++                        }.onSuccess { accepted ->
++                            val remaining = nativeSlot(SkylanderConfig.getPortalSnapshot(), actual)
++                            if (remaining == null) {
++                                Log.e(TAG, "Cannot confirm clear: native snapshot is invalid")
++                                if (firstFailure == null) {
++                                    firstFailure = IllegalStateException(
++                                        "Native portal snapshot became invalid while clearing"
++                                    )
++                                }
++                            } else if (!remaining.mounted) {
++                                clearLogicalSlot(logical)
++                            } else {
++                                val sameFigure = remaining.figureId == figureIds[logical] &&
++                                    remaining.variantId == variantIds[logical]
++                                if (!sameFigure) clearLogicalSlot(logical)
++                                Log.w(
++                                    TAG,
++                                    "Native slot $actual remained mounted while clearing " +
++                                        "(accepted=$accepted, sameFigure=$sameFigure)"
++                                )
++                                if (firstFailure == null) {
++                                    firstFailure = IllegalStateException(
++                                        "Native portal slot $actual remained mounted"
++                                    )
++                                }
++                            }
 +                        }
++                    }
++                    val finalSnapshot = SkylanderConfig.getPortalSnapshot()
++                    if (!isValidNativeSnapshot(finalSnapshot)) {
++                        if (firstFailure == null) {
++                            firstFailure = IllegalStateException(
++                                "Native portal snapshot became invalid after clearing"
++                            )
++                        }
++                    } else {
++                        val remainingMount = (0 until MAX_PORTAL_SLOTS).firstOrNull { slot ->
++                            nativeSlot(finalSnapshot, slot)?.mounted == true
++                        }
++                        if (remainingMount != null && firstFailure == null) {
++                            firstFailure = IllegalStateException(
++                                "Native portal slot $remainingMount remained mounted after clearing"
++                            )
++                        }
++                    }
++                    if (logicalToActual.any { it >= 0 } && firstFailure == null) {
++                        firstFailure = IllegalStateException(
++                            "One or more logical portal slots remained mapped after clearing"
++                        )
 +                    }
 +                    firstFailure?.let { throw IllegalStateException("One or more portal slots could not be cleared", it) }
 +                }
@@ -347,18 +477,24 @@ index 0000000..f42b699
 +        override fun getStatusJson(): String = onMainThread { synchronized(lock) {
 +            if (!nativeRuntimeReady()) return@synchronized uninitializedStatusJson()
 +            val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
-+            reconcileLogicalMappings(nativeSnapshot)
++            if (!reconcileLogicalMappings(nativeSnapshot)) {
++                Log.e(TAG, "Native portal snapshot has an invalid layout")
++                // Do not synthesize empty slots: a Binder failure makes the companion retain its
++                // last confirmed ownership instead of reconciling against false emptiness.
++                throw IllegalStateException("Native portal snapshot has an invalid layout")
++            }
 +            val nativeSlots = JSONArray()
-+            for (offset in nativeSnapshot.indices step 4) {
-+                val slot = nativeSnapshot[offset]
-+                val status = nativeSnapshot[offset + 1]
++            for (slot in 0 until MAX_PORTAL_SLOTS) {
++                val nativeSlot = nativeSlot(nativeSnapshot, slot) ?: continue
 +                nativeSlots.put(
 +                    JSONObject()
-+                        .put("slot", slot)
-+                        .put("occupied", status != 0)
-+                        .put("status", status)
-+                        .put("id", nativeSnapshot[offset + 2])
-+                        .put("variant", nativeSnapshot[offset + 3])
++                        .put("slot", nativeSlot.slot)
++                        // `occupied` means Dolphin owns an open .sky file. It deliberately remains
++                        // true while status walks REMOVING/REMOVED/ADDED during replacement.
++                        .put("occupied", nativeSlot.mounted)
++                        .put("status", nativeSlot.status)
++                        .put("id", nativeSlot.figureId)
++                        .put("variant", nativeSlot.variantId)
 +                )
 +            }
 +            val slots = JSONArray()
@@ -388,6 +524,10 @@ index 0000000..f42b699
 +                conflictingUsbDevices.length() == 0
 +            JSONObject()
 +                .put("apiVersion", API_VERSION)
++                // Schema 2 guarantees nativeSlots[].occupied is FileIsOpen ownership and is
++                // independent from nativeSlots[].status. API 3 payloads without this capability
++                // used status as occupancy and must not confirm a replacement in transition.
++                .put("nativeSlotSchemaVersion", NATIVE_SLOT_SCHEMA_VERSION)
 +                .put("slots", slots)
 +                .put("nativeSlots", nativeSlots)
 +                .put("emulationState", emulationStateName(emulationState))
@@ -443,6 +583,7 @@ index 0000000..f42b699
 +        }
 +        return JSONObject()
 +            .put("apiVersion", API_VERSION)
++            .put("nativeSlotSchemaVersion", NATIVE_SLOT_SCHEMA_VERSION)
 +            .put("slots", slots)
 +            .put("nativeSlots", nativeSlots)
 +            .put("emulationState", "NONE")
@@ -471,19 +612,34 @@ index 0000000..f42b699
 +        variantIds[logical] = -1
 +    }
 +
++    private fun rememberLogicalMount(
++        logical: Int,
++        actual: Int,
++        label: String?,
++        uri: String,
++        identity: Pair<Int, Int>
++    ) {
++        logicalToActual[logical] = actual
++        labels[logical] = label ?: "Unknown"
++        uris[logical] = uri
++        figureIds[logical] = identity.first
++        variantIds[logical] = identity.second
++    }
++
 +    /**
 +     * The Android Skylanders Manager can mutate native slots while the companion is connected.
 +     * Never use a cached native slot for a destructive operation until its identity is confirmed.
 +     */
-+    private fun reconcileLogicalMappings(nativeSnapshot: IntArray) {
++    private fun reconcileLogicalMappings(nativeSnapshot: IntArray): Boolean {
++        if (!isValidNativeSnapshot(nativeSnapshot)) return false
 +        val claimedNativeSlots = mutableSetOf<Int>()
 +        for (logical in 0 until LOGICAL_SLOT_COUNT) {
 +            val actual = logicalToActual[logical]
 +            if (actual < 0) continue
-+            val nativeOccupied = actual in 0 until MAX_PORTAL_SLOTS &&
-+                nativeSnapshot.getOrElse(actual * 4 + 1) { 0 } != 0
-+            val nativeId = if (nativeOccupied) nativeSnapshot.getOrElse(actual * 4 + 2) { -1 } else -1
-+            val nativeVariant = if (nativeOccupied) nativeSnapshot.getOrElse(actual * 4 + 3) { -1 } else -1
++            val mountedSlot = nativeSlot(nativeSnapshot, actual)?.takeIf { it.mounted }
++            val nativeOccupied = mountedSlot != null
++            val nativeId = mountedSlot?.figureId ?: -1
++            val nativeVariant = mountedSlot?.variantId ?: -1
 +            val identityMatches = figureIds[logical] >= 0 &&
 +                figureIds[logical] == nativeId && variantIds[logical] == nativeVariant
 +            val uniqueMapping = claimedNativeSlots.add(actual)
@@ -492,12 +648,38 @@ index 0000000..f42b699
 +                clearLogicalSlot(logical)
 +            }
 +        }
++        return true
 +    }
 +
 +    private fun firstUnclaimedOccupiedNativeSlot(nativeSnapshot: IntArray): Int? {
 +        val claimed = logicalToActual.filter { it in 0 until MAX_PORTAL_SLOTS }.toSet()
 +        return (0 until MAX_PORTAL_SLOTS).firstOrNull { slot ->
-+            nativeSnapshot.getOrElse(slot * 4 + 1) { 0 } != 0 && slot !in claimed
++            nativeSlot(nativeSnapshot, slot)?.mounted == true && slot !in claimed
++        }
++    }
++
++    private fun nativeSlot(nativeSnapshot: IntArray, slot: Int): NativeSlotState? {
++        if (slot !in 0 until MAX_PORTAL_SLOTS) return null
++        if (!isValidNativeSnapshot(nativeSnapshot)) return null
++        val offset = slot * NATIVE_SNAPSHOT_STRIDE
++        if (nativeSnapshot[offset + NATIVE_SLOT_OFFSET] != slot) return null
++        val mounted = nativeSnapshot[offset + NATIVE_MOUNTED_OFFSET] != 0
++        return NativeSlotState(
++            slot = slot,
++            mounted = mounted,
++            status = nativeSnapshot[offset + NATIVE_STATUS_OFFSET],
++            figureId = if (mounted) nativeSnapshot[offset + NATIVE_FIGURE_ID_OFFSET] else -1,
++            variantId = if (mounted) nativeSnapshot[offset + NATIVE_VARIANT_OFFSET] else -1
++        )
++    }
++
++    private fun isValidNativeSnapshot(nativeSnapshot: IntArray): Boolean {
++        if (nativeSnapshot.size != MAX_PORTAL_SLOTS * NATIVE_SNAPSHOT_STRIDE) return false
++        return (0 until MAX_PORTAL_SLOTS).all { slot ->
++            val offset = slot * NATIVE_SNAPSHOT_STRIDE
++            nativeSnapshot[offset + NATIVE_SLOT_OFFSET] == slot &&
++                nativeSnapshot[offset + NATIVE_MOUNTED_OFFSET] in 0..1 &&
++                nativeSnapshot[offset + NATIVE_STATUS_OFFSET] in NATIVE_STATUS_REMOVED..NATIVE_STATUS_ADDED
 +        }
 +    }
 +
@@ -662,6 +844,7 @@ index 0000000..f42b699
 +        const val NATIVE_NO_SLOT = 255
 +        const val MAIN_THREAD_TIMEOUT_SECONDS = 5L
 +        const val RUNNING_TASK_TIMEOUT_SECONDS = 25L
++        private const val NATIVE_SLOT_SCHEMA_VERSION = 2
 +        private const val PORTAL_USB_PRESENT = 1 shl 0
 +        private const val PORTAL_USB_ATTACHED = 1 shl 1
 +        private const val PORTAL_USB_HANDSHAKE_SEEN = 1 shl 2
@@ -669,6 +852,14 @@ index 0000000..f42b699
 +        private const val CONFLICT_DISNEY_INFINITY_BASE = "DISNEY_INFINITY_BASE"
 +        private const val SKY_DUMP_SIZE_BYTES = 1_024L
 +        private const val MAX_EMPTY_READS = 3
++        private const val NATIVE_SNAPSHOT_STRIDE = 5
++        private const val NATIVE_SLOT_OFFSET = 0
++        private const val NATIVE_MOUNTED_OFFSET = 1
++        private const val NATIVE_STATUS_OFFSET = 2
++        private const val NATIVE_FIGURE_ID_OFFSET = 3
++        private const val NATIVE_VARIANT_OFFSET = 4
++        private const val NATIVE_STATUS_REMOVED = 0
++        private const val NATIVE_STATUS_ADDED = 3
 +        private const val TASK_QUEUED = 0
 +        private const val TASK_RUNNING = 1
 +        private const val TASK_CANCELLED = 2
@@ -689,12 +880,20 @@ index 0000000..f42b699
 +        val generation: Int,
 +        val type: Int
 +    )
++
++    private data class NativeSlotState(
++        val slot: Int,
++        val mounted: Boolean,
++        val status: Int,
++        val figureId: Int,
++        val variantId: Int
++    )
 +}
 diff --git a/Source/Android/jni/SkylanderConfig.cpp b/Source/Android/jni/SkylanderConfig.cpp
-index 51c621c..6262754 100644
+index 51c621c..acaeded 100644
 --- a/Source/Android/jni/SkylanderConfig.cpp
 +++ b/Source/Android/jni/SkylanderConfig.cpp
-@@ -5,13 +5,85 @@
+@@ -5,13 +5,94 @@
 
  #include <array>
 
@@ -760,17 +959,26 @@ index 51c621c..6262754 100644
 +Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getPortalSnapshot(JNIEnv* env,
 +                                                                                     jclass clazz)
 +{
-+  constexpr jsize values_per_slot = 4;
++  // Keep file ownership and the USB protocol state as separate values. A replacement queues
++  // REMOVING -> REMOVED -> ADDED -> READY while the new file is already open, so encoding
++  // `mounted` by zeroing status creates a false empty slot during that transition.
++  constexpr jsize snapshot_stride = 5;
++  constexpr size_t slot_offset = 0;
++  constexpr size_t mounted_offset = 1;
++  constexpr size_t status_offset = 2;
++  constexpr size_t figure_id_offset = 3;
++  constexpr size_t variant_id_offset = 4;
 +  const auto snapshot = Core::System::GetInstance().GetSkylanderPortal().GetSlotSnapshot();
-+  std::array<jint, MAX_SKYLANDERS * values_per_slot> packed{};
++  std::array<jint, MAX_SKYLANDERS * snapshot_stride> packed{};
 +  for (u8 slot = 0; slot < MAX_SKYLANDERS; ++slot)
 +  {
 +    const auto& entry = snapshot[slot];
-+    const size_t offset = slot * values_per_slot;
-+    packed[offset] = slot;
-+    packed[offset + 1] = entry.occupied ? entry.status : 0;
-+    packed[offset + 2] = entry.figure_id;
-+    packed[offset + 3] = entry.variant_id;
++    const size_t offset = slot * snapshot_stride;
++    packed[offset + slot_offset] = slot;
++    packed[offset + mounted_offset] = entry.mounted ? 1 : 0;
++    packed[offset + status_offset] = entry.status;
++    packed[offset + figure_id_offset] = entry.figure_id;
++    packed[offset + variant_id_offset] = entry.variant_id;
 +  }
 +  jintArray result = env->NewIntArray(static_cast<jsize>(packed.size()));
 +  env->SetIntArrayRegion(result, 0, static_cast<jsize>(packed.size()), packed.data());
@@ -808,7 +1016,7 @@ index 9f9e809..c6d9ca0 100644
    u64 m_id = 0xFFFFFFFFFFFFFFFF;
  };
 diff --git a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
-index 14017ee..3e15232 100644
+index 14017ee..2a97ae6 100644
 --- a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
 +++ b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
 @@ -647,15 +647,31 @@ std::vector<EndpointDescriptor> SkylanderUSB::GetEndpoints(u8 config, u8 iface,
@@ -867,7 +1075,57 @@ index 14017ee..3e15232 100644
    std::array<u8, 64> interrupt_response = {};
    s32 expected_count;
    u64 expected_time_us;
-@@ -1373,6 +1397,27 @@ Skylander* SkylanderPortal::GetSkylander(u8 slot)
+@@ -1283,21 +1307,24 @@ bool SkylanderPortal::RemoveSkylander(u8 sky_num)
+   std::lock_guard lock(sky_mutex);
+   auto& skylander = skylanders[sky_num];
+
+-  if (skylander.figure->FileIsOpen())
+-  {
+-    skylander.figure->Save();
+-    skylander.figure->Close();
+-  }
++  // File ownership is the source of truth for removal. During an A -> B replacement the protocol
++  // queue can still be reporting A's REMOVING/REMOVED states while B's file is already mounted.
++  // Refusing removal solely because status is not READY would leave B open and later replay its
++  // stale ADDED/READY notifications.
++  if (!skylander.figure || !skylander.figure->FileIsOpen())
++    return false;
+
+-  if (skylander.status & Skylander::READY)
+-  {
+-    skylander.status = Skylander::REMOVING;
+-    skylander.queued_status.push(Skylander::REMOVING);
+-    skylander.queued_status.push(Skylander::REMOVED);
+-    return true;
+-  }
++  skylander.figure->Save();
++  skylander.figure->Close();
+
+-  return false;
++  // Cancel any pending notifications for the figure we just closed and finish in REMOVED. The
++  // replacement path immediately appends ADDED/READY for the newly mounted figure, preserving the
++  // normal REMOVING -> REMOVED -> ADDED -> READY sequence.
++  skylander.queued_status = {};
++  skylander.status = Skylander::REMOVING;
++  skylander.queued_status.push(Skylander::REMOVING);
++  skylander.queued_status.push(Skylander::REMOVED);
++  return true;
+ }
+
+ u8 SkylanderPortal::LoadSkylander(std::unique_ptr<SkylanderFigure> figure)
+@@ -1317,7 +1344,10 @@ u8 SkylanderPortal::LoadSkylander(std::unique_ptr<SkylanderFigure> figure)
+   // mimics spot retaining on the portal
+   for (auto i = 0; i < MAX_SKYLANDERS; i++)
+   {
+-    if ((skylanders[i].status & 1) == 0)
++    // Protocol status is deliberately allowed to lag behind file ownership. During A -> B,
++    // B is already open while the queue still reports REMOVING/REMOVED for A. Reusing a slot
++    // because READY is temporarily clear would silently close/overwrite B when loading C.
++    if (!skylanders[i].figure || !skylanders[i].figure->FileIsOpen())
+     {
+       if (skylanders[i].last_id == sky_serial)
+       {
+@@ -1373,6 +1403,26 @@ Skylander* SkylanderPortal::GetSkylander(u8 slot)
    return &skylanders[slot];
  }
 
@@ -880,9 +1138,8 @@ index 14017ee..3e15232 100644
 +    const auto& skylander = skylanders[slot];
 +    auto& entry = snapshot[slot];
 +    entry.status = skylander.status;
-+    entry.occupied =
-+        skylander.figure && skylander.figure->FileIsOpen() && (skylander.status & Skylander::READY);
-+    if (entry.occupied)
++    entry.mounted = skylander.figure && skylander.figure->FileIsOpen();
++    if (entry.mounted)
 +    {
 +      const FigureData data = skylander.figure->GetData();
 +      entry.figure_id = data.figure_id;
@@ -896,7 +1153,7 @@ index 14017ee..3e15232 100644
  {
    switch (type)
 diff --git a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
-index 9de058f..b5b992c 100644
+index 9de058f..a195767 100644
 --- a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
 +++ b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
 @@ -3,6 +3,7 @@
@@ -925,13 +1182,16 @@ index 9de058f..b5b992c 100644
    DeviceDescriptor m_device_descriptor;
    std::vector<ConfigDescriptor> m_config_descriptor;
    std::vector<InterfaceDescriptor> m_interface_descriptor;
-@@ -126,6 +129,14 @@ struct SkylanderLEDColor final
+@@ -126,6 +129,17 @@ struct SkylanderLEDColor final
    u8 blue = 0;
  };
 
 +struct SkylanderSlotSnapshot final
 +{
-+  bool occupied = false;
++  // Whether Dolphin currently owns an open figure file for this slot. This is intentionally
++  // independent from status: while replacing A with B the USB status queue legitimately exposes
++  // REMOVING/REMOVED/ADDED before READY even though B is already mounted.
++  bool mounted = false;
 +  u8 status = Skylander::REMOVED;
 +  u16 figure_id = 0;
 +  u16 variant_id = 0;
@@ -940,7 +1200,7 @@ index 9de058f..b5b992c 100644
  class SkylanderPortal final
  {
  public:
-@@ -142,6 +153,7 @@ public:
+@@ -142,6 +156,7 @@ public:
    bool RemoveSkylander(u8 sky_num);
    u8 LoadSkylander(std::unique_ptr<SkylanderFigure> figure);
    Skylander* GetSkylander(u8 slot);
@@ -982,3 +1242,146 @@ index 2893d10..17c535a 100644
      m_devices = std::move(new_devices);
 
      std::lock_guard clients_lock(m_clients_mutex);
+diff --git a/Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp b/Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp
+index bded202..9e8f471 100644
+--- a/Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp
++++ b/Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp
+@@ -1,9 +1,14 @@
+ #include <gtest/gtest.h>
+
+ #include <array>
++#include <memory>
++#include <string>
+ #include <string_view>
+
+ #include "Common/BitUtils.h"
++#include "Common/FileUtil.h"
++#include "Common/ScopeGuard.h"
++#include "Core/IOS/USB/Emulated/Skylanders/Skylander.h"
+ #include "Core/IOS/USB/Emulated/Skylanders/SkylanderCrypto.h"
+ #include "Core/IOS/USB/Emulated/Skylanders/SkylanderFigure.h"
+
+@@ -184,3 +189,123 @@ TEST(Skylanders, ToyCode)
+                                      code_chars.size());
+   EXPECT_EQ(code_string, "WCJGC-HHR5Q");
+ }
++
++TEST(Skylanders, ReplacementSnapshotSeparatesMountFromProtocolStatus)
++{
++  const std::string temp_dir = File::CreateTempDir();
++  Common::ScopeGuard cleanup([&] { File::DeleteDirRecursively(temp_dir); });
++  IOS::HLE::USB::SkylanderPortal portal;
++
++  auto first = std::make_unique<IOS::HLE::USB::SkylanderFigure>(temp_dir + "/first.sky");
++  ASSERT_TRUE(first->Create(16, 0, std::array<u8, 4>{0x01, 0x02, 0x03, 0x04}));
++  const u8 slot = portal.LoadSkylander(std::move(first));
++  ASSERT_NE(slot, 0xFF);
++
++  // Consume the initial ADDED/READY notifications so the first figure is stable.
++  portal.GetStatus();
++  portal.GetStatus();
++  auto snapshot = portal.GetSlotSnapshot();
++  ASSERT_TRUE(snapshot[slot].mounted);
++  ASSERT_EQ(snapshot[slot].status, IOS::HLE::USB::Skylander::READY);
++  ASSERT_EQ(snapshot[slot].figure_id, 16);
++
++  auto second = std::make_unique<IOS::HLE::USB::SkylanderFigure>(temp_dir + "/second.sky");
++  ASSERT_TRUE(second->Create(18, 0, std::array<u8, 4>{0x05, 0x06, 0x07, 0x08}));
++  ASSERT_TRUE(portal.RemoveSkylander(slot));
++  ASSERT_EQ(portal.LoadSkylander(std::move(second)), slot);
++
++  // The new file is already owned by Dolphin while the game still receives the complete
++  // transition for the replaced figure.
++  constexpr std::array<u8, 4> expected_statuses = {
++      IOS::HLE::USB::Skylander::REMOVING, IOS::HLE::USB::Skylander::REMOVED,
++      IOS::HLE::USB::Skylander::ADDED, IOS::HLE::USB::Skylander::READY};
++  for (const u8 expected_status : expected_statuses)
++  {
++    portal.GetStatus();
++    snapshot = portal.GetSlotSnapshot();
++    EXPECT_TRUE(snapshot[slot].mounted);
++    EXPECT_EQ(snapshot[slot].status, expected_status);
++    EXPECT_EQ(snapshot[slot].figure_id, 18);
++    EXPECT_EQ(snapshot[slot].variant_id, 0);
++  }
++
++  ASSERT_TRUE(portal.RemoveSkylander(slot));
++  snapshot = portal.GetSlotSnapshot();
++  EXPECT_FALSE(snapshot[slot].mounted);
++  EXPECT_EQ(snapshot[slot].status, IOS::HLE::USB::Skylander::REMOVING);
++}
++
++TEST(Skylanders, RemovalDuringReplacementCancelsPendingAddition)
++{
++  const std::string temp_dir = File::CreateTempDir();
++  Common::ScopeGuard cleanup([&] { File::DeleteDirRecursively(temp_dir); });
++  IOS::HLE::USB::SkylanderPortal portal;
++
++  auto first = std::make_unique<IOS::HLE::USB::SkylanderFigure>(temp_dir + "/first.sky");
++  ASSERT_TRUE(first->Create(16, 0, std::array<u8, 4>{0x11, 0x12, 0x13, 0x14}));
++  const u8 slot = portal.LoadSkylander(std::move(first));
++  ASSERT_NE(slot, 0xFF);
++  portal.GetStatus();
++  portal.GetStatus();
++
++  auto second = std::make_unique<IOS::HLE::USB::SkylanderFigure>(temp_dir + "/second.sky");
++  ASSERT_TRUE(second->Create(18, 0, std::array<u8, 4>{0x15, 0x16, 0x17, 0x18}));
++  ASSERT_TRUE(portal.RemoveSkylander(slot));
++  ASSERT_EQ(portal.LoadSkylander(std::move(second)), slot);
++  portal.GetStatus();
++  ASSERT_EQ(portal.GetSlotSnapshot()[slot].status, IOS::HLE::USB::Skylander::REMOVING);
++
++  // Removing B before A's replacement queue is drained must close B and discard its pending
++  // ADDED/READY notifications.
++  ASSERT_TRUE(portal.RemoveSkylander(slot));
++  EXPECT_FALSE(portal.GetSlotSnapshot()[slot].mounted);
++  portal.GetStatus();
++  portal.GetStatus();
++  const auto final_snapshot = portal.GetSlotSnapshot();
++  EXPECT_FALSE(final_snapshot[slot].mounted);
++  EXPECT_EQ(final_snapshot[slot].status, IOS::HLE::USB::Skylander::REMOVED);
++}
++
++TEST(Skylanders, AdditionalLoadDoesNotReuseMountedReplacementSlot)
++{
++  const std::string temp_dir = File::CreateTempDir();
++  Common::ScopeGuard cleanup([&] { File::DeleteDirRecursively(temp_dir); });
++  IOS::HLE::USB::SkylanderPortal portal;
++
++  auto first = std::make_unique<IOS::HLE::USB::SkylanderFigure>(temp_dir + "/first.sky");
++  ASSERT_TRUE(first->Create(16, 0, std::array<u8, 4>{0x21, 0x22, 0x23, 0x24}));
++  const u8 first_slot = portal.LoadSkylander(std::move(first));
++  ASSERT_NE(first_slot, 0xFF);
++  portal.GetStatus();
++  portal.GetStatus();
++
++  auto second = std::make_unique<IOS::HLE::USB::SkylanderFigure>(temp_dir + "/second.sky");
++  ASSERT_TRUE(second->Create(18, 0, std::array<u8, 4>{0x25, 0x26, 0x27, 0x28}));
++  ASSERT_TRUE(portal.RemoveSkylander(first_slot));
++  ASSERT_EQ(portal.LoadSkylander(std::move(second)), first_slot);
++
++  // Advance to the exact state that exposed the old bug: B remains open while the protocol status
++  // reports A as REMOVED. The old `(status & READY) == 0` allocator considered this slot free.
++  portal.GetStatus();
++  portal.GetStatus();
++  auto snapshot = portal.GetSlotSnapshot();
++  ASSERT_TRUE(snapshot[first_slot].mounted);
++  ASSERT_EQ(snapshot[first_slot].status, IOS::HLE::USB::Skylander::REMOVED);
++  ASSERT_EQ(snapshot[first_slot].figure_id, 18);
++
++  // Loading C without explicitly replacing B must allocate another physical portal slot.
++  auto third = std::make_unique<IOS::HLE::USB::SkylanderFigure>(temp_dir + "/third.sky");
++  ASSERT_TRUE(third->Create(19, 0, std::array<u8, 4>{0x29, 0x2A, 0x2B, 0x2C}));
++  const u8 third_slot = portal.LoadSkylander(std::move(third));
++  ASSERT_NE(third_slot, 0xFF);
++  ASSERT_NE(third_slot, first_slot);
++
++  snapshot = portal.GetSlotSnapshot();
++  EXPECT_TRUE(snapshot[first_slot].mounted);
++  EXPECT_EQ(snapshot[first_slot].figure_id, 18);
++  EXPECT_TRUE(snapshot[third_slot].mounted);
++  EXPECT_EQ(snapshot[third_slot].figure_id, 19);
++
++  EXPECT_TRUE(portal.RemoveSkylander(first_slot));
++  EXPECT_TRUE(portal.RemoveSkylander(third_slot));
++}

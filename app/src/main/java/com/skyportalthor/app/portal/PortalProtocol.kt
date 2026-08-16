@@ -2,6 +2,7 @@ package com.skyportalthor.app.portal
 
 internal object PortalProtocol {
     const val MAX_PORTAL_SLOTS = 16
+    const val RELIABLE_NATIVE_SLOT_SCHEMA = 2
     const val NATIVE_NO_SLOT = 255
     const val ERROR_PORTAL_FULL = -6
     const val ERROR_DOLPHIN_NOT_READY = -10
@@ -12,6 +13,11 @@ internal object PortalProtocol {
     fun isValidActualSlot(value: Int): Boolean = value in 0 until MAX_PORTAL_SLOTS
 
     fun isPortalFull(value: Int): Boolean = value == NATIVE_NO_SLOT || value == ERROR_PORTAL_FULL
+
+    fun mayHaveRemovedPreviousMount(value: Int): Boolean = value == ERROR_PORTAL_FULL
+
+    fun hasReliableNativeMountSchema(apiVersion: Int, nativeSlotSchemaVersion: Int): Boolean =
+        apiVersion < 3 || nativeSlotSchemaVersion >= RELIABLE_NATIVE_SLOT_SCHEMA
 
     fun requiresPortalReadyAfterLoad(
         apiVersion: Int,
@@ -26,6 +32,7 @@ internal object PortalProtocol {
         remoteUriWasReported: Boolean,
         remoteUri: String?,
         expectedUri: String,
+        nativeSlotSchemaVersion: Int,
         nativeSnapshotSize: Int,
         nativeOccupied: Boolean?,
         expectedFigureId: Int?,
@@ -37,6 +44,7 @@ internal object PortalProtocol {
             return false
         }
         if (apiVersion < 3) return true
+        if (!hasReliableNativeMountSchema(apiVersion, nativeSlotSchemaVersion)) return false
         if (nativeSnapshotSize != MAX_PORTAL_SLOTS || nativeOccupied != true) return false
         return expectedFigureId != null && expectedVariantId != null &&
             nativeFigureId == expectedFigureId && nativeVariantId == expectedVariantId
@@ -91,6 +99,8 @@ internal object PortalProtocol {
         refreshSucceeded: Boolean,
         expectedActualSlot: Int,
         logicalActualSlot: Int?,
+        nativeSlotSchemaVersion: Int,
+        nativeSnapshotSize: Int,
         nativeOccupied: Boolean?,
         expectedFigureId: Int,
         expectedVariantId: Int,
@@ -102,9 +112,44 @@ internal object PortalProtocol {
         if (!refreshSucceeded || logicalActualSlot != expectedActualSlot) return false
         if (requirePortalReady && !portalReady) return false
         if (apiVersion < 3) return true
-        return nativeOccupied == true &&
+        return hasReliableNativeMountSchema(apiVersion, nativeSlotSchemaVersion) &&
+            nativeSnapshotSize == MAX_PORTAL_SLOTS &&
+            nativeOccupied == true &&
             nativeFigureId == expectedFigureId &&
             nativeVariantId == expectedVariantId
+    }
+
+    fun isConfirmedRemoval(
+        apiVersion: Int,
+        refreshSucceeded: Boolean,
+        expectedActualSlot: Int,
+        logicalActualSlot: Int?,
+        nativeSlotSchemaVersion: Int,
+        nativeSnapshotSize: Int,
+        nativeOccupied: Boolean?
+    ): Boolean {
+        if (apiVersion < 3) return refreshSucceeded
+        return refreshSucceeded &&
+            hasReliableNativeMountSchema(apiVersion, nativeSlotSchemaVersion) &&
+            isValidActualSlot(expectedActualSlot) &&
+            !isValidActualSlot(logicalActualSlot ?: -1) &&
+            nativeSnapshotSize == MAX_PORTAL_SLOTS &&
+            nativeOccupied == false
+    }
+
+    fun isConfirmedClear(
+        apiVersion: Int,
+        refreshSucceeded: Boolean,
+        nativeSlotSchemaVersion: Int,
+        logicalSlots: List<PortalSlotState>,
+        nativeSlots: List<NativePortalSlotState>
+    ): Boolean {
+        if (apiVersion < 3) return refreshSucceeded
+        return refreshSucceeded &&
+            hasReliableNativeMountSchema(apiVersion, nativeSlotSchemaVersion) &&
+            nativeSlots.size == MAX_PORTAL_SLOTS &&
+            logicalSlots.none { isValidActualSlot(it.actualPortalSlot) } &&
+            nativeSlots.none { it.occupied }
     }
 
     fun loadConfirmationFailure(

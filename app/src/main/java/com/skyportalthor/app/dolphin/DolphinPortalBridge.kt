@@ -29,6 +29,8 @@ import com.skyportalthor.app.portal.PortalSlotState
 import com.skyportalthor.app.portal.PortalState
 import com.skyportalthor.app.portal.PortalStateReducer
 import com.skyportalthor.app.portal.NativePortalSlotState
+import com.skyportalthor.app.portal.PortalTargetSwitchDecision
+import com.skyportalthor.app.portal.PortalTargetSwitchPolicy
 import com.skyportalthor.ipc.ISkylanderPortalService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -107,24 +109,38 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 }
 
                 if (activeComponent != null && activeComponent != target && existing != null) {
-                    val cleared = binderCall(OPERATION_TIMEOUT_MS) {
-                        existing.service.clear()
-                        true
-                    }
-                    if (cleared.isFailure && cleared.exceptionOrNull() !is DeadObjectException) {
-                        val error = cleared.exceptionOrNull()!!
-                        logFailure("target-switch-clear", error)
+                    if (!refreshLocked(protectAllGrants = true)) {
                         updateStateIfOpen {
-                            it.copy(
-                                message = "Bascule refusée : l’ancien portail n’a pas pu être vidé"
-                            )
+                            it.copy(message = "Bascule refusée : l’état de l’ancien portail est illisible")
                         }
                         return@connectionOperation false
                     }
-                    if (cleared.isSuccess) {
-                        revokeAllGrants(existing.packageName)
-                        updateStateIfCurrent(existing) {
-                            it.copy(slots = emptyLogicalSlots(), message = "Ancien portail vidé avant la bascule")
+                    val current = _state.value
+                    when (
+                        PortalTargetSwitchPolicy.decide(
+                            apiVersion = current.apiVersion ?: 1,
+                            nativeSlotSchemaVersion = current.nativeSlotSchemaVersion,
+                            hasOwnedUris = hasPackageOwnership(existing.packageName),
+                            logicalSlots = current.slots,
+                            nativeSlots = current.nativeSlots
+                        )
+                    ) {
+                        PortalTargetSwitchDecision.SWITCH_WITHOUT_CLEAR -> Unit
+                        PortalTargetSwitchDecision.REFUSE_UNVERIFIED -> {
+                            updateStateIfOpen {
+                                it.copy(
+                                    message = "Bascule refusée : l’ancien portail ne peut pas confirmer ses montages"
+                                )
+                            }
+                            return@connectionOperation false
+                        }
+                        PortalTargetSwitchDecision.CLEAR_AND_VERIFY -> {
+                            if (clearLocked(existing) is PortalResult.Error) {
+                                updateStateIfOpen {
+                                    it.copy(message = "Bascule refusée : l’ancien portail n’a pas été vidé avec certitude")
+                                }
+                                return@connectionOperation false
+                            }
                         }
                     }
                 }
@@ -247,7 +263,10 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         operationMutex.withLock { refreshLocked() }
     }
 
-    private suspend fun refreshLocked(protectedGrantLogicalSlot: Int? = null): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun refreshLocked(
+        protectedGrantLogicalSlot: Int? = null,
+        protectAllGrants: Boolean = false
+    ): Boolean = withContext(Dispatchers.IO) {
         val token = currentServiceToken() ?: return@withContext false
         val json = binderCall(STATUS_TIMEOUT_MS) { token.service.statusJson }.getOrElse { error ->
             logFailure("refresh", error)
@@ -300,7 +319,18 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 val native = nativeBySlot[actual]
                 val nativeConfirmsSlot = snapshot.apiVersion < 3 ||
                     snapshot.nativeSlots.isEmpty() || native?.occupied == true
-                if (!PortalProtocol.isValidActualSlot(actual) || !nativeConfirmsSlot) {
+                val legacyApi3Ownership = snapshot.apiVersion >= 3 &&
+                    !PortalProtocol.hasReliableNativeMountSchema(
+                        snapshot.apiVersion,
+                        snapshot.nativeSlotSchemaVersion
+                    ) &&
+                    old?.sourceUri != null
+                if (
+                    legacyApi3Ownership &&
+                    (!PortalProtocol.isValidActualSlot(actual) || !nativeConfirmsSlot)
+                ) {
+                    old
+                } else if (!PortalProtocol.isValidActualSlot(actual) || !nativeConfirmsSlot) {
                     uncertain?.let { ownership ->
                         PortalSlotState(
                             logicalSlot = logical,
@@ -364,6 +394,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 portalUsbStatusValid = snapshot.portalUsbStatusValid,
                 portalRestartRequired = readinessDecision.restartRequired,
                 canSetPortalEnabled = snapshot.canSetPortalEnabled,
+                nativeSlotSchemaVersion = snapshot.nativeSlotSchemaVersion,
                 nativeSlots = snapshot.nativeSlots,
                 figureCatalog = catalog,
                 readiness = readinessDecision.readiness
@@ -374,7 +405,12 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         committedSlots.forEach { slot ->
             val remote = snapshot.logicalSlots.firstOrNull { it.logicalSlot == slot.logicalSlot }
             val uri = slot.sourceUri
-            val grantProtected = protectedGrantLogicalSlot == slot.logicalSlot
+            val grantProtected = protectAllGrants ||
+                protectedGrantLogicalSlot == slot.logicalSlot ||
+                !PortalProtocol.hasReliableNativeMountSchema(
+                    snapshot.apiVersion,
+                    snapshot.nativeSlotSchemaVersion
+                )
             val uncertain = uncertainByLogicalSlot[slot.logicalSlot]
             val native = snapshot.nativeSlots.firstOrNull { it.slot == remote?.actualSlot }
             val uncertainMountReconciled = uncertain != null && remote != null &&
@@ -384,10 +420,11 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     remoteUriWasReported = remote.uriWasReported,
                     remoteUri = remote.sourceUri,
                     expectedUri = uncertain.uri,
+                    nativeSlotSchemaVersion = snapshot.nativeSlotSchemaVersion,
                     nativeSnapshotSize = snapshot.nativeSlots.size,
                     nativeOccupied = native?.occupied,
-                    expectedFigureId = uncertain.figure.figureId,
-                    expectedVariantId = uncertain.figure.variantId,
+                    expectedFigureId = uncertain.figure?.figureId,
+                    expectedVariantId = uncertain.figure?.variantId,
                     nativeFigureId = native?.figureId,
                     nativeVariantId = native?.variantId
                 )
@@ -437,6 +474,13 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     )
                 }
                 val currentState = _state.value
+                if (!PortalProtocol.hasReliableNativeMountSchema(
+                        currentState.apiVersion ?: 1,
+                        currentState.nativeSlotSchemaVersion
+                    )
+                ) {
+                    return@withLock nativeSlotSchemaError("charger ou remplacer un contenu")
+                }
                 PortalReadinessPolicy.loadBlock(
                     apiVersion = currentState.apiVersion ?: 1,
                     gameDetected = currentState.skylandersGame != null,
@@ -598,6 +642,43 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 }
 
                 if (!PortalProtocol.isValidActualSlot(actual)) {
+                    val previousSlot = stateBeforeLoad.slots.getOrNull(logicalSlot)
+                    if (
+                        (stateBeforeLoad.apiVersion ?: 1) >= 3 &&
+                        PortalProtocol.mayHaveRemovedPreviousMount(actual)
+                    ) {
+                        val refreshed = refreshLocked(protectedGrantLogicalSlot = logicalSlot)
+                        val refreshedState = _state.value
+                        val previousActual = previousSlot?.actualPortalSlot ?: -1
+                        val native = refreshedState.nativeSlots.firstOrNull { it.slot == previousActual }
+                        val previousRemovalConfirmed = PortalProtocol.isConfirmedRemoval(
+                            apiVersion = refreshedState.apiVersion ?: stateBeforeLoad.apiVersion ?: 3,
+                            refreshSucceeded = refreshed,
+                            expectedActualSlot = previousActual,
+                            logicalActualSlot = refreshedState.slots.getOrNull(logicalSlot)?.actualPortalSlot,
+                            nativeSlotSchemaVersion = refreshedState.nativeSlotSchemaVersion,
+                            nativeSnapshotSize = refreshedState.nativeSlots.size,
+                            nativeOccupied = native?.occupied
+                        )
+                        if (previousRemovalConfirmed) {
+                            releaseSlotGrant(packageName, logicalSlot)
+                        } else if (previousSlot?.sourceUri != null) {
+                            markMountOutcomeUncertain(
+                                packageName = packageName,
+                                logicalSlot = logicalSlot,
+                                uri = previousSlot.sourceUri,
+                                expectedActualSlot = previousActual,
+                                figure = previousSlot.figure,
+                                label = previousSlot.label ?: previousSlot.figure?.name
+                                    ?: "Contenu du slot ${logicalSlot + 1}"
+                            )
+                            updateStateIfCurrent(token) { current ->
+                                val slots = current.slots.toMutableList()
+                                slots[logicalSlot] = previousSlot
+                                current.copy(slots = slots, message = "État du remplacement incertain")
+                            }
+                        }
+                    }
                     revokeTemporaryGrant(packageName, newUri)
                     val error = mapLoadError(actual, verifiedFigure)
                     updateStateIfCurrent(token) { it.copy(message = "Échec : ${error.message}") }
@@ -657,6 +738,8 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     refreshSucceeded = refreshed,
                     expectedActualSlot = actual,
                     logicalActualSlot = confirmedSlot?.actualPortalSlot,
+                    nativeSlotSchemaVersion = confirmedState.nativeSlotSchemaVersion,
+                    nativeSnapshotSize = confirmedState.nativeSlots.size,
                     nativeOccupied = native?.occupied,
                     expectedFigureId = preflight.figureId,
                     expectedVariantId = preflight.variantId,
@@ -667,7 +750,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 )
                 if (!confirmed) {
                     val cleanup = if (isCurrentService(token)) {
-                        removeLocked(logicalSlot)
+                        removeLocked(logicalSlot, expectedActualSlotForConfirmation = actual)
                     } else {
                         PortalResult.Error(
                             message = "La connexion Dolphin a changé avant le retrait de sécurité",
@@ -679,7 +762,14 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     if (!cleanupConfirmed && isCurrentService(token)) {
                         // The URI may still be mounted. Preserve both the logical ownership and the
                         // persisted grant until a later refresh or explicit remove confirms absence.
-                        rememberSlotGrant(packageName, logicalSlot, newUri)
+                        markMountOutcomeUncertain(
+                            packageName = packageName,
+                            logicalSlot = logicalSlot,
+                            uri = newUri,
+                            expectedActualSlot = actual,
+                            figure = verifiedFigure,
+                            label = verifiedFigure.name
+                        )
                         updateStateIfCurrent(token) { current ->
                             val slots = current.slots.toMutableList()
                             slots[logicalSlot] = PortalSlotState(
@@ -748,6 +838,13 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     recoveryHint = "Installe le patch Dolphin API 3 : les API 1/2 ne peuvent pas révéler les montages du Manager."
                 )
             }
+            if (!PortalProtocol.hasReliableNativeMountSchema(
+                    stateBeforeBackup.apiVersion ?: 1,
+                    stateBeforeBackup.nativeSlotSchemaVersion
+                )
+            ) {
+                return@withLock nativeSlotSchemaError("effectuer un backup sécurisé")
+            }
             PortalMountPolicy.unidentifiedMountReason(
                 apiVersion = stateBeforeBackup.apiVersion ?: 1,
                 requestedLogicalSlot = logicalSlot,
@@ -779,11 +876,22 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         }
     }
 
-    private suspend fun removeLocked(logicalSlot: Int): PortalResult {
+    private suspend fun removeLocked(
+        logicalSlot: Int,
+        expectedActualSlotForConfirmation: Int? = null
+    ): PortalResult {
         if (logicalSlot !in 0 until LOGICAL_SLOT_COUNT) {
             return PortalResult.Error("Slot invalide", "INVALID_SLOT")
         }
         val token = currentServiceToken() ?: return notConnectedError()
+        val currentState = _state.value
+        if (!PortalProtocol.hasReliableNativeMountSchema(
+                currentState.apiVersion ?: 1,
+                currentState.nativeSlotSchemaVersion
+            )
+        ) {
+            return nativeSlotSchemaError("retirer ce contenu en sécurité")
+        }
         val attempt = binderCall(OPERATION_TIMEOUT_MS) { token.service.remove(logicalSlot) }
         val ok = attempt.getOrElse { error ->
             logFailure("remove", error)
@@ -800,6 +908,29 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 recoveryHint = "Vérifie que le jeu et le portail émulé sont toujours actifs."
             )
         }
+        if (expectedActualSlotForConfirmation != null && (_state.value.apiVersion ?: 1) >= 3) {
+            val refreshed = refreshLocked(protectedGrantLogicalSlot = logicalSlot)
+            val refreshedState = _state.value
+            val logicalActualSlot = refreshedState.slots.getOrNull(logicalSlot)?.actualPortalSlot
+            val native = refreshedState.nativeSlots.firstOrNull { it.slot == expectedActualSlotForConfirmation }
+            val removalConfirmed = PortalProtocol.isConfirmedRemoval(
+                apiVersion = refreshedState.apiVersion ?: 3,
+                refreshSucceeded = refreshed,
+                expectedActualSlot = expectedActualSlotForConfirmation,
+                logicalActualSlot = logicalActualSlot,
+                nativeSlotSchemaVersion = refreshedState.nativeSlotSchemaVersion,
+                nativeSnapshotSize = refreshedState.nativeSlots.size,
+                nativeOccupied = native?.occupied
+            )
+            if (!removalConfirmed) {
+                return PortalResult.Error(
+                    message = "Dolphin a accepté le retrait, mais le fichier peut encore être monté",
+                    diagnosticCode = "REMOVE_CONFIRMATION_UNCERTAIN",
+                    technicalDetails = "Slot logique=${logicalSlot + 1}; slot natif=$expectedActualSlotForConfirmation",
+                    recoveryHint = "Ne recharge pas ce fichier. Vérifie le slot puis utilise Retirer ou Vider le portail."
+                )
+            }
+        }
         releaseSlotGrant(token.packageName, logicalSlot)
         updateStateIfCurrent(token) { current ->
             val slots = current.slots.toMutableList()
@@ -812,24 +943,73 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
     override suspend fun clear(): PortalResult = withContext(Dispatchers.IO) {
         operationMutex.withLock {
             val token = currentServiceToken() ?: return@withLock notConnectedError()
-            val attempt = binderCall(OPERATION_TIMEOUT_MS) { token.service.clear() }
-            attempt.exceptionOrNull()?.let { error ->
-                logFailure("clear", error)
-                if (error is DeadObjectException) {
-                    markDisconnectedIfCurrent(token, "Connexion Dolphin perdue")
-                }
-                return@withLock binderError(error)
+            clearLocked(token)
+        }
+    }
+
+    private suspend fun clearLocked(token: ServiceToken): PortalResult {
+        val stateBeforeClear = _state.value
+        if (!PortalProtocol.hasReliableNativeMountSchema(
+                stateBeforeClear.apiVersion ?: 1,
+                stateBeforeClear.nativeSlotSchemaVersion
+            )
+        ) {
+            return nativeSlotSchemaError("vider le portail en sécurité")
+        }
+        val attempt = binderCall(OPERATION_TIMEOUT_MS) { token.service.clear() }
+        attempt.exceptionOrNull()?.let { error ->
+            logFailure("clear", error)
+            if (error is DeadObjectException) {
+                markDisconnectedIfCurrent(token, "Connexion Dolphin perdue")
             }
-            if (!isCurrentService(token)) return@withLock serviceReplacedError()
-            revokeAllGrants(token.packageName)
-            updateStateIfCurrent(token) {
-                it.copy(
-                    slots = List(LOGICAL_SLOT_COUNT) { logical -> PortalSlotState(logical) },
-                    message = "Portail vidé"
+            return binderError(error)
+        }
+        if (!isCurrentService(token)) return serviceReplacedError()
+        if ((stateBeforeClear.apiVersion ?: 1) >= 3) {
+            val refreshed = refreshLocked(protectAllGrants = true)
+            val refreshedState = _state.value
+            val clearConfirmed = PortalProtocol.isConfirmedClear(
+                apiVersion = refreshedState.apiVersion ?: stateBeforeClear.apiVersion ?: 3,
+                refreshSucceeded = refreshed,
+                nativeSlotSchemaVersion = refreshedState.nativeSlotSchemaVersion,
+                logicalSlots = refreshedState.slots,
+                nativeSlots = refreshedState.nativeSlots
+            )
+            if (!clearConfirmed) {
+                val retainedSlots = stateBeforeClear.slots.filter { it.sourceUri != null }
+                retainedSlots.forEach { slot ->
+                    markMountOutcomeUncertain(
+                        packageName = token.packageName,
+                        logicalSlot = slot.logicalSlot,
+                        uri = checkNotNull(slot.sourceUri),
+                        expectedActualSlot = slot.actualPortalSlot,
+                        figure = slot.figure,
+                        label = slot.label ?: slot.figure?.name ?: "Contenu du slot ${slot.logicalSlot + 1}"
+                    )
+                }
+                updateStateIfCurrent(token) { current ->
+                    val slots = current.slots.toMutableList()
+                    retainedSlots.forEach { slots[it.logicalSlot] = it }
+                    current.copy(
+                        slots = slots,
+                        message = "Vidage incertain — vérifie le portail"
+                    )
+                }
+                return PortalResult.Error(
+                    message = "Dolphin n’a pas confirmé que tous les fichiers sont démontés",
+                    diagnosticCode = "CLEAR_CONFIRMATION_UNCERTAIN",
+                    recoveryHint = "Ne recharge aucun fichier. Vérifie les slots puis réessaie Vider le portail."
                 )
             }
-            PortalResult.Success(message = "Tous les slots ont été retirés")
         }
+        revokeAllGrants(token.packageName)
+        updateStateIfCurrent(token) {
+            it.copy(
+                slots = List(LOGICAL_SLOT_COUNT) { logical -> PortalSlotState(logical) },
+                message = "Portail vidé"
+            )
+        }
+        return PortalResult.Success(message = "Tous les slots ont été retirés")
     }
 
     override suspend fun setPortalEnabled(enabled: Boolean): PortalResult = withContext(Dispatchers.IO) {
@@ -1049,12 +1229,18 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
             ?: uncertainMounts.entries.firstOrNull { (_, value) -> value.uri == uriString }?.key
     }
 
+    private fun hasPackageOwnership(packageName: String): Boolean = synchronized(grantLock) {
+        grantedUris.keys.any { it.packageName == packageName } ||
+            uncertainMounts.keys.any { it.packageName == packageName } ||
+            pendingGrantedUris.any { it.packageName == packageName }
+    }
+
     private fun markMountOutcomeUncertain(
         packageName: String,
         logicalSlot: Int,
         uri: String,
         expectedActualSlot: Int,
-        figure: Skylander,
+        figure: Skylander?,
         label: String
     ): Boolean {
         val accepted = synchronized(grantLock) {
@@ -1228,6 +1414,12 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         diagnosticCode = "DOLPHIN_NOT_CONNECTED",
         technicalDetails = "Aucun service Binder actif.",
         recoveryHint = "Lance Dolphin SkyPortal Edition puis touche Reconnecter."
+    )
+
+    private fun nativeSlotSchemaError(action: String) = PortalResult.Error(
+        message = "Cette version de Dolphin ne peut pas confirmer le montage réel des fichiers",
+        diagnosticCode = "DOLPHIN_NATIVE_SLOT_SCHEMA_UPDATE_REQUIRED",
+        recoveryHint = "Mets à jour Dolphin SkyPortal Edition avant de $action."
     )
 
     private fun bridgeClosedError() = PortalResult.Error(
@@ -1493,7 +1685,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
     private data class UncertainMountOwnership(
         val uri: String,
         val expectedActualSlot: Int,
-        val figure: Skylander,
+        val figure: Skylander?,
         val label: String
     )
     private data class ServiceToken(

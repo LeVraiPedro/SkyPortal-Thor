@@ -32,6 +32,7 @@ internal object PortalStateReducer {
         portalUsbStatusValid = false,
         portalRestartRequired = false,
         canSetPortalEnabled = false,
+        nativeSlotSchemaVersion = 0,
         nativeSlots = emptyList(),
         figureCatalog = emptyMap()
     )

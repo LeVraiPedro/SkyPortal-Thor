@@ -32,7 +32,7 @@ getFigureCatalogJson() -> JSON
 
 Les six méthodes historiques restent inchangées et dans le même ordre. Le compagnon n'appelle les deux nouvelles méthodes qu'après avoir détecté l'API 3. Les contrats API 1 et API 2 conservent un mode dégradé : ils ne fournissent ni jeu actif, ni commande du portail, ni catalogue natif complet.
 
-`getStatusJson()` expose aussi `emulationState`, `gameId`, `gameTitle`, `portalEnabled`, `portalActivated`, `portalProtocolActivated`, `portalUsbPresent`, `portalUsbAttached`, `portalUsbHandshakeSeen`, `conflictingUsbDevices`, `canSetPortalEnabled` et `nativeSlots`.
+`getStatusJson()` expose aussi `emulationState`, `gameId`, `gameTitle`, `portalEnabled`, `portalActivated`, `portalProtocolActivated`, `portalUsbPresent`, `portalUsbAttached`, `portalUsbHandshakeSeen`, `conflictingUsbDevices`, `canSetPortalEnabled`, `nativeSlotSchemaVersion` et `nativeSlots`.
 
 Les indicateurs de portail ont des rôles distincts :
 
@@ -45,6 +45,7 @@ Les indicateurs de portail ont des rôles distincts :
 | `portalProtocolActivated` | ancien état interne du protocole Skylanders, conservé pour le diagnostic |
 | `portalActivated` | état effectif compatible avec les anciens compagnons : réglage actif, trois preuves USB cohérentes, protocole actif et aucun conflit |
 | `conflictingUsbDevices` | identifiants stables des bases concurrentes, actuellement `DISNEY_INFINITY_BASE` |
+| `nativeSlotSchemaVersion` | `2` lorsque `nativeSlots[].occupied` décrit un fichier réellement ouvert, indépendamment de `status` |
 
 `Portail prêt` exige les trois preuves USB à `true` et une liste de conflits vide. Le booléen protocolaire historique était initialisé à `true` par le cœur et ne constitue donc jamais, à lui seul, une preuve que le jeu a trouvé le portail.
 
@@ -74,6 +75,7 @@ SkyPortal accepte aussi les services API 1 et API 2 et reconnaît l'ancien signa
 - Un `DeathRecipient` invalide immédiatement la connexion et les faits distants connus.
 - Une génération de connexion empêche un résultat tardif de l'ancien processus Dolphin d'écraser le nouvel état.
 - Après reconnexion, le mapping J1/J2 est réconcilié avec l'identité des 16 slots natifs.
+- Avec le schéma natif v2, `occupied` vient exclusivement de `FileIsOpen()` et `status` conserve la transition USB brute. Le remplacement ne peut donc plus effacer un mapping pendant `REMOVING / REMOVED`, ni réutiliser un slot dont le fichier est encore monté.
 - Un même URI ne peut pas être monté silencieusement dans plusieurs slots logiques.
 - Avec une API 1/2 qui ne restitue pas l’URI d’un slot restauré, SkyPortal bloque tout nouveau chargement dans un autre slot jusqu’au retrait du montage non identifié. Avec l’API 3, un slot natif occupé directement dans le Manager et non revendiqué est bloquant pour la même raison.
 - Les API 1/2 n’exposent pas les slots chargés directement dans le Manager Dolphin : ne jamais utiliser le Manager en parallèle du compagnon dans ce mode. La garantie forte anti-double montage et le backup sécurisé nécessitent l’API 3.
@@ -95,6 +97,7 @@ emulationState, gameId, gameTitle,
 portalEnabled, portalActivated, portalProtocolActivated,
 portalUsbPresent, portalUsbAttached, portalUsbHandshakeSeen,
 conflictingUsbDevices, canSetPortalEnabled,
+nativeSlotSchemaVersion,
 nativeSlots[0..15]
 ```
 
@@ -110,7 +113,9 @@ Lorsque Debug et Release modifiés sont tous deux présents, l'interface permet 
 
 La validation matérielle V5 a utilisé `org.dolphinemu.dolphinemu.debug`, API 3, avec le compagnon `com.skyportalthor.app`. Les deux APK Debug avaient le même certificat. Le build Release installé sur l'appareil n'était pas le service API 3 testé.
 
-Après cette campagne, l'utilisateur a confirmé un conflit lorsque `EmulateSkylanderPortal` et `EmulateInfinityBase` étaient actifs simultanément : le compagnon détectait le jeu et le réglage, mais Spyro's Adventure indiquait que le portail était introuvable. Désactiver Disney Infinity puis redémarrer l'émulation a résolu le problème. Le parsing et les décisions liés à l'attachement/handshake sont couverts par les tests JVM ; le chemin natif est compilé et les patchs sont vérifiés, **mais l'ensemble n'a pas encore été rejoué de bout en bout sur la Thor, indisponible au moment du correctif**.
+Après cette campagne, l'utilisateur a confirmé un conflit lorsque `EmulateSkylanderPortal` et `EmulateInfinityBase` étaient actifs simultanément : le compagnon détectait le jeu et le réglage, mais Spyro's Adventure indiquait que le portail était introuvable. Désactiver Disney Infinity puis redémarrer l'émulation a résolu le problème.
+
+La paire corrigée a ensuite été rejouée de bout en bout sur la Thor avec Disney Infinity désactivé : présence, attachement et trafic protocolaire à `true`, `SSPP52`, `Portail prêt`, double remplacement J1 et retrait confirmé. Le scénario volontaire avec **les deux bases actives** reste à exécuter sur ce binaire.
 
 ### Conflit Disney Infinity et redémarrage
 

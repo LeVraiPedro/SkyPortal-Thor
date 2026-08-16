@@ -59,6 +59,7 @@ class DolphinStatusParserTest {
         }
         val json = JSONObject()
             .put("apiVersion", 3)
+            .put("nativeSlotSchemaVersion", 2)
             .put("slots", JSONArray())
             .put("nativeSlots", native)
             .put("emulationState", "RUNNING")
@@ -77,6 +78,7 @@ class DolphinStatusParserTest {
         val parsed = DolphinStatusParser.parse(json)
 
         assertEquals(16, parsed.nativeSlots.size)
+        assertEquals(2, parsed.nativeSlotSchemaVersion)
         assertEquals(EmulationState.RUNNING, parsed.emulationState)
         assertEquals(DolphinServiceState.READY, parsed.serviceState)
         assertEquals("SSPP52", parsed.gameId)
@@ -100,6 +102,7 @@ class DolphinStatusParserTest {
         }
         val json = JSONObject()
             .put("apiVersion", 3)
+            .put("nativeSlotSchemaVersion", 2)
             .put("slots", JSONArray())
             .put("nativeSlots", native)
             .put("emulationState", "NONE")
@@ -117,6 +120,7 @@ class DolphinStatusParserTest {
         assertNull(parsed.portalActivated)
         assertFalse(parsed.canSetPortalEnabled)
         assertEquals(16, parsed.nativeSlots.size)
+        assertEquals(2, parsed.nativeSlotSchemaVersion)
         assertTrue(parsed.issues.isEmpty())
     }
 
@@ -149,6 +153,7 @@ class DolphinStatusParserTest {
         assertNull(parsed.portalUsbHandshakeSeen)
         assertTrue(parsed.conflictingUsbDevices.isEmpty())
         assertFalse(parsed.portalUsbStatusValid)
+        assertEquals(0, parsed.nativeSlotSchemaVersion)
     }
 
     @Test

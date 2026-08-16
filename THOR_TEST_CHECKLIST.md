@@ -18,7 +18,7 @@ Cette checklist distingue les observations faites sur la console des couvertures
 
 Le numéro de série ADB, les URI SAF et les chemins propres au PC ne sont volontairement pas publiés.
 
-> **Portée historique :** les résultats cochés ci-dessous proviennent de la campagne matérielle initiale. Après celle-ci, l'utilisateur a confirmé qu'une base Disney Infinity activée en même temps que le portail Skylanders pouvait laisser SkyPortal afficher `Portail prêt` alors que le jeu ne trouvait aucun portail. Désactiver Disney Infinity puis redémarrer complètement l'émulation corrigeait le problème. L'implémentation qui vérifie désormais le handshake USB a été préparée sans accès à la Thor ; aucune nouvelle case matérielle n'est donc déclarée réussie.
+> **Portée des preuves :** les résultats historiques sont complétés par une revalidation ciblée du nouveau binaire le 16 août 2026. Le chemin USB normal avec Disney Infinity désactivé et le remplacement de figurines ont été rejoués de bout en bout. Le conflit avec les deux bases simultanément actives reste non testé sur ce binaire.
 
 ## Résultats matériels établis
 
@@ -45,14 +45,17 @@ Le premier test d'arrêt brutal de Dolphin a révélé un `SIGSEGV` : le process
 
 Après l'arrêt forcé de Dolphin, l'accueil AYN Cocoon a temporairement recouvert l'écran inférieur. Relancer SkyPortal explicitement sur l'affichage logique `4` a restauré le compagnon et ses slots vides. Les tests ultérieurs écran éteint/allumé et accueil/retour ont conservé l'activité et le slot attendus.
 
-## Correctif conflit USB — revalidation matérielle en attente
+## Correctifs USB et remplacement — revalidation ciblée
 
-Le correctif sépare désormais quatre informations : réglage du portail, présence dans le scanner Dolphin, attachement USB et première commande Skylanders reçue. Il expose aussi `DISNEY_INFINITY_BASE` comme périphérique concurrent. Le parsing et les décisions du compagnon sont testés automatiquement ; le code natif est compilé et les patchs sont vérifiés. Le chemin complet sur matériel reste à tester, donc les scénarios suivants restent volontairement non cochés tant que la Thor n'est pas disponible :
+Le correctif sépare désormais quatre informations : réglage du portail, présence dans le scanner Dolphin, attachement USB et première commande Skylanders reçue. Il expose aussi `DISNEY_INFINITY_BASE` comme périphérique concurrent. Le snapshot natif v2 sépare en plus le fichier réellement monté de l'état protocolaire transitoire.
 
 - [ ] Avec portail Skylanders et base Disney Infinity activés, l'en-tête affiche le conflit et ne passe jamais à `Portail prêt`.
 - [ ] Dans ce conflit, l'activation automatique et le chargement d'un `.sky` sont bloqués avant l'appel Binder, avec un message demandant de désactiver Disney Infinity puis de redémarrer l'émulation.
-- [ ] Après désactivation de Disney Infinity et redémarrage complet de l'émulation, le jeu effectue le handshake USB et l'en-tête atteint `Portail prêt`.
-- [ ] Avec le seul portail Skylanders actif, chargement et retrait réels fonctionnent toujours sans doublon ni faux succès.
+- [x] Après désactivation de Disney Infinity et redémarrage complet de l'émulation, le jeu effectue le handshake USB et l'en-tête atteint `Portail prêt`.
+- [x] Avec le seul portail Skylanders actif, chargement et retrait réels fonctionnent toujours sans doublon ni faux succès.
+- [x] J1 remplace Lightning Rod par Sonic Boom puis Whirlwind sans `Dropping stale logical portal mapping`, faux échec ou slot dupliqué.
+- [x] Le diagnostic affiche le schéma natif v2 fiable et 16 slots libres après le retrait final.
+- [x] Trois tests natifs ARM64 ciblent le remplacement et l'allocation pendant `mounted=true / status=REMOVED`.
 - [ ] L'arrêt du jeu ou de Dolphin efface la preuve USB ; une ancienne session ne laisse jamais un état prêt fantôme.
 - [ ] Un changement du réglage USB pendant une émulation déjà lancée affiche `Redémarrage requis` au lieu de promettre une activation à chaud suffisante.
 
@@ -113,7 +116,7 @@ Giants, Swap Force, Trap Team, SuperChargers et Imaginators n'étaient pas dispo
 
 ## Contrôles automatisés
 
-- [x] 62 tests unitaires Debug.
+- [x] 70 tests unitaires Debug.
 - [x] Détection des six jeux et de leurs IDs régionaux connus.
 - [x] Compatibilité par génération et par type.
 - [x] Distinction personnage/objet et sous-types natifs.
@@ -126,7 +129,7 @@ Giants, Swap Force, Trap Team, SuperChargers et Imaginators n'étaient pas dispo
 - [x] Android Lint : aucune erreur bloquante.
 - [x] Compilation de l'APK Debug SkyPortal.
 - [x] Campagne initiale : compilation et installation du Dolphin Debug patché.
-- [x] Correctif USB : contrôles automatisés et de build locaux, sans installation sur la Thor.
+- [x] Correctifs USB/montage : paire installée sans effacement, parcours ciblé et reconnexion rejoués sur la Thor.
 
 ## Commandes de diagnostic
 

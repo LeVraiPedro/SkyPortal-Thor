@@ -59,7 +59,7 @@ Sur la Thor, le filtre automatique SSA a montré Terrabite côté Personnages et
 | API 1 | oui | non pendant cette campagne | pas de jeu/portail/catalogue Smart |
 | API 2 | oui | non pendant cette campagne | pas de jeu/portail/catalogue Smart complet |
 | API 3 historique | oui | oui, Dolphin Debug + SSA pour Binder, jeu, slots et chargements | `portalActivated` historique ne prouvait pas l'énumération USB et pouvait produire un faux `Portail prêt` |
-| API 3 avec indicateurs USB | oui | **non, revalidation Thor en attente** | mode Smart complet après `portalUsbPresent`, `portalUsbAttached` et `portalUsbHandshakeSeen` ; conflit `DISNEY_INFINITY_BASE` bloquant |
+| API 3 avec indicateurs USB et schéma slots v2 | oui | **oui, chemin normal SSA** | mode Smart complet après `portalUsbPresent`, `portalUsbAttached` et `portalUsbHandshakeSeen` ; conflit `DISNEY_INFINITY_BASE` bloquant mais scénario deux bases non rejoué |
 
 La matrice doit être mise à jour seulement avec des preuves reproductibles. En particulier, créer une fixture Trap Team ou SuperChargers dans le Manager n'autorise pas à déclarer le jeu correspondant « testé sur matériel ».
 
@@ -67,7 +67,9 @@ La matrice doit être mise à jour seulement avec des preuves reproductibles. En
 
 | Configuration | Résultat attendu | Niveau de preuve actuel |
 |---|---|---|
-| Portail Skylanders seul, handshake reçu | `Portail prêt`, chargement API 3 autorisé | parsing/décision automatisés ; signal natif compilé ; bout en bout Thor en attente |
+| Portail Skylanders seul, handshake reçu | `Portail prêt`, chargement API 3 autorisé | automatisé + bout en bout Thor avec SSA `SSPP52` |
+| Remplacement A → B pendant `REMOVING / REMOVED` | B reste monté et identifié ; aucune suppression du mapping | automatisé + Lightning Rod → Sonic Boom → Whirlwind sur Thor |
+| Allocation pendant `mounted=true / status=REMOVED` | le slot reste occupé ; un troisième fichier reçoit un autre slot | test natif ARM64 sur Thor |
 | Portail configuré mais jamais attaché au jeu | `Redémarrage requis`, aucun chargement Binder | parsing/décision automatisés ; bout en bout Thor en attente |
 | Portail attaché sans commande Skylanders | `Portail en initialisation`, aucun chargement Binder | parsing/décision automatisés ; bout en bout Thor en attente |
 | Portail Skylanders + base Disney Infinity | conflit explicite, aucune auto-activation, aucun chargement Binder, redémarrage demandé | cause confirmée par l'utilisateur ; parsing/décision automatisés ; correctif complet Thor en attente |

@@ -65,7 +65,8 @@ class AidlContractTest {
 
         val toggleStart = service.indexOf("override fun setPortalEnabled")
         val clearBody = service.substring(clearStart, toggleStart)
-        assertTrue(clearBody.contains("reconcileLogicalMappings(SkylanderConfig.getPortalSnapshot())"))
+        assertTrue(clearBody.contains("reconcileLogicalMappings(initialSnapshot)"))
+        assertTrue(clearBody.contains("firstUnclaimedOccupiedNativeSlot(initialSnapshot)"))
         assertTrue(service.contains("figureIds[logical] == nativeId && variantIds[logical] == nativeVariant"))
         assertTrue(service.contains("firstUnclaimedOccupiedNativeSlot(nativeSnapshot)"))
         assertTrue(service.contains("ERROR_UNIDENTIFIED_NATIVE_MOUNT = -11"))

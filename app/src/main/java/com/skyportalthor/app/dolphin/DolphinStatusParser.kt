@@ -18,6 +18,7 @@ internal data class DolphinStatusSnapshot(
     val apiVersion: Int,
     val serviceState: DolphinServiceState,
     val logicalSlots: List<ReportedLogicalSlot>,
+    val nativeSlotSchemaVersion: Int,
     val nativeSlots: List<NativePortalSlotState>,
     val emulationState: EmulationState,
     val gameId: String?,
@@ -152,6 +153,7 @@ internal object DolphinStatusParser {
             apiVersion = apiVersion,
             serviceState = serviceState,
             logicalSlots = logicalSlots,
+            nativeSlotSchemaVersion = root.optInt("nativeSlotSchemaVersion", 0).coerceAtLeast(0),
             nativeSlots = nativeSlots,
             emulationState = runCatching {
                 EmulationState.valueOf(root.optString("emulationState", "NONE"))

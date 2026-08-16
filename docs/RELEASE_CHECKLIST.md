@@ -12,22 +12,22 @@ Version candidate : **0.5.0**, `versionCode 7`. Conserver ce numéro tant qu'auc
 
 ## 2. Qualité Android
 
-- [x] `:app:testDebugUnitTest` : 62 tests réussis localement, dont le parsing et les décisions des nouvelles preuves USB, l'ancien JSON API 3, le conflit Disney Infinity et le chemin dégradé API 1/2.
+- [x] `:app:testDebugUnitTest` : 70 tests réussis localement, dont le parsing et les décisions des nouvelles preuves USB, l'ancien JSON API 3, le conflit Disney Infinity, le schéma natif v2, la bascule de cible et le chemin dégradé API 1/2.
 - [x] `:app:lintDebug` : réussi localement, aucune erreur bloquante.
 - [x] `:app:assembleDebug` : réussi localement.
 - [x] Rejouer les trois commandes sur l'état exact qui sera commité.
 - [x] Campagne initiale : la candidate antérieure au correctif USB a été installée sur la Thor sans `pm clear`.
 - [x] Campagne initiale : la collection et la permission SAF ont été préservées après cette installation.
-- [ ] Installer et vérifier le nouveau binaire USB sur la Thor lorsqu'elle sera de nouveau disponible.
+- [x] Installer et vérifier le nouveau binaire USB/montage sur la Thor sans effacer les données.
 - [ ] Rejouer explicitement les régressions favoris, récents et équipes rapides sur l'APK final.
 
 ## 3. Paire Dolphin/SkyPortal
 
 - [x] Campagne initiale : Dolphin Debug API 3 compilé et testé localement.
 - [x] Campagne initiale : certificats identiques pour la paire Debug de validation.
-- [x] Correctif USB : parsing/décisions du compagnon testés, sources natives compilées et patchs vérifiés localement, sans validation de bout en bout sur la Thor.
-- [ ] Recalculer les SHA-256 des nouveaux artefacts finaux.
-- [ ] Vérifier les certificats des nouveaux artefacts avec `apksigner verify --print-certs`.
+- [x] Correctifs USB/montage : sources natives compilées, trois tests ARM64 exécutés, patchs vérifiés et parcours ciblé validé sur la Thor.
+- [x] Recalculer les SHA-256 des nouveaux artefacts finaux.
+- [x] Vérifier les certificats des nouveaux artefacts avec `apksigner verify --print-certs`.
 - [ ] Ne jamais publier deux APK comme compatibles si les certificats diffèrent.
 - [ ] Joindre les sources Dolphin correspondantes et respecter sa licence lors d'une distribution binaire.
 - [x] Conserver la révision Dolphin épinglée ; ne pas construire silencieusement depuis une branche mouvante.
@@ -49,16 +49,16 @@ Version candidate : **0.5.0**, `versionCode 7`. Conserver ce numéro tant qu'auc
 - [x] Campagne initiale : Logcat frais sans crash natif/app, ANR ni spam `DeadObjectException`.
 - [ ] Rejouer équipe pendant reconnexion, retrait pendant scan et arrêt de Dolphin pendant chargement.
 
-### Correctif USB à revalider sur la Thor
+### Correctif USB — validation ciblée et conflit restant
 
-La cause du nouveau bug a été confirmée par l'utilisateur : la base Disney Infinity activée en même temps que le portail Skylanders empêchait le jeu de détecter ce dernier. Les points ci-dessous sont des critères critiques du nouveau binaire et restent non cochés tant que la Thor n'est pas disponible :
+La cause du premier bug a été confirmée par l'utilisateur : la base Disney Infinity activée en même temps que le portail Skylanders empêchait le jeu de détecter ce dernier. Le chemin normal du nouveau binaire est validé ; le conflit volontaire reste à rejouer :
 
 - [ ] Les deux bases actives produisent `PORTAL_CONFLICT`, jamais `READY`.
 - [ ] Le conflit bloque l'activation automatique et le chargement avant Binder, avec un message français demandant un arrêt complet de l'émulation.
-- [ ] Disney Infinity désactivé puis émulation relancée : présence, attachement et handshake passent à `true`, puis seulement l'en-tête affiche `Portail prêt`.
+- [x] Disney Infinity désactivé puis émulation relancée : présence, attachement et handshake passent à `true`, puis seulement l'en-tête affiche `Portail prêt`.
 - [ ] Un portail configuré mais non attaché demande un redémarrage au lieu d'annoncer un faux succès.
-- [ ] Le parcours normal J1/J2, retrait, reconnexion et arrêt du jeu reste fonctionnel avec les nouveaux indicateurs.
-- [ ] Un Logcat frais du parcours ne contient ni crash, ni ANR, ni erreur Binder/USB inattendue.
+- [x] Le parcours ciblé J1, double remplacement, retrait et reconnexion reste fonctionnel avec les nouveaux indicateurs.
+- [x] Un Logcat frais du parcours ne contient ni crash, ni ANR, ni erreur Binder/USB inattendue.
 
 Les tests automatisés et les builds peuvent valider la logique et l'intégration statique, mais ils ne permettent pas de cocher ces six points matériels.
 

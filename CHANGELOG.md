@@ -2,7 +2,7 @@
 
 ## V5 (0.5.0) — 16 août 2026
 
-### Correctif post-validation — état USB réel et conflit Disney Infinity
+### Correctifs post-validation — état USB réel et remplacement de figurine
 
 - Correction du faux état `Portail prêt` : le réglage Dolphin et le booléen protocolaire historique ne suffisent plus à prouver que le jeu voit le Portal of Power.
 - Ajout, dans le JSON API 3, de la présence du portail dans le scanner USB, de son attachement, de la première commande Skylanders observée et de la liste des périphériques concurrents.
@@ -13,7 +13,12 @@
 - L'activation automatique est désarmée avec un ancien schéma API 3 qui ne peut pas révéler une base concurrente ; l'action manuelle et le diagnostic restent disponibles.
 - Après un timeout Binder, l'autorisation SAF et la propriété du slot restent protégées jusqu'à une réconciliation exacte ou un retrait confirmé. Un second chargement ne peut pas écraser ce résultat incertain.
 - La cause a été confirmée par l'utilisateur : désactiver Disney Infinity puis redémarrer complètement l'émulation permettait au jeu de détecter le portail Skylanders.
-- Le parsing et les décisions du compagnon sont validés par tests JVM. Le chemin natif `SkylanderUSB` → JNI → service est compilé et les patchs sont vérifiés, mais **il n'a pas encore été validé de bout en bout sur une AYN Thor**, la console n'étant pas disponible au moment de cette correction.
+- Le snapshot des slots sépare désormais le montage réel du fichier (`FileIsOpen`) de l'état protocolaire `REMOVING / REMOVED / ADDED / READY`. Cette séparation corrige le faux échec observé lors du remplacement Lightning Rod → Sonic Boom alors que le jeu avait bien chargé la nouvelle figurine.
+- L'allocation native ne considère plus un slot libre d'après le seul bit `READY` : un fichier déjà monté ne peut pas être écrasé pendant une transition, y compris par le Manager Dolphin.
+- Le compagnon exige le schéma natif v2, 16 slots cohérents et l'identité attendue avant de confirmer un chargement, un retrait ou un vidage. Un ancien Dolphin API 3 est détecté et les opérations risquées sont bloquées avec un message de mise à jour.
+- La bascule Dolphin Debug/Release réutilise le même vidage confirmé et ne révoque plus les autorisations SAF sur un simple retour Binder.
+- Revalidation sur AYN Thor : signal USB réel, `SSPP52`, `Portail prêt`, Lightning Rod → Sonic Boom → Whirlwind sur J1, retrait final et reconnexion du compagnon avec Lightning Rod monté, sans faux succès, mapping supprimé, crash ni ANR.
+- Trois tests natifs ciblés ont été exécutés sur la Thor ARM64, dont le cas `mounted=true / status=REMOVED` qui reproduit l'ancienne mauvaise allocation.
 
 ### Validation et durcissement V5.1
 
@@ -25,7 +30,7 @@
 - Sérialisation renforcée des opérations, délais Binder bornés, `DeathRecipient`, invalidation des résultats obsolètes et nettoyage des slots après perte du processus Dolphin.
 - Backup d'un contenu actif sérialisé avec son retrait confirmé ; une copie partielle est supprimée en cas d'échec.
 - Exclusion du scan pour `99_Backups`, `device-backups`, `test-fixtures` et `.skyportal-test-fixtures`.
-- Suite portée à 62 tests unitaires couvrant jeux, compatibilité, dumps, AIDL, API 1/2/3, confirmation des chargements, montages non identifiés, garde d'identité Dolphin, slots, logique de collection, parsing et décisions USB, ainsi que le conflit Disney Infinity.
+- Suite portée à 70 tests unitaires couvrant jeux, compatibilité, dumps, AIDL, API 1/2/3, confirmation des chargements, montages non identifiés, garde d'identité Dolphin, slots, logique de collection, parsing et décisions USB, conflit Disney Infinity, schéma natif v2 et bascule Debug/Release.
 - Ajout des workflows GitHub Actions `android-ci.yml`, `release.yml` et `full-pair-build.yml` ; ce dernier exige une signature commune et une révision Dolphin épinglée.
 - Création de fixtures contrôlées avec le Skylanders Manager de Dolphin pour les principales générations et catégories, hors collection utilisateur.
 - Validation matérielle du filtre SSA : Terrabite côté Personnages, Anvil Rain et Dragon's Peak côté Objets, avec affichage des générations futures via `Toute la collection`.

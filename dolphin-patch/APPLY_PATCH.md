@@ -26,7 +26,31 @@ Copier depuis ce dossier :
 vers les mêmes chemins dans le dépôt Dolphin.
 
 Le script applique ensuite `smart-portal-core.patch`, limité au bridge `SkylanderConfig`, à
-`USB::Device`, au verrouillage de lecture du scanner et à l'implémentation du portail Skylanders.
+`USB::Device`, au verrouillage de lecture du scanner, à l'implémentation du portail Skylanders et
+au test natif déterministe de remplacement d'une figurine.
+
+## État des slots pendant un remplacement
+
+Le snapshot JNI contient cinq entiers par slot, dans un ordre fixe :
+
+```text
+slot | mounted | status | figureId | variantId
+```
+
+`mounted` indique exclusivement que Dolphin possède encore un fichier `.sky` ouvert. `status`
+reste l'état USB brut (`REMOVED`, `READY`, `REMOVING` ou `ADDED`). Les deux valeurs sont séparées,
+car lors d'un remplacement A → B, B est déjà monté pendant que le jeu reçoit encore la séquence
+`REMOVING → REMOVED → ADDED → READY`.
+
+Dans le JSON API 3, le champ historique `nativeSlots[].occupied` correspond désormais à
+`mounted`; `nativeSlots[].status` conserve l'état protocolaire brut. Le service ne détruit jamais
+une association logique et ne confirme jamais un chargement ou un retrait sur un snapshot invalide.
+La capability top-level `nativeSlotSchemaVersion: 2` atteste ce contrat. Un payload API 3 sans ce
+champ appartient à l'ancien schéma ambigu et ne doit pas servir à confirmer un remplacement.
+
+L'allocation d'un nouveau slot natif suit également `FileIsOpen()` et non le bit `READY`. Ainsi,
+charger C pendant que B est déjà monté mais que la transition A → B annonce encore `REMOVED` ne
+peut pas réutiliser ni écraser silencieusement le slot de B.
 
 ## État USB réel (API 3)
 
