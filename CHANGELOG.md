@@ -40,7 +40,8 @@
 - Sérialisation renforcée des opérations, délais Binder bornés, `DeathRecipient`, invalidation des résultats obsolètes et nettoyage des slots après perte du processus Dolphin.
 - Backup d'un contenu actif sérialisé avec son retrait confirmé ; une copie partielle est supprimée en cas d'échec.
 - Exclusion du scan pour `99_Backups`, `device-backups`, `test-fixtures` et `.skyportal-test-fixtures`.
-- Suite portée à 70 tests unitaires couvrant jeux, compatibilité, dumps, AIDL, API 1/2/3, confirmation des chargements, montages non identifiés, garde d'identité Dolphin, slots, logique de collection, parsing et décisions USB, conflit Disney Infinity, schéma natif v2 et bascule Debug/Release.
+- Suite portée à 74 tests unitaires couvrant jeux, compatibilité, dumps, AIDL, API 1/2/3, confirmation des chargements, montages non identifiés, garde d'identité Dolphin, slots, logique de collection, parsing et décisions USB, conflit Disney Infinity, schéma natif v2, bascule Debug/Release et migration contrôlée des préférences vers la clé officielle.
+- Import ponctuel et validé des préférences sauvegardées depuis le dossier externe propre à SkyPortal, nécessaire lorsque le changement de certificat Android impose une réinstallation.
 - Ajout des workflows GitHub Actions `android-ci.yml`, `release.yml` et `full-pair-build.yml` ; ce dernier exige une signature commune et une révision Dolphin épinglée.
 - Création de fixtures contrôlées avec le Skylanders Manager de Dolphin pour les principales générations et catégories, hors collection utilisateur.
 - Validation matérielle du filtre SSA : Terrabite côté Personnages, Anvil Rain et Dragon's Peak côté Objets, avec affichage des générations futures via `Toute la collection`.

@@ -8,9 +8,42 @@ import com.skyportalthor.app.data.QuickTeam
 import com.skyportalthor.app.data.CollectionStateLogic
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 
 class CollectionPreferences(context: Context) {
-    private val prefs = context.getSharedPreferences("skyportal_collection", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("skyportal_collection", Context.MODE_PRIVATE)
+
+    fun importExternalMigration(): CollectionMigrationResult {
+        val externalRoot = appContext.getExternalFilesDir(null)
+            ?: return CollectionMigrationResult.Failed("stockage externe indisponible")
+        val migrationFile = File(File(externalRoot, "migration"), CollectionMigrationCodec.FILE_NAME)
+        if (!migrationFile.isFile) return CollectionMigrationResult.NotFound
+        if (migrationFile.length() !in 1..CollectionMigrationCodec.MAX_FILE_BYTES) {
+            return CollectionMigrationResult.Failed("fichier de migration vide ou trop volumineux")
+        }
+        val migration = runCatching {
+            CollectionMigrationCodec.decode(migrationFile.readText(Charsets.UTF_8)).getOrThrow()
+        }.getOrElse {
+            return CollectionMigrationResult.Failed(
+                it.message?.take(160) ?: "fichier de migration illisible"
+            )
+        }
+        val editor = prefs.edit()
+            .putBoolean(KEY_PLAYER_TWO_ENABLED, migration.playerTwoEnabled)
+            .putStringSet(KEY_FAVORITE_URIS, migration.favoriteUris)
+            .putString(KEY_RECENT_URIS, jsonArray(migration.recentUris).toString())
+            .putString(KEY_QUICK_TEAMS, CollectionMigrationCodec.teamsToJson(migration.quickTeams))
+        migration.rootUri?.let { editor.putString(KEY_ROOT_URI, it) }
+        migration.dolphinPackage?.let { editor.putString(KEY_DOLPHIN_PACKAGE, it) }
+        if (!editor.commit()) return CollectionMigrationResult.Failed("écriture des préférences impossible")
+        if (!migrationFile.delete()) {
+            return CollectionMigrationResult.Failed(
+                "préférences restaurées, mais le fichier temporaire n'a pas pu être supprimé"
+            )
+        }
+        return CollectionMigrationResult.Imported
+    }
 
     fun getRootUri(): Uri? = prefs.getString(KEY_ROOT_URI, null)?.let(Uri::parse)
 
@@ -110,10 +143,10 @@ class CollectionPreferences(context: Context) {
     }.getOrDefault(emptyList())
 
     private fun writeStringArray(key: String, values: List<String>) {
-        val array = JSONArray()
-        values.forEach(array::put)
-        prefs.edit().putString(key, array.toString()).apply()
+        prefs.edit().putString(key, jsonArray(values).toString()).apply()
     }
+
+    private fun jsonArray(values: Iterable<String>) = JSONArray().also { array -> values.forEach(array::put) }
 
     companion object {
         private const val KEY_ROOT_URI = "root_uri"
