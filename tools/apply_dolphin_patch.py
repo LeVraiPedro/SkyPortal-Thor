@@ -83,19 +83,32 @@ def main() -> None:
     patch_gradle(gradle)
     print("patched: Source/Android/app/build.gradle.kts")
     reverse_check = subprocess.run(
-        ["git", "apply", "--reverse", "--check", str(core_patch)], cwd=repo,
+        [
+            "git", "apply", "--reverse", "--check",
+            "--ignore-space-change", "--ignore-whitespace", str(core_patch)
+        ], cwd=repo,
         capture_output=True, text=True
     )
     if reverse_check.returncode == 0:
         print("already patched: native Smart Portal API")
     else:
         check = subprocess.run(
-            ["git", "apply", "--check", str(core_patch)], cwd=repo,
+            [
+                "git", "apply", "--check",
+                "--ignore-space-change", "--ignore-whitespace", str(core_patch)
+            ], cwd=repo,
             capture_output=True, text=True
         )
         if check.returncode != 0:
             raise RuntimeError(f"Native Smart Portal patch cannot be applied:\n{check.stderr}")
-        subprocess.run(["git", "apply", str(core_patch)], cwd=repo, check=True)
+        subprocess.run(
+            [
+                "git", "apply", "--ignore-space-change", "--ignore-whitespace",
+                str(core_patch)
+            ],
+            cwd=repo,
+            check=True,
+        )
         print("patched: native Smart Portal catalog and slot snapshot")
     print("SkyPortal patch applied successfully.")
 
