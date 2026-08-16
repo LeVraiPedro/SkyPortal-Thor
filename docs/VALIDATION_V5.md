@@ -46,7 +46,7 @@ Les commandes de référence sont :
 
 Résultats établis :
 
-- 74 tests unitaires réussis ;
+- 75 tests unitaires réussis ;
 - Android Lint réussi, aucune erreur bloquante et 16 avertissements non bloquants ;
 - APK Debug SkyPortal compilé ;
 - campagne initiale : Dolphin Debug patché compilé et installé ;

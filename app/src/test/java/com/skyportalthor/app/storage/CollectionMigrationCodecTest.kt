@@ -56,4 +56,20 @@ class CollectionMigrationCodecTest {
         """.trimIndent()
         assertTrue(CollectionMigrationCodec.decode(payload).isFailure)
     }
+
+    @Test
+    fun `blank legacy entries are ignored without dropping valid URIs`() {
+        val payload = """
+            {
+              "schemaVersion":1,
+              "favoriteUris":["", "  ", "content://fixture/spyro"],
+              "recentUris":["", "content://fixture/bash"]
+            }
+        """.trimIndent()
+
+        val result = CollectionMigrationCodec.decode(payload).getOrThrow()
+
+        assertEquals(setOf("content://fixture/spyro"), result.favoriteUris)
+        assertEquals(listOf("content://fixture/bash"), result.recentUris)
+    }
 }

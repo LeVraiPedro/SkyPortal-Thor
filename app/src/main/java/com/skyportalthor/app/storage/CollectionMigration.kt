@@ -81,7 +81,9 @@ object CollectionMigrationCodec {
         return buildList {
             for (index in 0 until array.length()) {
                 val value = array.optString(index).trim()
-                require(value.isNotEmpty()) { "entrée vide dans $key" }
+                // Older StringSet preferences can contain a blank sentinel. It carries no
+                // user data, so ignore it while keeping strict validation for real entries.
+                if (value.isEmpty()) continue
                 add(value.validatedUri())
             }
         }.distinct()
