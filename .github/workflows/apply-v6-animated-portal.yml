@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 name: Apply V6 animated portal integration
 
+# One-shot branch integration workflow.
 on:
   push:
     branches:
