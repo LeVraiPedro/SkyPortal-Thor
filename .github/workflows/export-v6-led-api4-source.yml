@@ -16,18 +16,39 @@ permissions:
 jobs:
   export:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    env:
+      DOLPHIN_COMMIT: 54070da5851e12f2d1a4389daa528e4fb81327ce
     steps:
-      - name: Checkout
+      - name: Checkout SkyPortal
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - name: Create exact Git archive
+      - name: Create exact SkyPortal Git archive
         run: git archive --format=tar --output=v6-led-api4-source.tar HEAD
 
-      - name: Upload source archive
+      - name: Prepare patched Dolphin baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          dolphin="${RUNNER_TEMP}/dolphin"
+          git clone --filter=blob:none --no-checkout https://github.com/dolphin-emu/dolphin.git "${dolphin}"
+          git -C "${dolphin}" fetch --depth=1 origin "${DOLPHIN_COMMIT}"
+          git -C "${dolphin}" checkout --detach "${DOLPHIN_COMMIT}"
+          python3 tools/apply_dolphin_patch.py "${dolphin}"
+          git -C "${dolphin}" diff --check
+          tar -C "${dolphin}" -cf v6-led-api4-dolphin-baseline.tar \
+            Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt \
+            Source/Android/jni/SkylanderConfig.cpp \
+            Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp \
+            Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h \
+            Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp
+
+      - name: Upload source archives
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: v6-led-api4-source-${{ github.sha }}
-          path: v6-led-api4-source.tar
+          path: |
+            v6-led-api4-source.tar
+            v6-led-api4-dolphin-baseline.tar
           if-no-files-found: error
           retention-days: 1
