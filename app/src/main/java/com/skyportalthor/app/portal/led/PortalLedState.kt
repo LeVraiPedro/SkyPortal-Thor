@@ -8,21 +8,22 @@ data class PortalRgb(
     val blue: Int
 ) {
     init {
-        require(red in CHANNEL_RANGE) { "red must be between 0 and 255" }
-        require(green in CHANNEL_RANGE) { "green must be between 0 and 255" }
-        require(blue in CHANNEL_RANGE) { "blue must be between 0 and 255" }
+        require(red in MIN_CHANNEL..MAX_CHANNEL) { "red must be between 0 and 255" }
+        require(green in MIN_CHANNEL..MAX_CHANNEL) { "green must be between 0 and 255" }
+        require(blue in MIN_CHANNEL..MAX_CHANNEL) { "blue must be between 0 and 255" }
     }
 
-    fun toArgb(alpha: Int = 255): Int {
-        require(alpha in CHANNEL_RANGE) { "alpha must be between 0 and 255" }
+    fun toArgb(alpha: Int = MAX_CHANNEL): Int {
+        require(alpha in MIN_CHANNEL..MAX_CHANNEL) { "alpha must be between 0 and 255" }
         return (alpha shl 24) or (red shl 16) or (green shl 8) or blue
     }
 
     fun toHex(): String = "#%02X%02X%02X".format(red, green, blue)
 
     companion object {
+        private const val MIN_CHANNEL = 0
+        private const val MAX_CHANNEL = 255
         val Black = PortalRgb(0, 0, 0)
-        private val CHANNEL_RANGE = 0..255
     }
 }
 
