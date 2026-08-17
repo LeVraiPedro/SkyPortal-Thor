@@ -2,6 +2,19 @@
 
 ## V6 — développement non publié
 
+### Portail animé V6
+
+- Ajout d’un `AnimatedPortalStateMapper` pur qui transforme l’état Smart Portal en modes déconnecté, initialisation, conflit, API historique, veille et actif.
+- Ajout d’un panneau Compose dessiné intégralement au `Canvas`, sans ressource graphique officielle ou tierce.
+- Reproduction des couleurs gauche, droite et Trap issues de Dolphin API 4 avec transitions progressives.
+- Ajout d’un halo multicouche, d’un anneau animé, de repères lumineux, d’une respiration et d’une pulsation lors des changements de slots.
+- Conservation d’un rendu dégradé lisible avec Dolphin API 1–3 et lorsque Dolphin est absent.
+- Maintien des actions Équipes et Diagnostic dans le nouveau panneau afin de ne pas augmenter la hauteur totale de l’écran inférieur.
+- Affichage non bloquant du dernier snapshot LED fiable lorsqu’une lecture temporaire échoue.
+- Ajout d’une description sémantique détaillée pour que l’état ne repose pas uniquement sur la couleur.
+- Ajout de tests JVM couvrant les modes principaux et la conservation exacte des couleurs API 4.
+- Aucune commande Bifrost et aucune modification des LED physiques ne sont incluses dans cette étape.
+
 ### Dolphin LED API 4
 
 - Ajout de `getPortalLedStateJson()` en dernière position du contrat AIDL, sans modifier l’ordre API 1–3.

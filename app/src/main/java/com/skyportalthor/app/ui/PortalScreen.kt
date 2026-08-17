@@ -69,6 +69,7 @@ import com.skyportalthor.app.portal.PortalResult
 import com.skyportalthor.app.portal.PortalReadinessPolicy
 import com.skyportalthor.app.portal.PortalSlotState
 import com.skyportalthor.app.portal.PortalState
+import com.skyportalthor.app.ui.portal.AnimatedPortalPanel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -153,6 +154,15 @@ internal fun PortalScreen(
                     }
                 )
 
+                AnimatedPortalPanel(
+                    portalState = portalState,
+                    playerTwoEnabled = playerTwoEnabled,
+                    teamCount = quickTeams.size,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    onTeams = { showQuickTeams = true },
+                    onDiagnostics = { showDiagnostics = true }
+                )
+
                 val compactFeedback = !portalState.connected || localNotice != null || uiMessage != null
                 if (!compactFeedback) {
                     ExtraSlots(
@@ -174,15 +184,6 @@ internal fun PortalScreen(
                     onClear = onClear
                 )
 
-                if (!compactFeedback) {
-                    QuickActionsPanel(
-                        playerTwoEnabled = playerTwoEnabled,
-                        teamCount = quickTeams.size,
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        onTeams = { showQuickTeams = true },
-                        onDiagnostics = { showDiagnostics = true }
-                    )
-                }
             }
         }
     }
@@ -296,7 +297,7 @@ private fun Header(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    if (portalState.connected) "SKYPORTAL THOR V5" else "SKYPORTAL V5",
+                    "SKYPORTAL THOR",
                     color = Color.White,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
