@@ -32,6 +32,17 @@ SkyPortal Android
 
 Dolphin demeure le seul processus autorisé à écrire dans une figurine montée.
 
+## Avancement actuel
+
+```text
+V6 Foundation       ✓ fusionnée
+Dolphin LED API 4   ✓ implémentée dans la source, validation Thor à faire
+Portail animé       prochaine étape
+Bifrost             non commencé
+```
+
+Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
+
 ## Principes non négociables
 
 - aucune régression des fonctions V5 ;
@@ -119,7 +130,9 @@ Créer la nouvelle identité visuelle de SkyPortal et synchroniser en temps rée
 
 ## Dolphin SkyPortal API 4
 
-Le patch Dolphin doit exposer un état lumineux versionné comprenant au minimum :
+**État : implémenté dans la source, non encore validé sur la Thor.**
+
+Le patch Dolphin expose un état lumineux versionné comprenant au minimum :
 
 - couleur gauche ;
 - couleur droite ;

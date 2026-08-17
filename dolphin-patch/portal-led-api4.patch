@@ -1,0 +1,285 @@
+diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
+index 5b33818..7f4dbcc 100644
+--- a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
++++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt
+@@ -20,6 +20,10 @@ object SkylanderConfig {
+     @JvmStatic
+     external fun getPortalSnapshot(): IntArray
+ 
++    /** Schema, active flag, sequence, then left/right/trap RGB channels. */
++    @JvmStatic
++    external fun getPortalLedState(): LongArray
++
+     /** Core::State ordinal: uninitialized, paused, running, stopping, starting. */
+     @JvmStatic
+     external fun getEmulationState(): Int
+diff --git a/Source/Android/jni/SkylanderConfig.cpp b/Source/Android/jni/SkylanderConfig.cpp
+index acaeded..f0c6326 100644
+--- a/Source/Android/jni/SkylanderConfig.cpp
++++ b/Source/Android/jni/SkylanderConfig.cpp
+@@ -93,6 +93,31 @@ Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getPortalSnap
+   return result;
+ }
+ 
++JNIEXPORT jlongArray JNICALL
++Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getPortalLedState(JNIEnv* env,
++                                                                                     jclass clazz)
++{
++  constexpr jlong schema_version = 1;
++  const auto snapshot = Core::System::GetInstance().GetSkylanderPortal().GetLEDStateSnapshot();
++  const std::array<jlong, 12> packed = {
++      schema_version,
++      snapshot.active ? 1 : 0,
++      static_cast<jlong>(snapshot.sequence),
++      snapshot.left.red,
++      snapshot.left.green,
++      snapshot.left.blue,
++      snapshot.right.red,
++      snapshot.right.green,
++      snapshot.right.blue,
++      snapshot.trap.red,
++      snapshot.trap.green,
++      snapshot.trap.blue,
++  };
++  jlongArray result = env->NewLongArray(static_cast<jsize>(packed.size()));
++  env->SetLongArrayRegion(result, 0, static_cast<jsize>(packed.size()), packed.data());
++  return result;
++}
++
+ JNIEXPORT jobject JNICALL
+ Java_org_dolphinemu_dolphinemu_features_skylanders_SkylanderConfig_getSkylanderMap(JNIEnv* env,
+                                                                                    jclass clazz)
+diff --git a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
+index 2a97ae6..28321ec 100644
+--- a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
++++ b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp
+@@ -792,7 +792,10 @@ int SkylanderUSB::SubmitTransfer(std::unique_ptr<CtrlMessage> cmd)
+                               0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+         m_queries.push(interrupt_response);
+         expected_count = 10;
+-        system.GetSkylanderPortal().Activate();
++        if (buf[1] == 0)
++          system.GetSkylanderPortal().Deactivate();
++        else
++          system.GetSkylanderPortal().Activate();
+       }
+       break;
+     }
+@@ -858,8 +861,15 @@ int SkylanderUSB::SubmitTransfer(std::unique_ptr<CtrlMessage> cmd)
+         expected_count = 13;
+ 
+         u8 side = buf[1];
+-        if (side == 0x02)
++        if (side == 0x01)
+         {
++          // The audio-light protocol uses 0x01 for the dedicated Trap LED, while the older
++          // color command uses 0x01 for both portal sides. Translate it to the portal's trap zone.
++          side = 0x03;
++        }
++        else if (side == 0x02)
++        {
++          // Preserve a distinct left alias so the two command families cannot be confused.
+           side = 0x04;
+         }
+         system.GetSkylanderPortal().SetLEDs(side, buf[2], buf[3], buf[4]);
+@@ -1132,11 +1142,13 @@ void SkylanderPortal::Activate()
+   }
+ 
+   m_activated = true;
++  ++m_led_sequence;
+ }
+ 
+ void SkylanderPortal::Deactivate()
+ {
+   std::lock_guard lock(sky_mutex);
++  const bool activation_changed = m_activated;
+ 
+   for (auto& s : skylanders)
+   {
+@@ -1151,6 +1163,8 @@ void SkylanderPortal::Deactivate()
+   }
+ 
+   m_activated = false;
++  if (activation_changed)
++    ++m_led_sequence;
+ }
+ 
+ bool SkylanderPortal::IsActivated()
+@@ -1184,37 +1198,38 @@ void SkylanderPortal::UpdateStatus()
+ // 0x01 = left and right
+ // 0x02 = left
+ // 0x03 = trap
++// 0x04 = left alias used by the audio-light command
+ void SkylanderPortal::SetLEDs(u8 side, u8 red, u8 green, u8 blue)
+ {
+   std::lock_guard lock(sky_mutex);
++  const auto set_color = [red, green, blue](SkylanderLEDColor& color) {
++    if (color.red == red && color.green == green && color.blue == blue)
++      return false;
++    color = {red, green, blue};
++    return true;
++  };
++
++  bool changed = false;
+   if (side == 0x00)
+   {
+-    m_color_right.red = red;
+-    m_color_right.green = green;
+-    m_color_right.blue = blue;
++    changed = set_color(m_color_right);
+   }
+   else if (side == 0x01)
+   {
+-    m_color_right.red = red;
+-    m_color_right.green = green;
+-    m_color_right.blue = blue;
+-
+-    m_color_left.red = red;
+-    m_color_left.green = green;
+-    m_color_left.blue = blue;
++    changed = set_color(m_color_right);
++    changed = set_color(m_color_left) || changed;
+   }
+-  else if (side == 0x02)
++  else if (side == 0x02 || side == 0x04)
+   {
+-    m_color_left.red = red;
+-    m_color_left.green = green;
+-    m_color_left.blue = blue;
++    changed = set_color(m_color_left);
+   }
+   else if (side == 0x03)
+   {
+-    m_color_trap.red = red;
+-    m_color_trap.green = green;
+-    m_color_trap.blue = blue;
++    changed = set_color(m_color_trap);
+   }
++
++  if (changed)
++    ++m_led_sequence;
+ }
+ 
+ std::array<u8, 64> SkylanderPortal::GetStatus()
+@@ -1423,6 +1438,18 @@ std::array<SkylanderSlotSnapshot, MAX_SKYLANDERS> SkylanderPortal::GetSlotSnapsh
+   return snapshot;
+ }
+ 
++SkylanderLEDStateSnapshot SkylanderPortal::GetLEDStateSnapshot()
++{
++  std::lock_guard lock(sky_mutex);
++  SkylanderLEDStateSnapshot snapshot;
++  snapshot.active = m_activated;
++  snapshot.sequence = m_led_sequence;
++  snapshot.left = m_color_left;
++  snapshot.right = m_color_right;
++  snapshot.trap = m_color_trap;
++  return snapshot;
++}
++
+ Type NormalizeSkylanderType(Type type)
+ {
+   switch (type)
+diff --git a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
+index a195767..075064c 100644
+--- a/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
++++ b/Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h
+@@ -140,6 +140,15 @@ struct SkylanderSlotSnapshot final
+   u16 variant_id = 0;
+ };
+ 
++struct SkylanderLEDStateSnapshot final
++{
++  bool active = false;
++  u64 sequence = 0;
++  SkylanderLEDColor left = {};
++  SkylanderLEDColor right = {};
++  SkylanderLEDColor trap = {};
++};
++
+ class SkylanderPortal final
+ {
+ public:
+@@ -157,6 +166,7 @@ public:
+   u8 LoadSkylander(std::unique_ptr<SkylanderFigure> figure);
+   Skylander* GetSkylander(u8 slot);
+   std::array<SkylanderSlotSnapshot, MAX_SKYLANDERS> GetSlotSnapshot();
++  SkylanderLEDStateSnapshot GetLEDStateSnapshot();
+   std::pair<u16, u16> CalculateIDs(const std::array<u8, 0x40 * 0x10>& file_data);
+ 
+ private:
+@@ -171,6 +181,7 @@ private:
+   SkylanderLEDColor m_color_right = {};
+   SkylanderLEDColor m_color_left = {};
+   SkylanderLEDColor m_color_trap = {};
++  u64 m_led_sequence = 0;
+ 
+   std::array<Skylander, MAX_SKYLANDERS> skylanders;
+ };
+diff --git a/Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp b/Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp
+index 9e8f471..46d4bfd 100644
+--- a/Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp
++++ b/Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp
+@@ -309,3 +309,62 @@ TEST(Skylanders, AdditionalLoadDoesNotReuseMountedReplacementSlot)
+   EXPECT_TRUE(portal.RemoveSkylander(first_slot));
+   EXPECT_TRUE(portal.RemoveSkylander(third_slot));
+ }
++
++TEST(Skylanders, LedSnapshotTracksOnlyVisibleChanges)
++{
++  IOS::HLE::USB::SkylanderPortal portal;
++
++  auto snapshot = portal.GetLEDStateSnapshot();
++  EXPECT_TRUE(snapshot.active);
++  EXPECT_EQ(snapshot.sequence, 0);
++  EXPECT_EQ(snapshot.left.red, 0);
++  EXPECT_EQ(snapshot.right.red, 0);
++  EXPECT_EQ(snapshot.trap.red, 0);
++
++  portal.SetLEDs(0x01, 10, 20, 30);
++  snapshot = portal.GetLEDStateSnapshot();
++  EXPECT_EQ(snapshot.sequence, 1);
++  EXPECT_EQ(snapshot.left.red, 10);
++  EXPECT_EQ(snapshot.left.green, 20);
++  EXPECT_EQ(snapshot.left.blue, 30);
++  EXPECT_EQ(snapshot.right.red, 10);
++  EXPECT_EQ(snapshot.right.green, 20);
++  EXPECT_EQ(snapshot.right.blue, 30);
++
++  // A duplicate command must not create an artificial sequence advance.
++  portal.SetLEDs(0x01, 10, 20, 30);
++  EXPECT_EQ(portal.GetLEDStateSnapshot().sequence, 1);
++
++  portal.SetLEDs(0x00, 40, 50, 60);
++  snapshot = portal.GetLEDStateSnapshot();
++  EXPECT_EQ(snapshot.sequence, 2);
++  EXPECT_EQ(snapshot.left.red, 10);
++  EXPECT_EQ(snapshot.right.red, 40);
++
++  // The Trap Team audio-light command translates the left position to side 0x04.
++  portal.SetLEDs(0x04, 70, 80, 90);
++  snapshot = portal.GetLEDStateSnapshot();
++  EXPECT_EQ(snapshot.sequence, 3);
++  EXPECT_EQ(snapshot.left.red, 70);
++  EXPECT_EQ(snapshot.right.red, 40);
++
++  portal.SetLEDs(0x03, 100, 110, 120);
++  snapshot = portal.GetLEDStateSnapshot();
++  EXPECT_EQ(snapshot.sequence, 4);
++  EXPECT_EQ(snapshot.trap.red, 100);
++  EXPECT_EQ(snapshot.trap.green, 110);
++  EXPECT_EQ(snapshot.trap.blue, 120);
++
++  portal.Deactivate();
++  snapshot = portal.GetLEDStateSnapshot();
++  EXPECT_FALSE(snapshot.active);
++  EXPECT_EQ(snapshot.sequence, 5);
++
++  portal.Deactivate();
++  EXPECT_EQ(portal.GetLEDStateSnapshot().sequence, 5);
++
++  portal.Activate();
++  snapshot = portal.GetLEDStateSnapshot();
++  EXPECT_TRUE(snapshot.active);
++  EXPECT_EQ(snapshot.sequence, 6);
++}

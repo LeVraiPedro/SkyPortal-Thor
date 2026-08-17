@@ -138,7 +138,7 @@ jobs:
           dolphin_unsigned="$(find "${RUNNER_TEMP}/dolphin/Source/Android/app/build/outputs/apk" -type f -name '*release*.apk' | head -n 1)"
           test -f "${companion}"
           test -f "${dolphin_unsigned}"
-          cp "${companion}" dist/SkyPortal_Thor_API3.apk
+          cp "${companion}" dist/SkyPortal_Thor_API4.apk
           "${ANDROID_HOME}/build-tools/36.0.0/zipalign" -f 4 \
             "${dolphin_unsigned}" dist/Dolphin-SkyPortal-aligned.apk
           "${ANDROID_HOME}/build-tools/36.0.0/apksigner" sign \
@@ -146,25 +146,25 @@ jobs:
             --ks-pass "pass:${SKYPORTAL_STORE_PASSWORD}" \
             --ks-key-alias "${SKYPORTAL_KEY_ALIAS}" \
             --key-pass "pass:${SKYPORTAL_KEY_PASSWORD}" \
-            --out dist/Dolphin_SkyPortal_API3.apk \
+            --out dist/Dolphin_SkyPortal_API4.apk \
             dist/Dolphin-SkyPortal-aligned.apk
           rm dist/Dolphin-SkyPortal-aligned.apk
-          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose dist/SkyPortal_Thor_API3.apk
-          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose dist/Dolphin_SkyPortal_API3.apk
-          companion_cert="$("${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --print-certs dist/SkyPortal_Thor_API3.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
-          dolphin_cert="$("${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --print-certs dist/Dolphin_SkyPortal_API3.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose dist/SkyPortal_Thor_API4.apk
+          "${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --verbose dist/Dolphin_SkyPortal_API4.apk
+          companion_cert="$("${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --print-certs dist/SkyPortal_Thor_API4.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
+          dolphin_cert="$("${ANDROID_HOME}/build-tools/36.0.0/apksigner" verify --print-certs dist/Dolphin_SkyPortal_API4.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n 1)"
           test -n "${companion_cert}"
           test "${companion_cert}" = "${dolphin_cert}"
           cat > dist/PAIR_BUILD_INFO.txt <<EOF
           SkyPortal commit: ${GITHUB_SHA}
           Dolphin repository: https://github.com/dolphin-emu/dolphin
           Dolphin commit: ${DOLPHIN_COMMIT}
-          API: SkyPortal API 3
+          API: SkyPortal API 4
           Certificate SHA-256: ${companion_cert}
           Signing mode: ${PAIR_SIGNING_MODE}
           Source license: GPL-2.0-or-later; see the included LICENSE, NOTICE.md and Dolphin SPDX files.
-          Complete patched source: Dolphin_SkyPortal_API3_Source.zip
-          Rebuild kit: Dolphin_SkyPortal_API3_Rebuild_Kit.zip
+          Complete patched source: Dolphin_SkyPortal_API4_Source.zip
+          Rebuild kit: Dolphin_SkyPortal_API4_Rebuild_Kit.zip
           EOF
           if [[ "${PAIR_SIGNING_MODE}" = "EPHEMERAL_CI_KEY_NON_RELEASE" ]]; then
             cat > dist/NON_RELEASE_CI_KEY.txt <<'EOF'
@@ -196,10 +196,11 @@ jobs:
             printf 'Dolphin base commit: %s\n' "${DOLPHIN_COMMIT}"
             printf 'SkyPortal repository: https://github.com/%s\n' "${GITHUB_REPOSITORY}"
             printf 'SkyPortal commit: %s\n' "${GITHUB_SHA}"
-            printf 'SkyPortal API: 3\n'
+            printf 'SkyPortal API: 4\n'
             printf 'Source license: GPL-2.0-or-later plus the per-file SPDX licenses in Dolphin.\n'
             sha256sum \
               dolphin-patch/smart-portal-core.patch \
+              dolphin-patch/portal-led-api4.patch \
               dolphin-patch/skyportal-dolphin.patch \
               dolphin-patch/Source/Android/app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl \
               dolphin-patch/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt \
@@ -208,7 +209,7 @@ jobs:
           } > "${source_info}"
 
           full_parent="${RUNNER_TEMP}/dolphin-full-source"
-          full_root="${full_parent}/Dolphin_SkyPortal_API3_Source"
+          full_root="${full_parent}/Dolphin_SkyPortal_API4_Source"
           mkdir -p "${full_root}"
           tar \
             --exclude='./.git' --exclude='*/.git' \
@@ -226,7 +227,7 @@ jobs:
             tar -C "${full_root}" -xf -
 
           kit_parent="${RUNNER_TEMP}/skyportal-source-kit"
-          kit_root="${kit_parent}/Dolphin_SkyPortal_API3_Rebuild_Kit"
+          kit_root="${kit_parent}/Dolphin_SkyPortal_API4_Rebuild_Kit"
           mkdir -p "${kit_root}"
           git archive "${GITHUB_SHA}" \
             LICENSE LICENSES NOTICE.md README.md DOLPHIN_INTEGRATION.md docs \
@@ -235,8 +236,8 @@ jobs:
             tar -x -C "${kit_root}"
           cp "${source_info}" "${kit_root}/SOURCE_INFO.txt"
           python3 - \
-            "${full_parent}" "dist/Dolphin_SkyPortal_API3_Source.zip" \
-            "${kit_parent}" "dist/Dolphin_SkyPortal_API3_Rebuild_Kit.zip" \
+            "${full_parent}" "dist/Dolphin_SkyPortal_API4_Source.zip" \
+            "${kit_parent}" "dist/Dolphin_SkyPortal_API4_Rebuild_Kit.zip" \
             "${source_date_epoch}" <<'PY'
           import datetime
           import os
@@ -274,46 +275,47 @@ jobs:
           build_zip(sys.argv[1], sys.argv[2], zipfile.ZIP_DEFLATED)
           build_zip(sys.argv[3], sys.argv[4], zipfile.ZIP_STORED)
           PY
-          unzip -Z1 dist/Dolphin_SkyPortal_API3_Source.zip \
+          unzip -Z1 dist/Dolphin_SkyPortal_API4_Source.zip \
             > "${RUNNER_TEMP}/dolphin-source-entries.txt"
-          grep -Fx 'Dolphin_SkyPortal_API3_Source/COPYING' \
+          grep -Fx 'Dolphin_SkyPortal_API4_Source/COPYING' \
             "${RUNNER_TEMP}/dolphin-source-entries.txt"
-          grep -m 1 -E '^Dolphin_SkyPortal_API3_Source/LICENSES/[^/]+$' \
+          grep -m 1 -E '^Dolphin_SkyPortal_API4_Source/LICENSES/[^/]+$' \
             "${RUNNER_TEMP}/dolphin-source-entries.txt"
-          grep -Fx 'Dolphin_SkyPortal_API3_Source/SKYPORTAL_SOURCE_INFO.txt' \
+          grep -Fx 'Dolphin_SkyPortal_API4_Source/SKYPORTAL_SOURCE_INFO.txt' \
             "${RUNNER_TEMP}/dolphin-source-entries.txt"
-          grep -Fx 'Dolphin_SkyPortal_API3_Source/SKYPORTAL_LICENSE.txt' \
+          grep -Fx 'Dolphin_SkyPortal_API4_Source/SKYPORTAL_LICENSE.txt' \
             "${RUNNER_TEMP}/dolphin-source-entries.txt"
-          grep -Fx 'Dolphin_SkyPortal_API3_Source/SKYPORTAL_NOTICE.md' \
+          grep -Fx 'Dolphin_SkyPortal_API4_Source/SKYPORTAL_NOTICE.md' \
             "${RUNNER_TEMP}/dolphin-source-entries.txt"
-          grep -Fx 'Dolphin_SkyPortal_API3_Source/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt' \
+          grep -Fx 'Dolphin_SkyPortal_API4_Source/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt' \
             "${RUNNER_TEMP}/dolphin-source-entries.txt"
-          if grep -E '(^|/)\.git(/|$)|^Dolphin_SkyPortal_API3_Source/Source/Android/(app/)?build/|^Dolphin_SkyPortal_API3_Source/Source/Android/app/\.cxx/|^Dolphin_SkyPortal_API3_Source/Source/Android/\.(gradle|kotlin)/|(^|/)(local|secrets|keystore)\.properties$|(^|/)\.env(\..*)?$|\.(apk|aab|jks|keystore|p12|pfx|pem|key)$' \
+          if grep -E '(^|/)\.git(/|$)|^Dolphin_SkyPortal_API4_Source/Source/Android/(app/)?build/|^Dolphin_SkyPortal_API4_Source/Source/Android/app/\.cxx/|^Dolphin_SkyPortal_API4_Source/Source/Android/\.(gradle|kotlin)/|(^|/)(local|secrets|keystore)\.properties$|(^|/)\.env(\..*)?$|\.(apk|aab|jks|keystore|p12|pfx|pem|key)$' \
               "${RUNNER_TEMP}/dolphin-source-entries.txt"; then
             echo 'Forbidden generated, secret or user content found in Dolphin source ZIP.' >&2
             exit 1
           fi
 
-          unzip -Z1 dist/Dolphin_SkyPortal_API3_Rebuild_Kit.zip \
+          unzip -Z1 dist/Dolphin_SkyPortal_API4_Rebuild_Kit.zip \
             > "${RUNNER_TEMP}/skyportal-kit-entries.txt"
           for required in \
-            Dolphin_SkyPortal_API3_Rebuild_Kit/LICENSE \
-            Dolphin_SkyPortal_API3_Rebuild_Kit/NOTICE.md \
-            Dolphin_SkyPortal_API3_Rebuild_Kit/SOURCE_INFO.txt \
-            Dolphin_SkyPortal_API3_Rebuild_Kit/dolphin-patch/smart-portal-core.patch \
-            Dolphin_SkyPortal_API3_Rebuild_Kit/dolphin-patch/skyportal-dolphin.patch \
-            Dolphin_SkyPortal_API3_Rebuild_Kit/tools/apply_dolphin_patch.py; do
+            Dolphin_SkyPortal_API4_Rebuild_Kit/LICENSE \
+            Dolphin_SkyPortal_API4_Rebuild_Kit/NOTICE.md \
+            Dolphin_SkyPortal_API4_Rebuild_Kit/SOURCE_INFO.txt \
+            Dolphin_SkyPortal_API4_Rebuild_Kit/dolphin-patch/smart-portal-core.patch \
+            Dolphin_SkyPortal_API4_Rebuild_Kit/dolphin-patch/portal-led-api4.patch \
+            Dolphin_SkyPortal_API4_Rebuild_Kit/dolphin-patch/skyportal-dolphin.patch \
+            Dolphin_SkyPortal_API4_Rebuild_Kit/tools/apply_dolphin_patch.py; do
             grep -Fx "${required}" "${RUNNER_TEMP}/skyportal-kit-entries.txt"
           done
 
           (
             cd dist
-            find . -maxdepth 1 -type f ! -name Dolphin_SkyPortal_API3_SHA256.txt \
+            find . -maxdepth 1 -type f ! -name Dolphin_SkyPortal_API4_SHA256.txt \
               -printf '%f\n' |
               LC_ALL=C sort |
               while IFS= read -r file; do sha256sum "${file}"; done \
-                > Dolphin_SkyPortal_API3_SHA256.txt
-            sha256sum --check Dolphin_SkyPortal_API3_SHA256.txt
+                > Dolphin_SkyPortal_API4_SHA256.txt
+            sha256sum --check Dolphin_SkyPortal_API4_SHA256.txt
           )
 
       - name: Upload verified pair and corresponding source

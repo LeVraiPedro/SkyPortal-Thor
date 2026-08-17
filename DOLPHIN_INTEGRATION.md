@@ -1,6 +1,8 @@
 # SkyPortal Thor ↔ Dolphin Android
 
-## État V5 / API 3
+## État de développement V6 / API 4
+
+> La release publique stable `v0.5.0` utilise toujours Dolphin API 3. Cette documentation décrit la source V6 en cours de validation ; une paire API 4 ne doit pas être présentée comme stable avant le test matériel sur l’AYN Thor.
 
 Le bridge n'est plus théorique : il est défini en AIDL et un service Dolphin minimal est fourni dans `dolphin-patch/`.
 
@@ -18,7 +20,7 @@ Le bridge n'est plus théorique : il est défini en AIDL et un service Dolphin m
 ### Pourquoi ne pas modifier directement le dump dans SkyPortal
 Pendant qu'une figurine est montée, Dolphin peut écrire XP, or et progression. SkyPortal ne doit jamais écrire simultanément dans le même fichier.
 
-### API AIDL compatible V1/V2/V3
+### API AIDL compatible V1/V2/V3/V4
 ```text
 getApiVersion() -> Int
 ping() -> Boolean
@@ -28,9 +30,10 @@ clear()
 getStatusJson() -> JSON
 setPortalEnabled(enabled) -> code résultat
 getFigureCatalogJson() -> JSON
+getPortalLedStateJson() -> JSON lumineux versionné
 ```
 
-Les six méthodes historiques restent inchangées et dans le même ordre. Le compagnon n'appelle les deux nouvelles méthodes qu'après avoir détecté l'API 3. Les contrats API 1 et API 2 conservent un mode dégradé : ils ne fournissent ni jeu actif, ni commande du portail, ni catalogue natif complet.
+Les six méthodes historiques restent inchangées et dans le même ordre. Les deux méthodes API 3 restent aux positions 7 et 8 ; la méthode LED API 4 est ajoutée uniquement en position 9. Le compagnon n’appelle chaque extension qu’après avoir détecté la version correspondante. Les contrats API 1 et API 2 conservent un mode dégradé : ils ne fournissent ni jeu actif, ni commande du portail, ni catalogue natif complet. Une API 3 garde toutes les fonctions Smart Portal sans état lumineux.
 
 `getStatusJson()` expose aussi `emulationState`, `gameId`, `gameTitle`, `portalEnabled`, `portalActivated`, `portalProtocolActivated`, `portalUsbPresent`, `portalUsbAttached`, `portalUsbHandshakeSeen`, `conflictingUsbDevices`, `canSetPortalEnabled`, `nativeSlotSchemaVersion` et `nativeSlots`.
 
@@ -49,7 +52,7 @@ Les indicateurs de portail ont des rôles distincts :
 
 `Portail prêt` exige les trois preuves USB à `true` et une liste de conflits vide. Le booléen protocolaire historique était initialisé à `true` par le cœur et ne constitue donc jamais, à lui seul, une preuve que le jeu a trouvé le portail.
 
-Le service fourni annonce l'API 3 et conserve les codes suivants :
+Le service de développement fourni annonce l'API 4 et conserve les codes de chargement API 3 suivants :
 
 ```text
 -2 : ouverture du fichier impossible
@@ -101,9 +104,30 @@ nativeSlotSchemaVersion,
 nativeSlots[0..15]
 ```
 
-Ces ajouts restent dans le JSON existant : aucune transaction Binder n'est ajoutée et l'ordre des huit méthodes AIDL ne change pas. Un ancien compagnon ignore les clés inconnues. Le nouveau compagnon lit chaque preuve avec une valeur nullable, ce qui distingue explicitement un ancien JSON API 3 d'un portail réellement absent.
+Ces ajouts restent dans le JSON existant : les huit méthodes AIDL API 1–3 conservent leur ordre. Un ancien compagnon ignore les clés inconnues. Le nouveau compagnon lit chaque preuve avec une valeur nullable, ce qui distingue explicitement un ancien JSON API 3 d'un portail réellement absent.
 
 `getFigureCatalogJson()` exporte les identités de la table native `list_skylanders`. Le compagnon garde son modèle central de compatibilité, mais ne duplique pas une grande base de noms indépendante quand le catalogue API 3 est disponible.
+
+### État lumineux API 4
+
+`getPortalLedStateJson()` est la neuvième méthode AIDL. Elle expose un payload séparé de `getStatusJson()` :
+
+```json
+{
+  "schemaVersion": 1,
+  "active": true,
+  "sequence": 42,
+  "left": { "r": 160, "g": 64, "b": 255 },
+  "right": { "r": 12, "g": 100, "b": 220 },
+  "trap": { "r": 255, "g": 40, "b": 0 }
+}
+```
+
+Le cœur conserve une séquence monotone sous le même verrou que les trois couleurs. Une commande RGB identique ne crée pas de nouvelle séquence. L’API prend aussi en compte l’activation/désactivation protocolaire et l’alias gauche `0x04` utilisé par la commande audio `L`.
+
+SkyPortal interroge cet état léger toutes les 100 ms lorsque Dolphin API 4 est connecté. Le timeout est limité à 750 ms et les appels sont sérialisés avec les opérations du portail. Une erreur LED ne transforme jamais un chargement `.sky` en échec. Une API 1–3 efface simplement la capability lumineuse sans diagnostic d’erreur.
+
+Le détail du schéma, du tableau JNI et des limites figure dans [`docs/V6_LED_API4.md`](docs/V6_LED_API4.md).
 
 ### Sécurité
 Le service Dolphin est protégé par la permission signature :
@@ -133,7 +157,7 @@ SkyPortal ne désactive pas silencieusement une autre base configurée par l'uti
 Le patch est vérifié sur la révision Dolphin amont
 `54070da5851e12f2d1a4389daa528e4fb81327ce`. L'outil
 `tools/apply_dolphin_patch.py` vérifie ce commit **avant toute modification** et applique les
-overlays ainsi que le patch natif sans chemin absolu propre à une machine :
+overlays, puis `smart-portal-core.patch` et enfin `portal-led-api4.patch`, sans chemin absolu propre à une machine :
 
 ```powershell
 python tools/apply_dolphin_patch.py C:\chemin\vers\dolphin
@@ -163,13 +187,13 @@ doivent être conservés. Le fichier `COPYING` de Dolphin et les textes concern�
 Une publication binaire doit fournir ensemble, sur un emplacement durable :
 
 ```text
-Dolphin_SkyPortal_API3.apk
-Dolphin_SkyPortal_API3_Source.zip
-Dolphin_SkyPortal_API3_SHA256.txt
-Dolphin_SkyPortal_API3_Rebuild_Kit.zip (traçabilité et reconstruction)
+Dolphin_SkyPortal_API4.apk
+Dolphin_SkyPortal_API4_Source.zip
+Dolphin_SkyPortal_API4_SHA256.txt
+Dolphin_SkyPortal_API4_Rebuild_Kit.zip (traçabilité et reconstruction)
 ```
 
-`Dolphin_SkyPortal_API3_Source.zip` ne doit pas être un simple patch dépendant d'une copie amont
+`Dolphin_SkyPortal_API4_Source.zip` ne doit pas être un simple patch dépendant d'une copie amont
 éphémère. Il contient l'arborescence source Dolphin modifiée complète du binaire publié, basée sur
 le commit amont `54070da5851e12f2d1a4389daa528e4fb81327ce`, sous-modules compris. Il conserve
 également `COPYING`, les fichiers `LICENSES/` applicables, les sources ajoutées et un manifeste de
@@ -177,7 +201,7 @@ provenance, ainsi que `SKYPORTAL_LICENSE.txt` et `SKYPORTAL_NOTICE.md`.
 
 Le kit de reconstruction publié au même endroit conserve les éléments de traçabilité :
 
-- `smart-portal-core.patch` et `skyportal-dolphin.patch` ;
+- `smart-portal-core.patch`, `portal-led-api4.patch` et la référence consolidée historique `skyportal-dolphin.patch` ;
 - les overlays AIDL et Kotlin ajoutés, ainsi que les modifications Manifest et Gradle ;
 - `tools/apply_dolphin_patch.py` et tout autre script réellement utilisé pour produire l'APK ;
 - les options de construction, dont un éventuel `-PskyPortalVersionCode=...` ;
@@ -187,7 +211,7 @@ Le code source complet et le kit doivent rester associés. Publier uniquement le
 uniquement un lien vers le dépôt amont ne constitue pas ici le paquet de code source correspondant
 attendu.
 
-`Dolphin_SkyPortal_API3_SHA256.txt` doit contenir au minimum les SHA-256 de l'APK, de l'archive
+`Dolphin_SkyPortal_API4_SHA256.txt` doit contenir au minimum les SHA-256 de l'APK, de l'archive
 source et du kit. Les artefacts doivent rester accessibles ensemble pendant toute la durée de mise à
 disposition du binaire. La clé de signature et ses secrets ne font jamais partie de l'archive
 source ni des artefacts publics.

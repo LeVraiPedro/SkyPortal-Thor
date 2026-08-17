@@ -9,6 +9,7 @@ import com.skyportalthor.app.data.FigureKey
 import com.skyportalthor.app.data.FigureMetadata
 import com.skyportalthor.app.data.SkylandersGame
 import com.skyportalthor.app.data.SmartPortalReadiness
+import com.skyportalthor.app.portal.led.PortalLedState
 import kotlinx.coroutines.flow.StateFlow
 
 data class PortalSlotState(
@@ -44,7 +45,10 @@ data class PortalState(
     val canSetPortalEnabled: Boolean = false,
     val nativeSlotSchemaVersion: Int = 0,
     val nativeSlots: List<NativePortalSlotState> = emptyList(),
-    val figureCatalog: Map<FigureKey, FigureMetadata> = emptyMap()
+    val figureCatalog: Map<FigureKey, FigureMetadata> = emptyMap(),
+    val portalLedState: PortalLedState? = null,
+    val portalLedWarnings: List<String> = emptyList(),
+    val portalLedError: String? = null
 )
 
 data class NativePortalSlotState(
@@ -75,6 +79,7 @@ interface PortalBridge {
     val state: StateFlow<PortalState>
     suspend fun connect(preferredPackage: String? = null): Boolean
     suspend fun refresh()
+    suspend fun refreshLedState()
     suspend fun load(logicalSlot: Int, skylander: Skylander): PortalResult
     suspend fun remove(logicalSlot: Int): PortalResult
     suspend fun clear(): PortalResult

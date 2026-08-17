@@ -371,6 +371,13 @@ class SkyPortalService : Service() {
             }
         }
 
+        override fun getPortalLedStateJson(): String {
+            if (!nativeRuntimeReady()) return emptyPortalLedStateJson()
+            return onMainThread {
+                encodePortalLedState(SkylanderConfig.getPortalLedState())
+            }
+        }
+
         override fun getStatusJson(): String = onMainThread { synchronized(lock) {
             if (!nativeRuntimeReady()) return@synchronized uninitializedStatusJson()
             val nativeSnapshot = SkylanderConfig.getPortalSnapshot()
@@ -500,6 +507,48 @@ class SkyPortalService : Service() {
 
     private fun emptyCatalogJson(): String =
         JSONObject().put("version", 1).put("figures", JSONArray()).toString()
+
+    private fun emptyPortalLedStateJson(): String = JSONObject()
+        .put("schemaVersion", PORTAL_LED_SCHEMA_VERSION)
+        .put("active", false)
+        .put("sequence", 0L)
+        .toString()
+
+    private fun encodePortalLedState(packed: LongArray): String {
+        check(packed.size == PORTAL_LED_STATE_SIZE) {
+            "Invalid native portal LED state size: ${packed.size}"
+        }
+        val schemaVersion = packed[PORTAL_LED_SCHEMA_OFFSET]
+        check(schemaVersion == PORTAL_LED_SCHEMA_VERSION.toLong()) {
+            "Unsupported native portal LED schema: $schemaVersion"
+        }
+        val activeRaw = packed[PORTAL_LED_ACTIVE_OFFSET]
+        check(activeRaw in 0L..1L) { "Invalid native portal LED active flag: $activeRaw" }
+        val sequence = packed[PORTAL_LED_SEQUENCE_OFFSET]
+        check(sequence >= 0L) { "Invalid native portal LED sequence: $sequence" }
+
+        return JSONObject()
+            .put("schemaVersion", PORTAL_LED_SCHEMA_VERSION)
+            .put("active", activeRaw == 1L)
+            .put("sequence", sequence)
+            .put("left", colorJson(packed, PORTAL_LED_LEFT_OFFSET))
+            .put("right", colorJson(packed, PORTAL_LED_RIGHT_OFFSET))
+            .put("trap", colorJson(packed, PORTAL_LED_TRAP_OFFSET))
+            .toString()
+    }
+
+    private fun colorJson(packed: LongArray, offset: Int): JSONObject {
+        val red = packed[offset]
+        val green = packed[offset + 1]
+        val blue = packed[offset + 2]
+        check(red in 0L..255L && green in 0L..255L && blue in 0L..255L) {
+            "Invalid native portal LED channel at offset $offset"
+        }
+        return JSONObject()
+            .put("r", red.toInt())
+            .put("g", green.toInt())
+            .put("b", blue.toInt())
+    }
 
     private fun clearLogicalSlot(logical: Int) {
         logicalToActual[logical] = -1
@@ -719,7 +768,7 @@ class SkyPortalService : Service() {
 
     companion object {
         private const val TAG = "SkyPortalService"
-        const val API_VERSION = 3
+        const val API_VERSION = 4
         const val LOGICAL_SLOT_COUNT = 8
         const val ERROR_OPEN_FAILED = -2
         const val ERROR_BAD_SLOT = -3
@@ -757,6 +806,14 @@ class SkyPortalService : Service() {
         private const val NATIVE_VARIANT_OFFSET = 4
         private const val NATIVE_STATUS_REMOVED = 0
         private const val NATIVE_STATUS_ADDED = 3
+        private const val PORTAL_LED_SCHEMA_VERSION = 1
+        private const val PORTAL_LED_STATE_SIZE = 12
+        private const val PORTAL_LED_SCHEMA_OFFSET = 0
+        private const val PORTAL_LED_ACTIVE_OFFSET = 1
+        private const val PORTAL_LED_SEQUENCE_OFFSET = 2
+        private const val PORTAL_LED_LEFT_OFFSET = 3
+        private const val PORTAL_LED_RIGHT_OFFSET = 6
+        private const val PORTAL_LED_TRAP_OFFSET = 9
         private const val TASK_QUEUED = 0
         private const val TASK_RUNNING = 1
         private const val TASK_CANCELLED = 2

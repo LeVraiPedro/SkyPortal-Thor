@@ -21,10 +21,12 @@ Exposer les opérations Skylanders et l'état Smart Portal nécessaires au compa
 - preuves USB réelles : présence, attachement et première commande Skylanders
 - détection des bases USB concurrentes, notamment Disney Infinity
 - instantané natif des slots et catalogue d'identification
+- état lumineux gauche, droite et Trap du Portal of Power
+- compteur de séquence monotone pour les changements LED
 
-Le protocole USB et les écritures de progression ne sont pas modifiés. Le cœur reçoit un snapshot verrouillé des slots et des indicateurs atomiques read-only sur le cycle USB du portail.
+Les écritures de progression ne sont pas modifiées. Le cœur reçoit un snapshot verrouillé des slots, des indicateurs atomiques read-only sur le cycle USB du portail et un snapshot lumineux protégé par le verrou natif existant.
 
-Cette révision annonce `API_VERSION = 3`. Les six méthodes API 1/2 restent inchangées et les deux méthodes V3 sont ajoutées à la fin de l'AIDL.
+Cette révision de développement annonce `API_VERSION = 4`. Les six méthodes API 1/2 restent inchangées, les deux méthodes V3 conservent leurs positions et `getPortalLedStateJson()` est ajoutée en dernière position de l'AIDL. La release stable `v0.5.0` reste une paire API 3.
 
 Les overlays AIDL et Kotlin propres à SkyPortal portent
 `SPDX-License-Identifier: GPL-2.0-or-later`. Les fichiers Dolphin modifiés conservent leurs avis de
@@ -39,9 +41,12 @@ Copier depuis ce dossier :
 
 vers les mêmes chemins dans le dépôt Dolphin.
 
-Le script applique ensuite `smart-portal-core.patch`, limité au bridge `SkylanderConfig`, à
-`USB::Device`, au verrouillage de lecture du scanner, à l'implémentation du portail Skylanders et
-au test natif déterministe de remplacement d'une figurine.
+Le script applique ensuite, dans cet ordre :
+
+1. `smart-portal-core.patch`, pour le bridge `SkylanderConfig`, l’état USB, les slots natifs et le catalogue ;
+2. `portal-led-api4.patch`, pour le snapshot lumineux, la séquence, le JNI et le test natif LED.
+
+`skyportal-dolphin.patch` reste une référence consolidée historique de la base API 3 ; l’outil reproductible n’en dépend pas.
 
 ## État des slots pendant un remplacement
 
@@ -95,6 +100,25 @@ La base Disney Infinity est détectée depuis le réglage Dolphin existant `Emul
 Le service la signale au compagnon, mais ne modifie jamais silencieusement ce choix utilisateur.
 SkyPortal demande de désactiver la base concurrente puis d'arrêter complètement l'émulation : certains
 jeux ne tiennent compte que de la première liste de périphériques USB reçue au démarrage.
+
+## État lumineux (API 4)
+
+Le snapshot JNI `getPortalLedState()` contient 12 valeurs :
+
+```text
+schemaVersion | active | sequence | left RGB | right RGB | trap RGB
+```
+
+La commande audio `L` traduit aussi sa position `0x01` vers la zone Trap interne `0x03` et sa position gauche `0x02` vers l’alias `0x04`.
+
+Le service valide ces valeurs puis expose `getPortalLedStateJson()`. La séquence augmente uniquement lorsque :
+
+- une couleur gauche, droite ou Trap change réellement ;
+- le portail passe d’actif à inactif ou inversement.
+
+Une commande identique ne fait pas avancer la séquence. `SetLEDs(0x04, ...)` est reconnu comme alias gauche pour la commande audio `L`, et une commande d’activation `A` avec la valeur `0` appelle désormais `Deactivate()`.
+
+Le compagnon appelle cette méthode uniquement avec une API 4, à une cadence de 100 ms et avec un timeout de 750 ms. Les erreurs lumineuses restent indépendantes des chargements de figurines.
 
 ## AndroidManifest.xml
 Dans `Source/Android/app/src/main/AndroidManifest.xml`, ajouter :
@@ -194,12 +218,12 @@ l'étape 11, restent à rejouer sur ce binaire final.
 Une release qui publie le Dolphin modifié doit joindre les trois artefacts suivants :
 
 ```text
-Dolphin_SkyPortal_API3.apk
-Dolphin_SkyPortal_API3_Source.zip
-Dolphin_SkyPortal_API3_SHA256.txt
+Dolphin_SkyPortal_API4.apk
+Dolphin_SkyPortal_API4_Source.zip
+Dolphin_SkyPortal_API4_SHA256.txt
 ```
 
-Le workflow fournit aussi `Dolphin_SkyPortal_API3_Rebuild_Kit.zip` pour la traçabilité.
+Le workflow fournit aussi `Dolphin_SkyPortal_API4_Rebuild_Kit.zip` pour la traçabilité.
 
 L'archive source est le code source correspondant durable de l'APK, et non un patch isolé. Elle
 contient l'arborescence Dolphin modifiée complète utilisée pour la construction, fondée sur le

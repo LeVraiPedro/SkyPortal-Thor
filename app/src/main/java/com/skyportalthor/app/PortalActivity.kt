@@ -145,6 +145,16 @@ class PortalActivity : ComponentActivity() {
                 }
             }
 
+            LaunchedEffect(bridge) {
+                while (isActive) {
+                    delay(LED_POLL_INTERVAL_MS)
+                    val state = bridge.state.value
+                    if (state.connected && (state.apiVersion ?: 1) >= 4) {
+                        bridge.refreshLedState()
+                    }
+                }
+            }
+
             LaunchedEffect(portalState.figureCatalog) {
                 if (portalState.figureCatalog.isNotEmpty()) {
                     figures = figures.enrich(portalState.figureCatalog)
@@ -401,6 +411,11 @@ class PortalActivity : ComponentActivity() {
             }
         }
     }
+
+    private companion object {
+        const val LED_POLL_INTERVAL_MS = 100L
+    }
+
 }
 
 private fun List<Skylander>.enrich(catalog: Map<FigureKey, com.skyportalthor.app.data.FigureMetadata>): List<Skylander> =

@@ -11,4 +11,5 @@ interface ISkylanderPortalService {
     String getStatusJson();
     int setPortalEnabled(boolean enabled);
     String getFigureCatalogJson();
+    String getPortalLedStateJson();
 }
