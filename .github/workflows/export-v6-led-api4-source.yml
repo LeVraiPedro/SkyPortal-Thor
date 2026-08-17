@@ -1,6 +1,6 @@
 # Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
 # SPDX-License-Identifier: GPL-2.0-or-later
-name: Export V6 LED API4 source
+name: Apply V6 LED API4 implementation
 
 on:
   push:
@@ -11,44 +11,56 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: apply-v6-led-api4
+  cancel-in-progress: false
 
 jobs:
-  export:
+  apply:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      DOLPHIN_COMMIT: 54070da5851e12f2d1a4389daa528e4fb81327ce
+    timeout-minutes: 15
     steps:
-      - name: Checkout SkyPortal
+      - name: Checkout branch
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: agent/v6-led-api4
+          fetch-depth: 0
 
-      - name: Create exact SkyPortal Git archive
-        run: git archive --format=tar --output=v6-led-api4-source.tar HEAD
-
-      - name: Prepare patched Dolphin baseline
+      - name: Reconstruct and verify patch
         shell: bash
         run: |
           set -euo pipefail
-          dolphin="${RUNNER_TEMP}/dolphin"
-          git clone --filter=blob:none --no-checkout https://github.com/dolphin-emu/dolphin.git "${dolphin}"
-          git -C "${dolphin}" fetch --depth=1 origin "${DOLPHIN_COMMIT}"
-          git -C "${dolphin}" checkout --detach "${DOLPHIN_COMMIT}"
-          python3 tools/apply_dolphin_patch.py "${dolphin}"
-          git -C "${dolphin}" diff --check
-          tar -C "${dolphin}" -cf v6-led-api4-dolphin-baseline.tar \
-            Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/features/skylanders/SkylanderConfig.kt \
-            Source/Android/jni/SkylanderConfig.cpp \
-            Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.cpp \
-            Source/Core/Core/IOS/USB/Emulated/Skylanders/Skylander.h \
-            Source/UnitTests/Core/IOS/USB/SkylandersTest.cpp
+          cat .github/v6-led-api4-staging/part-*.b64 \
+            | base64 --decode \
+            | gzip --decompress \
+            > "${RUNNER_TEMP}/v6-led-api4.patch"
+          printf '%s  %s\n' \
+            '69db0fc086c77ed422a4723c242b3c4430ddc46eedae2a2700d6099cbcdb162a' \
+            "${RUNNER_TEMP}/v6-led-api4.patch" \
+            | sha256sum --check
+          test "$(grep -c '^diff --git ' "${RUNNER_TEMP}/v6-led-api4.patch")" -eq 23
 
-      - name: Upload source archives
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: v6-led-api4-source-${{ github.sha }}
-          path: |
-            v6-led-api4-source.tar
-            v6-led-api4-dolphin-baseline.tar
-          if-no-files-found: error
-          retention-days: 1
+      - name: Apply implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git apply --check --whitespace=nowarn "${RUNNER_TEMP}/v6-led-api4.patch"
+          git apply --whitespace=nowarn "${RUNNER_TEMP}/v6-led-api4.patch"
+          git diff --check
+          python3 -m py_compile tools/apply_dolphin_patch.py
+          python3 tools/check_licensing.py
+
+      - name: Commit clean final tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/v6-led-api4-staging
+          rm -f .github/workflows/export-v6-led-api4-source.yml
+          git add -A
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Add Dolphin LED state API 4'
+          git push origin HEAD:agent/v6-led-api4
