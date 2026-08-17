@@ -79,9 +79,44 @@ def patch_gradle(path: Path) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def apply_git_patch(repo: Path, patch: Path, label: str) -> None:
+    reverse_check = subprocess.run(
+        [
+            "git", "apply", "--reverse", "--check",
+            "--ignore-space-change", "--ignore-whitespace", str(patch)
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    if reverse_check.returncode == 0:
+        print(f"already patched: {label}")
+        return
+
+    check = subprocess.run(
+        [
+            "git", "apply", "--check",
+            "--ignore-space-change", "--ignore-whitespace", str(patch)
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    if check.returncode != 0:
+        raise RuntimeError(f"{label} patch cannot be applied:\n{check.stderr}")
+    subprocess.run(
+        [
+            "git", "apply", "--ignore-space-change", "--ignore-whitespace", str(patch)
+        ],
+        cwd=repo,
+        check=True,
+    )
+    print(f"patched: {label}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Apply the SkyPortal API 3 integration to a Dolphin source checkout."
+        description="Apply the SkyPortal API 4 integration to a Dolphin source checkout."
     )
     parser.add_argument("dolphin_repo", type=Path, help="Path to a dolphin-emu/dolphin checkout")
     parser.add_argument(
@@ -97,7 +132,16 @@ def main() -> None:
     repo = args.dolphin_repo.resolve()
     here = Path(__file__).resolve().parents[1]
     patch_root = here / "dolphin-patch" / "Source" / "Android" / "app" / "src" / "main"
-    core_patch = here / "dolphin-patch" / "smart-portal-core.patch"
+    core_patches = [
+        (
+            here / "dolphin-patch" / "smart-portal-core.patch",
+            "native Smart Portal catalog, slots and USB state",
+        ),
+        (
+            here / "dolphin-patch" / "portal-led-api4.patch",
+            "native Portal of Power LED state API 4",
+        ),
+    ]
 
     manifest = repo / "Source/Android/app/src/main/AndroidManifest.xml"
     gradle = repo / "Source/Android/app/build.gradle.kts"
@@ -125,35 +169,9 @@ def main() -> None:
     print("patched: Source/Android/app/src/main/AndroidManifest.xml")
     patch_gradle(gradle)
     print("patched: Source/Android/app/build.gradle.kts")
-    reverse_check = subprocess.run(
-        [
-            "git", "apply", "--reverse", "--check",
-            "--ignore-space-change", "--ignore-whitespace", str(core_patch)
-        ], cwd=repo,
-        capture_output=True, text=True
-    )
-    if reverse_check.returncode == 0:
-        print("already patched: native Smart Portal API")
-    else:
-        check = subprocess.run(
-            [
-                "git", "apply", "--check",
-                "--ignore-space-change", "--ignore-whitespace", str(core_patch)
-            ], cwd=repo,
-            capture_output=True, text=True
-        )
-        if check.returncode != 0:
-            raise RuntimeError(f"Native Smart Portal patch cannot be applied:\n{check.stderr}")
-        subprocess.run(
-            [
-                "git", "apply", "--ignore-space-change", "--ignore-whitespace",
-                str(core_patch)
-            ],
-            cwd=repo,
-            check=True,
-        )
-        print("patched: native Smart Portal catalog, slots and USB state")
-    print("SkyPortal patch applied successfully.")
+    for patch, label in core_patches:
+        apply_git_patch(repo, patch, label)
+    print("SkyPortal API 4 patch applied successfully.")
 
 
 if __name__ == "__main__":

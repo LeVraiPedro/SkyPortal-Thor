@@ -1,5 +1,21 @@
 # Changelog — SkyPortal Thor
 
+## V6 — développement non publié
+
+### Dolphin LED API 4
+
+- Ajout de `getPortalLedStateJson()` en dernière position du contrat AIDL, sans modifier l’ordre API 1–3.
+- Passage du service Dolphin de l’API 3 à l’API 4 dans la branche de développement.
+- Capture native verrouillée des couleurs gauche, droite et Trap déjà maintenues par le Portal of Power émulé.
+- Ajout d’une séquence monotone qui avance uniquement lors d’un changement visible ou d’une transition d’activation.
+- Correction de la désactivation protocolaire `A 0` et prise en charge de l’alias gauche `0x04` de la commande audio `L`.
+- Exposition JNI d’un snapshot compact de 12 valeurs, contrôlé puis sérialisé en JSON versionné par le service.
+- Ajout d’un transport LED dédié à 100 ms, sérialisé avec les opérations du portail et borné à 750 ms par appel.
+- Conservation d’un mode API 1–3 sans erreur LED et d’un comportement non bloquant en cas de payload invalide.
+- Ajout des tests JVM du resolver API 4, des gardes de contrat et du nettoyage de l’état après déconnexion.
+- Ajout de `portal-led-api4.patch`, appliqué après `smart-portal-core.patch`, et adaptation du workflow de paire aux artefacts API 4.
+- Aucun portail animé, aucune intégration Bifrost et aucune validation matérielle ne sont inclus à ce stade.
+
 ## V5 (0.5.0) — 16 août 2026
 
 ### Licence et distribution open source

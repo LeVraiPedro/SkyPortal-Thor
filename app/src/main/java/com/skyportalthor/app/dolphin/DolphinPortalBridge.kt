@@ -59,6 +59,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
 
     private val connectMutex = Mutex()
     private val operationMutex = Mutex()
+    private val ledMutex = Mutex()
     private val lifecycle = BridgeLifecycleGate()
     private val bridgeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val serviceLock = Any()
@@ -265,6 +266,28 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         operationMutex.withLock { refreshLocked() }
     }
 
+    override suspend fun refreshLedState() {
+        operationMutex.withLock {
+            ledMutex.withLock ledRefresh@{
+                val token = currentServiceToken() ?: return@ledRefresh
+                val current = _state.value
+                val resolution = resolveLedState(
+                    token = token,
+                    apiVersion = current.apiVersion ?: 1,
+                    serviceState = current.serviceState,
+                    emulationState = current.emulationState
+                ) ?: return@ledRefresh
+                updateStateIfCurrent(token) {
+                    it.copy(
+                        portalLedState = resolution.state,
+                        portalLedWarnings = resolution.warnings,
+                        portalLedError = resolution.error
+                    )
+                }
+            }
+        }
+    }
+
     private suspend fun refreshLocked(
         protectedGrantLogicalSlot: Int? = null,
         protectAllGrants: Boolean = false
@@ -292,6 +315,16 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         val catalog = if (snapshot.apiVersion >= 3 && previousCatalog.isEmpty()) {
             loadCatalog(token)
         } else previousCatalog
+        if (!isCurrentService(token)) return@withContext false
+
+        val ledResolution = ledMutex.withLock {
+            resolveLedState(
+                token = token,
+                apiVersion = snapshot.apiVersion,
+                serviceState = snapshot.serviceState,
+                emulationState = snapshot.emulationState
+            )
+        } ?: return@withContext false
         if (!isCurrentService(token)) return@withContext false
 
         val detectedGame = SkylandersGame.detect(snapshot.gameId, snapshot.gameTitle)
@@ -399,6 +432,9 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                 nativeSlotSchemaVersion = snapshot.nativeSlotSchemaVersion,
                 nativeSlots = snapshot.nativeSlots,
                 figureCatalog = catalog,
+                portalLedState = ledResolution.state,
+                portalLedWarnings = ledResolution.warnings,
+                portalLedError = ledResolution.error,
                 readiness = readinessDecision.readiness
             )
         }
@@ -1464,6 +1500,45 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         append(" • API : ${_state.value.apiVersion ?: "inconnue"}")
     }
 
+    private suspend fun resolveLedState(
+        token: ServiceToken,
+        apiVersion: Int,
+        serviceState: DolphinServiceState,
+        emulationState: EmulationState
+    ): DolphinLedStateResolution? {
+        if (
+            apiVersion < MIN_LED_API_VERSION ||
+            serviceState != DolphinServiceState.READY ||
+            emulationState !in setOf(EmulationState.RUNNING, EmulationState.PAUSED)
+        ) {
+            return DolphinLedStateResolver.unavailable()
+        }
+
+        val call = binderCall(LED_STATUS_TIMEOUT_MS) { token.service.portalLedStateJson }
+        val failure = call.exceptionOrNull()
+        if (failure is DeadObjectException) {
+            logFailure("led-status", failure)
+            markDisconnectedIfCurrent(token, "Connexion Dolphin perdue")
+            return null
+        }
+        if (!isCurrentService(token)) return null
+
+        return if (failure != null) {
+            logFailure("led-status", failure)
+            DolphinLedStateResolver.resolve(
+                apiVersion = apiVersion,
+                current = _state.value.portalLedState,
+                transportFailure = failure.safeSummary()
+            )
+        } else {
+            DolphinLedStateResolver.resolve(
+                apiVersion = apiVersion,
+                current = _state.value.portalLedState,
+                payloadJson = call.getOrNull()
+            )
+        }
+    }
+
     private suspend fun loadCatalog(token: ServiceToken) = binderCall(STATUS_TIMEOUT_MS) {
         token.service.figureCatalogJson
     }.mapCatching { json ->
@@ -1707,7 +1782,9 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
         private const val CONNECT_TIMEOUT_MS = 5_000L
         private const val HANDSHAKE_TIMEOUT_MS = 5_000L
         private const val STATUS_TIMEOUT_MS = 8_000L
+        private const val LED_STATUS_TIMEOUT_MS = 750L
         private const val OPERATION_TIMEOUT_MS = 35_000L
         private const val LOGICAL_SLOT_COUNT = 8
+        private const val MIN_LED_API_VERSION = 4
     }
 }

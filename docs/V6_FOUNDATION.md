@@ -121,7 +121,21 @@ Les tests couvrent :
 - sortie `NoOp` ;
 - conversion RGB/ARGB.
 
-## Hors périmètre volontaire
+## Étape suivante réalisée : Dolphin LED API 4
+
+La fondation est maintenant reliée au cœur Dolphin par une couche API 4 séparée :
+
+- méthode AIDL ajoutée à la fin du contrat ;
+- snapshot natif gauche/droite/Trap ;
+- séquence monotone ;
+- JSON de schéma 1 ;
+- résolution non bloquante côté compagnon ;
+- polling léger dédié ;
+- tests JVM et natif.
+
+La spécification complète se trouve dans [`V6_LED_API4.md`](V6_LED_API4.md). Cette implémentation reste non validée sur le matériel tant que la paire API 4 n’a pas été testée sur l’AYN Thor.
+
+## Hors périmètre volontaire de la fondation initiale
 
 Cette branche ne modifie pas :
 
@@ -139,18 +153,16 @@ Elle ne contacte pas Bifrost et ne touche pas `PServerBinder`.
 
 ## Prochaines PR recommandées
 
-### 1. `agent/v6-led-api4`
+### 1. `agent/v6-led-api4` — réalisé dans la source
 
-- ajouter la capture des commandes LED dans le cœur Dolphin ;
-- produire le payload versionné ;
-- ajouter la nouvelle méthode AIDL **à la fin** du contrat ;
-- passer l’API Dolphin à 4 ;
-- garder API 1–3 compatibles ;
-- parser et réduire l’état dans SkyPortal ;
-- ajouter les tests natifs et JVM ;
-- ne pas encore piloter Bifrost.
+- capture native et payload versionné ajoutés ;
+- AIDL étendu en dernière position ;
+- API Dolphin portée à 4 ;
+- API 1–3 conservées ;
+- transport et tests ajoutés ;
+- validation matérielle encore requise.
 
-### 2. `agent/v6-animated-portal`
+### 2. `agent/v6-animated-portal` — prochaine étape
 
 - extraire les composants de `PortalScreen.kt` ;
 - ajouter `AnimatedPortal` ;

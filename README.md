@@ -2,6 +2,8 @@
 
 Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor. La version stable actuelle est **0.5.0** (`versionCode 7`).
 
+> **Développement V6 :** `main` contient désormais la fondation lumineuse et le transport Dolphin **API 4** en cours de validation. La release publique stable `v0.5.0` reste une paire **API 3**. Ne pas mélanger les APK de ces deux générations. Voir [la roadmap V6](docs/ROADMAP_V6.md) et [le contrat LED API 4](docs/V6_LED_API4.md).
+
 Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (`Screen-2`) de la Thor, même si l'icône SkyPortal est touchée depuis l'écran inférieur. L'écran supérieur reste ainsi libre pour Dolphin.
 
 Le compagnon démarre en mode solo : seule la carte Joueur 1 est affichée. Le bouton `1J` de l'en-tête ouvre le réglage permettant d'activer Joueur 2 ; ce choix est conservé entre les lancements.
@@ -85,6 +87,8 @@ Le dossier `dolphin-patch/` contient l'API 3 Smart Portal qui ajoute :
 Reconstruire Dolphin n'est pas obligatoire pour les fonctions V4, mais l'API 3 est nécessaire pour le mode Smart Portal complet.
 
 > **Recommandation :** utiliser ensemble le compagnon et le Dolphin API 3 fournis par cette révision. API 1/2 restent acceptées en mode dégradé. Un ancien Dolphin API 3 sans les nouveaux indicateurs USB reste Binder-compatible, mais SkyPortal affiche alors `Portail non vérifié` et bloque le chargement Smart plutôt que d'annoncer un faux état prêt.
+
+Dans la source V6 non publiée, l’API 4 ajoute uniquement un état lumineux versionné à la fin du contrat AIDL. Les fonctions Smart Portal API 3 et leurs fallbacks restent inchangés. Le canal LED est non bloquant et n’est pas encore affiché dans l’interface.
 
 Les deux APK doivent être signés avec la même clé, car la permission `com.skyportalthor.permission.PORTAL_CONTROL` est de niveau `signature`.
 

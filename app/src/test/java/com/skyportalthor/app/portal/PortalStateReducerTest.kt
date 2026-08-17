@@ -6,6 +6,8 @@ import com.skyportalthor.app.data.EmulationState
 import com.skyportalthor.app.data.DolphinServiceState
 import com.skyportalthor.app.data.SkylandersGame
 import com.skyportalthor.app.data.SmartPortalReadiness
+import com.skyportalthor.app.portal.led.PortalLedState
+import com.skyportalthor.app.portal.led.PortalRgb
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -33,7 +35,10 @@ class PortalStateReducerTest {
             conflictingUsbDevices = listOf("DISNEY_INFINITY_BASE"),
             portalUsbStatusValid = true,
             portalRestartRequired = true,
-            nativeSlots = listOf(NativePortalSlotState(0, true, 1, 16, 0))
+            nativeSlots = listOf(NativePortalSlotState(0, true, 1, 16, 0)),
+            portalLedState = PortalLedState(1, true, 12, PortalRgb(1, 2, 3), PortalRgb(4, 5, 6)),
+            portalLedWarnings = listOf("warning"),
+            portalLedError = "error"
         )
 
         val disconnected = PortalStateReducer.disconnected(
@@ -56,6 +61,9 @@ class PortalStateReducerTest {
         assertFalse(disconnected.portalRestartRequired)
         assertTrue(disconnected.slots.all { it.actualPortalSlot == -1 })
         assertTrue(disconnected.nativeSlots.isEmpty())
+        assertNull(disconnected.portalLedState)
+        assertTrue(disconnected.portalLedWarnings.isEmpty())
+        assertNull(disconnected.portalLedError)
         assertEquals(EmulationState.NONE, disconnected.emulationState)
         assertEquals(DolphinServiceState.UNKNOWN, disconnected.serviceState)
     }

@@ -36,7 +36,10 @@ internal object PortalStateReducer {
         canSetPortalEnabled = false,
         nativeSlotSchemaVersion = 0,
         nativeSlots = emptyList(),
-        figureCatalog = emptyMap()
+        figureCatalog = emptyMap(),
+        portalLedState = null,
+        portalLedWarnings = emptyList(),
+        portalLedError = null
     )
 
     private const val DEFAULT_LOGICAL_SLOTS = 8

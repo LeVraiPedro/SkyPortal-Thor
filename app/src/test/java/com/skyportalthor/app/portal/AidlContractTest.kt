@@ -9,7 +9,7 @@ import org.junit.Test
 
 class AidlContractTest {
     @Test
-    fun appAndDolphinCopiesAreIdenticalAndV3OnlyAppendsMethods() {
+    fun appAndDolphinCopiesAreIdenticalAndV4OnlyAppendsMethods() {
         val appAidl = locate(
             "app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl",
             "src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl"
@@ -35,7 +35,8 @@ class AidlContractTest {
                 "clear",
                 "getStatusJson",
                 "setPortalEnabled",
-                "getFigureCatalogJson"
+                "getFigureCatalogJson",
+                "getPortalLedStateJson"
             ),
             methods
         )
