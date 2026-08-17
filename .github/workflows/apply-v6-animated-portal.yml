@@ -1,0 +1,48 @@
+# Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Apply V6 animated portal integration
+
+on:
+  push:
+    branches:
+      - agent/v6-animated-portal
+    paths:
+      - .github/workflows/apply-v6-animated-portal.yml
+      - tools/patches/v6-animated-portal.patch
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: agent/v6-animated-portal
+          fetch-depth: 0
+
+      - name: Apply and validate portal integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          patch_file="tools/patches/v6-animated-portal.patch"
+          git apply --check --whitespace=nowarn "${patch_file}"
+          git apply --whitespace=nowarn "${patch_file}"
+          git diff --check
+          python3 tools/check_licensing.py
+
+      - name: Commit integrated screen and documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f tools/patches/v6-animated-portal.patch
+          git add -A
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Integrate the V6 animated portal'
+          git push origin HEAD:agent/v6-animated-portal
