@@ -30,9 +30,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          patch_file="tools/patches/v6-animated-portal.patch"
-          git apply --check --whitespace=nowarn "${patch_file}"
-          git apply --whitespace=nowarn "${patch_file}"
+          integration_script="tools/patches/v6-animated-portal.patch"
+          python3 "${integration_script}"
           git diff --check
           python3 tools/check_licensing.py
 
