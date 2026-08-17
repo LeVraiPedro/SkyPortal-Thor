@@ -14,7 +14,7 @@ index fe48849..328ff89 100644
                  }
              }
  
- diff --git a/app/src/main/java/com/skyportalthor/app/dolphin/DolphinPortalBridge.kt b/app/src/main/java/com/skyportalthor/app/dolphin/DolphinPortalBridge.kt
+diff --git a/app/src/main/java/com/skyportalthor/app/dolphin/DolphinPortalBridge.kt b/app/src/main/java/com/skyportalthor/app/dolphin/DolphinPortalBridge.kt
 index c491d24..1e4dcff 100644
 --- a/app/src/main/java/com/skyportalthor/app/dolphin/DolphinPortalBridge.kt
 +++ b/app/src/main/java/com/skyportalthor/app/dolphin/DolphinPortalBridge.kt
