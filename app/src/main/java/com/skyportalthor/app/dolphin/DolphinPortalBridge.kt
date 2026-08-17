@@ -14,6 +14,7 @@ import android.util.Log
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.DolphinFigureCatalog
 import com.skyportalthor.app.data.DolphinServiceState
+import com.skyportalthor.app.data.EmulationState
 import com.skyportalthor.app.data.FigureCompatibilityEngine
 import com.skyportalthor.app.data.FigureKey
 import com.skyportalthor.app.data.NativeIdentityPolicy

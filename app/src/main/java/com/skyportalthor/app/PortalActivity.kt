@@ -148,7 +148,10 @@ class PortalActivity : ComponentActivity() {
             LaunchedEffect(bridge) {
                 while (isActive) {
                     delay(LED_POLL_INTERVAL_MS)
-                    if (bridge.state.value.connected) bridge.refreshLedState()
+                    val state = bridge.state.value
+                    if (state.connected && (state.apiVersion ?: 1) >= 4) {
+                        bridge.refreshLedState()
+                    }
                 }
             }
 
