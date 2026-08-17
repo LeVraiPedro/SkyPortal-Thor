@@ -42,25 +42,50 @@ jobs:
             | sha256sum --check
           test "$(grep -c '^diff --git ' "${RUNNER_TEMP}/v6-led-api4.patch")" -eq 23
 
+      - name: Exclude the separately managed workflow update
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - \
+            "${RUNNER_TEMP}/v6-led-api4.patch" \
+            "${RUNNER_TEMP}/v6-led-api4-core.patch" <<'PY'
+          from pathlib import Path
+          import sys
+
+          source = Path(sys.argv[1]).read_text(encoding="utf-8")
+          blocks = source.split("diff --git ")
+          kept = [blocks[0]]
+          target = "a/.github/workflows/full-pair-build.yml b/.github/workflows/full-pair-build.yml"
+          removed = 0
+          for block in blocks[1:]:
+              if block.startswith(target):
+                  removed += 1
+                  continue
+              kept.append("diff --git " + block)
+          if removed != 1:
+              raise SystemExit(f"expected one workflow diff, removed {removed}")
+          Path(sys.argv[2]).write_text("".join(kept), encoding="utf-8")
+          PY
+          test "$(grep -c '^diff --git ' "${RUNNER_TEMP}/v6-led-api4-core.patch")" -eq 22
+
       - name: Apply implementation
         shell: bash
         run: |
           set -euo pipefail
-          git apply --check --whitespace=nowarn "${RUNNER_TEMP}/v6-led-api4.patch"
-          git apply --whitespace=nowarn "${RUNNER_TEMP}/v6-led-api4.patch"
+          git apply --check --whitespace=nowarn "${RUNNER_TEMP}/v6-led-api4-core.patch"
+          git apply --whitespace=nowarn "${RUNNER_TEMP}/v6-led-api4-core.patch"
           git diff --check
           python3 -m py_compile tools/apply_dolphin_patch.py
           python3 tools/check_licensing.py
 
-      - name: Commit clean final tree
+      - name: Commit the non-workflow implementation
         shell: bash
         run: |
           set -euo pipefail
           rm -rf .github/v6-led-api4-staging
-          rm -f .github/workflows/export-v6-led-api4-source.yml
           git add -A
           git diff --cached --check
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Add Dolphin LED state API 4'
+          git commit -m 'Add Dolphin LED state API 4 core'
           git push origin HEAD:agent/v6-led-api4
