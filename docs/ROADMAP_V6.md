@@ -36,8 +36,8 @@ Dolphin demeure le seul processus autorisé à écrire dans une figurine montée
 
 ```text
 V6 Foundation       ✓ fusionnée
-Dolphin LED API 4   ✓ implémentée dans la source, validation Thor à faire
-Portail animé       prochaine étape
+Dolphin LED API 4   ✓ fusionnée, validation Thor à faire
+Portail animé       ✓ implémenté dans la source, validation visuelle à faire
 Bifrost             non commencé
 ```
 
@@ -157,6 +157,8 @@ Première forme envisagée :
 Le contrat API 1–3 existant doit rester inchangé. Toute nouvelle méthode AIDL sera ajoutée à la fin et ne sera appelée qu’après confirmation d’une API 4 compatible.
 
 ## Portail animé
+
+**État : implémenté dans la source, non encore validé sur l’écran inférieur réel.**
 
 Le rendu Compose doit prendre en charge :
 
