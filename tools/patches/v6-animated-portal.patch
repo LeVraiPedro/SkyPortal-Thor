@@ -1,99 +1,144 @@
-diff --git a/app/src/main/java/com/skyportalthor/app/ui/PortalScreen.kt b/app/src/main/java/com/skyportalthor/app/ui/PortalScreen.kt
-index 0325fe8..0000000 100644
---- a/app/src/main/java/com/skyportalthor/app/ui/PortalScreen.kt
-+++ b/app/src/main/java/com/skyportalthor/app/ui/PortalScreen.kt
-@@ -69,6 +69,7 @@ import com.skyportalthor.app.portal.PortalReadinessPolicy
- import com.skyportalthor.app.portal.PortalSlotState
- import com.skyportalthor.app.portal.PortalState
-+import com.skyportalthor.app.ui.portal.AnimatedPortalPanel
- import kotlinx.coroutines.delay
- import kotlinx.coroutines.launch
- 
-@@ -154,6 +155,15 @@ internal fun PortalScreen(
-                     }
-                 )
- 
-+                AnimatedPortalPanel(
-+                    portalState = portalState,
-+                    playerTwoEnabled = playerTwoEnabled,
-+                    teamCount = quickTeams.size,
-+                    modifier = Modifier.fillMaxWidth().weight(1f),
-+                    onTeams = { showQuickTeams = true },
-+                    onDiagnostics = { showDiagnostics = true }
-+                )
-+
-                 val compactFeedback = !portalState.connected || localNotice != null || uiMessage != null
-                 if (!compactFeedback) {
-                     ExtraSlots(
-@@ -177,16 +187,6 @@ internal fun PortalScreen(
-                     onClear = onClear
-                 )
- 
--                if (!compactFeedback) {
--                    QuickActionsPanel(
--                        playerTwoEnabled = playerTwoEnabled,
--                        teamCount = quickTeams.size,
--                        modifier = Modifier.fillMaxWidth().weight(1f),
--                        onTeams = { showQuickTeams = true },
--                        onDiagnostics = { showDiagnostics = true }
--                    )
--                }
-             }
-         }
-     }
-@@ -296,7 +296,7 @@ private fun Header(
-             Column(modifier = Modifier.weight(1f)) {
-                 Text(
--                    if (portalState.connected) "SKYPORTAL THOR V5" else "SKYPORTAL V5",
-+                    "SKYPORTAL THOR",
-                     color = Color.White,
-                     style = MaterialTheme.typography.titleLarge,
-                     fontWeight = FontWeight.Black,
-diff --git a/CHANGELOG.md b/CHANGELOG.md
-index 4f8893b..0000000 100644
---- a/CHANGELOG.md
-+++ b/CHANGELOG.md
-@@ -2,6 +2,19 @@
- 
- ## V6 — développement non publié
- 
-+### Portail animé V6
-+
-+- Ajout d’un `AnimatedPortalStateMapper` pur qui transforme l’état Smart Portal en modes déconnecté, initialisation, conflit, API historique, veille et actif.
-+- Ajout d’un panneau Compose dessiné intégralement au `Canvas`, sans ressource graphique officielle ou tierce.
-+- Reproduction des couleurs gauche, droite et Trap issues de Dolphin API 4 avec transitions progressives.
-+- Ajout d’un halo multicouche, d’un anneau animé, de repères lumineux, d’une respiration et d’une pulsation lors des changements de slots.
-+- Conservation d’un rendu dégradé lisible avec Dolphin API 1–3 et lorsque Dolphin est absent.
-+- Maintien des actions Équipes et Diagnostic dans le nouveau panneau afin de ne pas augmenter la hauteur totale de l’écran inférieur.
-+- Affichage non bloquant du dernier snapshot LED fiable lorsqu’une lecture temporaire échoue.
-+- Ajout d’une description sémantique détaillée pour que l’état ne repose pas uniquement sur la couleur.
-+- Ajout de tests JVM couvrant les modes principaux et la conservation exacte des couleurs API 4.
-+- Aucune commande Bifrost et aucune modification des LED physiques ne sont incluses dans cette étape.
-+
- ### Dolphin LED API 4
- 
- - Ajout de `getPortalLedStateJson()` en dernière position du contrat AIDL, sans modifier l’ordre API 1–3.
-diff --git a/docs/ROADMAP_V6.md b/docs/ROADMAP_V6.md
-index 48066a9..0000000 100644
---- a/docs/ROADMAP_V6.md
-+++ b/docs/ROADMAP_V6.md
-@@ -31,8 +31,8 @@ Dolphin demeure le seul processus autorisé à écrire dans une figurine montée
- 
- ```text
- V6 Foundation       ✓ fusionnée
--Dolphin LED API 4   ✓ implémentée dans la source, validation Thor à faire
--Portail animé       prochaine étape
-+Dolphin LED API 4   ✓ fusionnée, validation Thor à faire
-+Portail animé       ✓ implémenté dans la source, validation visuelle à faire
- Bifrost             non commencé
- ```
- 
-@@ -113,6 +113,8 @@ Première forme envisagée :
- 
- ## Portail animé
- 
-+**État : implémenté dans la source, non encore validé sur l’écran inférieur réel.**
-+
- Le rendu Compose doit prendre en charge :
- 
- - activation et extinction progressives ;
+#!/usr/bin/env python3
+# Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+"""Integrate the V6 animated portal into the existing screen and documentation."""
+
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    file_path = Path(path)
+    text = file_path.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count != 1:
+        raise RuntimeError(
+            f"{path}: expected exactly one replacement target, found {count}"
+        )
+    file_path.write_text(text.replace(old, new, 1), encoding="utf-8")
+    print(f"updated: {path}")
+
+
+def main() -> None:
+    screen = "app/src/main/java/com/skyportalthor/app/ui/PortalScreen.kt"
+    replace_once(
+        screen,
+        """import com.skyportalthor.app.portal.PortalState
+import kotlinx.coroutines.delay
+""",
+        """import com.skyportalthor.app.portal.PortalState
+import com.skyportalthor.app.ui.portal.AnimatedPortalPanel
+import kotlinx.coroutines.delay
+""",
+    )
+    replace_once(
+        screen,
+        """                PrimarySlots(
+                    slots = portalState.slots,
+                    playerTwoEnabled = playerTwoEnabled,
+                    loadState = loadState,
+                    onTap = { slot ->
+                        if (slot.isOccupied()) actionSlot = slot else pickerSlot = slot.logicalSlot
+                    }
+                )
+
+                val compactFeedback = !portalState.connected || localNotice != null || uiMessage != null
+""",
+        """                PrimarySlots(
+                    slots = portalState.slots,
+                    playerTwoEnabled = playerTwoEnabled,
+                    loadState = loadState,
+                    onTap = { slot ->
+                        if (slot.isOccupied()) actionSlot = slot else pickerSlot = slot.logicalSlot
+                    }
+                )
+
+                AnimatedPortalPanel(
+                    portalState = portalState,
+                    playerTwoEnabled = playerTwoEnabled,
+                    teamCount = quickTeams.size,
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    onTeams = { showQuickTeams = true },
+                    onDiagnostics = { showDiagnostics = true }
+                )
+
+                val compactFeedback = !portalState.connected || localNotice != null || uiMessage != null
+""",
+    )
+    replace_once(
+        screen,
+        """                if (!compactFeedback) {
+                    QuickActionsPanel(
+                        playerTwoEnabled = playerTwoEnabled,
+                        teamCount = quickTeams.size,
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        onTeams = { showQuickTeams = true },
+                        onDiagnostics = { showDiagnostics = true }
+                    )
+                }
+""",
+        "",
+    )
+    replace_once(
+        screen,
+        """                    if (portalState.connected) "SKYPORTAL THOR V5" else "SKYPORTAL V5",
+""",
+        """                    "SKYPORTAL THOR",
+""",
+    )
+
+    replace_once(
+        "CHANGELOG.md",
+        """## V6 — développement non publié
+
+### Dolphin LED API 4
+""",
+        """## V6 — développement non publié
+
+### Portail animé V6
+
+- Ajout d’un `AnimatedPortalStateMapper` pur qui transforme l’état Smart Portal en modes déconnecté, initialisation, conflit, API historique, veille et actif.
+- Ajout d’un panneau Compose dessiné intégralement au `Canvas`, sans ressource graphique officielle ou tierce.
+- Reproduction des couleurs gauche, droite et Trap issues de Dolphin API 4 avec transitions progressives.
+- Ajout d’un halo multicouche, d’un anneau animé, de repères lumineux, d’une respiration et d’une pulsation lors des changements de slots.
+- Conservation d’un rendu dégradé lisible avec Dolphin API 1–3 et lorsque Dolphin est absent.
+- Maintien des actions Équipes et Diagnostic dans le nouveau panneau afin de ne pas augmenter la hauteur totale de l’écran inférieur.
+- Affichage non bloquant du dernier snapshot LED fiable lorsqu’une lecture temporaire échoue.
+- Ajout d’une description sémantique détaillée pour que l’état ne repose pas uniquement sur la couleur.
+- Ajout de tests JVM couvrant les modes principaux et la conservation exacte des couleurs API 4.
+- Aucune commande Bifrost et aucune modification des LED physiques ne sont incluses dans cette étape.
+
+### Dolphin LED API 4
+""",
+    )
+
+    roadmap = "docs/ROADMAP_V6.md"
+    replace_once(
+        roadmap,
+        """V6 Foundation       ✓ fusionnée
+Dolphin LED API 4   ✓ implémentée dans la source, validation Thor à faire
+Portail animé       prochaine étape
+Bifrost             non commencé
+""",
+        """V6 Foundation       ✓ fusionnée
+Dolphin LED API 4   ✓ fusionnée, validation Thor à faire
+Portail animé       ✓ implémenté dans la source, validation visuelle à faire
+Bifrost             non commencé
+""",
+    )
+    replace_once(
+        roadmap,
+        """## Portail animé
+
+Le rendu Compose doit prendre en charge :
+""",
+        """## Portail animé
+
+**État : implémenté dans la source, non encore validé sur l’écran inférieur réel.**
+
+Le rendu Compose doit prendre en charge :
+""",
+    )
+
+
+if __name__ == "__main__":
+    main()
