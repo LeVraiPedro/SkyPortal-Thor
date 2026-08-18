@@ -17,7 +17,7 @@ diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyporta
 index 5308511..6e66ce0 100644
 --- a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
 +++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
-@@ -94,10 +94,11 @@ class SkyPortalService : Service() {
+@@ -94,9 +94,10 @@ class SkyPortalService : Service() {
                      if (skylandersGameActive) {
                          val portalUsbState = SkylanderConfig.getPortalUsbState()
                          if (!BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean ||
