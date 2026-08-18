@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 name: Fix V6 portal detection patch packaging
 
+# One-shot branch repair workflow.
 on:
   push:
     branches:
@@ -115,8 +116,6 @@ jobs:
 
           git diff --check
           python3 tools/check_licensing.py
-          git apply --check dolphin-patch/portal-led-api4.patch \
-            --directory="${RUNNER_TEMP}/nonexistent" >/dev/null 2>&1 || true
 
       - name: Commit the repaired package
         shell: bash
