@@ -1,0 +1,30 @@
+# Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Dispatch V6 portal detection fix pair validation
+
+on:
+  push:
+    branches:
+      - agent/v6-portal-detection-fix
+    paths:
+      - .github/workflows/dispatch-v6-portal-detection-fix-pair.yml
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch the pinned full pair build on this branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/full-pair-build.yml/dispatches" \
+            -f ref='agent/v6-portal-detection-fix'
