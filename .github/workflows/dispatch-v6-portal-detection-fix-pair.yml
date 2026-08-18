@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 name: Dispatch V6 portal detection fix pair validation
 
+# One-shot validation dispatcher for the corrective branch.
 on:
   push:
     branches:
@@ -24,7 +25,7 @@ jobs:
       TARGET_BRANCH: agent/v6-portal-detection-fix
       PAIR_WORKFLOW: full-pair-build.yml
     steps:
-      - name: Reuse or dispatch the pinned full pair build
+      - name: Dispatch a full pair build for this exact commit
         id: pair
         env:
           GH_TOKEN: ${{ github.token }}
@@ -32,37 +33,29 @@ jobs:
         run: |
           set -euo pipefail
 
-          run_id="$(
-            gh run list \
-              --repo "${GITHUB_REPOSITORY}" \
-              --workflow "${PAIR_WORKFLOW}" \
-              --branch "${TARGET_BRANCH}" \
-              --event workflow_dispatch \
-              --limit 10 \
-              --json databaseId,createdAt \
-              --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty'
-          )"
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/${PAIR_WORKFLOW}/dispatches" \
+            -f ref="${TARGET_BRANCH}"
 
-          if [[ -z "${run_id}" ]]; then
-            gh api --method POST \
-              "repos/${GITHUB_REPOSITORY}/actions/workflows/${PAIR_WORKFLOW}/dispatches" \
-              -f ref="${TARGET_BRANCH}"
-
-            for _ in $(seq 1 30); do
-              sleep 2
-              run_id="$(
-                gh run list \
-                  --repo "${GITHUB_REPOSITORY}" \
-                  --workflow "${PAIR_WORKFLOW}" \
-                  --branch "${TARGET_BRANCH}" \
-                  --event workflow_dispatch \
-                  --limit 10 \
-                  --json databaseId,createdAt \
-                  --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty'
-              )"
-              [[ -n "${run_id}" ]] && break
-            done
-          fi
+          run_id=""
+          for _ in $(seq 1 45); do
+            sleep 2
+            runs_json="$(
+              gh run list \
+                --repo "${GITHUB_REPOSITORY}" \
+                --workflow "${PAIR_WORKFLOW}" \
+                --branch "${TARGET_BRANCH}" \
+                --event workflow_dispatch \
+                --limit 20 \
+                --json databaseId,createdAt,headSha
+            )"
+            run_id="$(
+              jq -r --arg sha "${GITHUB_SHA}" \
+                '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | reverse | .[0].databaseId // empty' \
+                <<<"${runs_json}"
+            )"
+            [[ -n "${run_id}" ]] && break
+          done
 
           test -n "${run_id}"
           printf 'run_id=%s\n' "${run_id}" >> "${GITHUB_OUTPUT}"
