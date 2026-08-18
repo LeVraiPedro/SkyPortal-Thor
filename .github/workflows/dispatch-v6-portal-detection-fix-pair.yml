@@ -12,19 +12,114 @@ on:
 permissions:
   actions: write
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   dispatch:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 120
+    env:
+      TARGET_BRANCH: agent/v6-portal-detection-fix
+      PAIR_WORKFLOW: full-pair-build.yml
     steps:
-      - name: Dispatch the pinned full pair build on this branch
+      - name: Reuse or dispatch the pinned full pair build
+        id: pair
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh api --method POST \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/full-pair-build.yml/dispatches" \
-            -f ref='agent/v6-portal-detection-fix'
+
+          run_id="$(
+            gh run list \
+              --repo "${GITHUB_REPOSITORY}" \
+              --workflow "${PAIR_WORKFLOW}" \
+              --branch "${TARGET_BRANCH}" \
+              --event workflow_dispatch \
+              --limit 10 \
+              --json databaseId,createdAt \
+              --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty'
+          )"
+
+          if [[ -z "${run_id}" ]]; then
+            gh api --method POST \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/${PAIR_WORKFLOW}/dispatches" \
+              -f ref="${TARGET_BRANCH}"
+
+            for _ in $(seq 1 30); do
+              sleep 2
+              run_id="$(
+                gh run list \
+                  --repo "${GITHUB_REPOSITORY}" \
+                  --workflow "${PAIR_WORKFLOW}" \
+                  --branch "${TARGET_BRANCH}" \
+                  --event workflow_dispatch \
+                  --limit 10 \
+                  --json databaseId,createdAt \
+                  --jq 'sort_by(.createdAt) | reverse | .[0].databaseId // empty'
+              )"
+              [[ -n "${run_id}" ]] && break
+            done
+          fi
+
+          test -n "${run_id}"
+          printf 'run_id=%s\n' "${run_id}" >> "${GITHUB_OUTPUT}"
+          printf 'Full pair run: https://github.com/%s/actions/runs/%s\n' \
+            "${GITHUB_REPOSITORY}" "${run_id}"
+
+      - name: Wait for the signed pair validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.pair.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh run watch "${RUN_ID}" --repo "${GITHUB_REPOSITORY}" --exit-status
+
+      - name: Publish the validation result in the pull request
+        if: always() && steps.pair.outputs.run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.pair.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pr_number="$(
+            gh pr list \
+              --repo "${GITHUB_REPOSITORY}" \
+              --head "${TARGET_BRANCH}" \
+              --state open \
+              --limit 1 \
+              --json number \
+              --jq '.[0].number // empty'
+          )"
+          test -n "${pr_number}"
+
+          run_json="$(
+            gh run view "${RUN_ID}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --json status,conclusion,headSha,url
+          )"
+          status="$(jq -r '.status' <<<"${run_json}")"
+          conclusion="$(jq -r '.conclusion // "pending"' <<<"${run_json}")"
+          head_sha="$(jq -r '.headSha' <<<"${run_json}")"
+          run_url="$(jq -r '.url' <<<"${run_json}")"
+          artifacts="$(
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
+              --jq '[.artifacts[].name] | if length == 0 then "aucun artifact" else join(", ") end'
+          )"
+
+          gh pr comment "${pr_number}" --repo "${GITHUB_REPOSITORY}" --body "$(cat <<EOF
+          ### Validation automatique de la paire corrective
+
+          - Run : [${RUN_ID}](${run_url})
+          - Commit construit : \`${head_sha}\`
+          - État : **${status} / ${conclusion}**
+          - Artifacts : ${artifacts}
+
+          La PR reste en brouillon jusqu'au test réel de détection des figurines sur l'AYN Thor.
+          EOF
+          )"
