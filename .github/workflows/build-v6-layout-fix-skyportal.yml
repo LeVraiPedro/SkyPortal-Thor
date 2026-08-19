@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
   build:
@@ -111,3 +113,22 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish validation artifact coordinates in PR 14
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr comment 14 --repo "${GITHUB_REPOSITORY}" --body "$(cat <<EOF
+          ### APK Release signé — validation visuelle Thor
+
+          - Run : [${GITHUB_RUN_ID}](https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})
+          - Commit construit : \`${GITHUB_SHA}\`
+          - Artifact : \`SkyPortal-Thor-layout-fix-${GITHUB_SHA}\`
+          - Certificat attendu et vérifié : \`502ae2f53a97b32a142cb11bda410a62dee5ee80af5b2d8fca2b70e05ed3229e\`
+          - Signature : **PERSISTENT_RELEASE_KEY**
+
+          Cette PR reste en brouillon jusqu'à la validation visuelle sur l'AYN Thor.
+          EOF
+          )"
