@@ -13,6 +13,37 @@ index 5b33818..7f4dbcc 100644
      /** Core::State ordinal: uninitialized, paused, running, stopping, starting. */
      @JvmStatic
      external fun getEmulationState(): Int
+diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
+index 5308511..6e66ce0 100644
+--- a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
++++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt
+@@ -94,9 +94,10 @@ class SkyPortalService : Service() {
+                     if (skylandersGameActive) {
+                         val portalUsbState = SkylanderConfig.getPortalUsbState()
+                         if (!BooleanSetting.MAIN_EMULATE_SKYLANDER_PORTAL.boolean ||
+-                            portalUsbState and PORTAL_USB_READY_MASK != PORTAL_USB_READY_MASK
++                            portalUsbState and PORTAL_USB_READY_MASK != PORTAL_USB_READY_MASK ||
++                            !SkylanderConfig.isPortalActivated()
+                         ) {
+-                            Log.w(TAG, "Refusing load before the game completes the portal USB handshake")
++                            Log.w(TAG, "Refusing load before the game has an active Portal of Power")
+                             return@synchronized ERROR_PORTAL_USB_NOT_READY
+                         }
+                     }
+@@ -119,6 +120,13 @@ class SkyPortalService : Service() {
+                         clearLogicalSlot(logicalSlot)
+                         return@synchronized ERROR_PORTAL_FULL
+                     }
++                    if (skylandersGameActive && !SkylanderConfig.isPortalActivated()) {
++                        Log.w(TAG, "Portal became inactive while loading native slot $actual; cleaning up")
++                        runCatching { SkylanderConfig.removeSkylander(actual) }
++                        clearLogicalSlot(logicalSlot)
++                        return@synchronized ERROR_PORTAL_USB_NOT_READY
++                    }
++
+                     val mountedFigure = nativeSlot(
+                         SkylanderConfig.getPortalSnapshot(),
+                         actual
 diff --git a/Source/Android/jni/SkylanderConfig.cpp b/Source/Android/jni/SkylanderConfig.cpp
 index acaeded..f0c6326 100644
 --- a/Source/Android/jni/SkylanderConfig.cpp
@@ -57,11 +88,10 @@ index 2a97ae6..28321ec 100644
                                0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
          m_queries.push(interrupt_response);
          expected_count = 10;
--        system.GetSkylanderPortal().Activate();
-+        if (buf[1] == 0)
-+          system.GetSkylanderPortal().Deactivate();
-+        else
-+          system.GetSkylanderPortal().Activate();
++        // Spyro's Adventure can alternate A 00 and A 01 while polling a healthy portal.
++        // Preserve Dolphin's proven compatibility behavior: every valid A command is an
++        // activation/keepalive, while the emulated USB setting owns actual device availability.
+         system.GetSkylanderPortal().Activate();
        }
        break;
      }

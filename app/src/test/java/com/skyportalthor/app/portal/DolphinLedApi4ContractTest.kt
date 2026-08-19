@@ -41,6 +41,21 @@ class DolphinLedApi4ContractTest {
     }
 
     @Test
+    fun activationPollingKeepsSpyrosAdventurePortalAvailable() {
+        val patch = locate(
+            "dolphin-patch/portal-led-api4.patch",
+            "../dolphin-patch/portal-led-api4.patch"
+        ).readText()
+
+        assertTrue(patch.contains("Spyro's Adventure can alternate A 00 and A 01"))
+        assertTrue(patch.contains("every valid A command is an"))
+        assertTrue(patch.contains("activation/keepalive"))
+        assertTrue(patch.contains("!SkylanderConfig.isPortalActivated()"))
+        assertFalse(patch.contains("if (buf[1] == 0)"))
+        assertFalse(patch.contains("system.GetSkylanderPortal().Deactivate();"))
+    }
+
+    @Test
     fun buildAndPatchToolsApplyApiFourAfterApiThreeBaseline() {
         val applyScript = locate(
             "tools/apply_dolphin_patch.py",
