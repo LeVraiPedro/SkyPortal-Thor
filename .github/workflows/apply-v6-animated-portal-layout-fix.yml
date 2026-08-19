@@ -36,16 +36,12 @@ jobs:
           test_path = Path('app/src/test/java/com/skyportalthor/app/ui/portal/AnimatedPortalStateTest.kt')
 
           portal = portal_path.read_text(encoding='utf-8')
-          start_marker = '''    Card(
-              modifier = modifier.heightIn(min = 132.dp),'''
-          end_marker = '''}
-
-          @Composable
-          private fun PortalColorChip'''
-          start = portal.find(start_marker)
-          end = portal.find(end_marker, start)
-          if start < 0 or end < 0:
-              raise SystemExit('AnimatedPortalPanel layout markers were not found')
+          anchor = portal.find('modifier = modifier.heightIn(min = 132.dp)')
+          start = portal.rfind('    Card(', 0, anchor)
+          end_marker = '\n}\n\n@Composable\nprivate fun PortalColorChip'
+          end = portal.find(end_marker, anchor)
+          if anchor < 0 or start < 0 or end < 0:
+              raise SystemExit('AnimatedPortalPanel layout anchors were not found')
 
           replacement = '''    Card(
               modifier = modifier.heightIn(min = 132.dp),
@@ -184,11 +180,8 @@ jobs:
           state_path.write_text(state.replace(old_title, new_title, 1), encoding='utf-8')
 
           test = test_path.read_text(encoding='utf-8')
-          marker = '''        assertEquals(PortalVisualMode.READY_IDLE, visual.mode)
-              assertFalse(visual.active)'''
-          replacement_test = '''        assertEquals(PortalVisualMode.READY_IDLE, visual.mode)
-              assertEquals("Éclairage du portail en veille", visual.title)
-              assertFalse(visual.active)'''
+          marker = '        assertEquals(PortalVisualMode.READY_IDLE, visual.mode)\n        assertFalse(visual.active)'
+          replacement_test = '        assertEquals(PortalVisualMode.READY_IDLE, visual.mode)\n        assertEquals("Éclairage du portail en veille", visual.title)\n        assertFalse(visual.active)'
           if test.count(marker) != 1:
               raise SystemExit('Idle portal test marker was not found exactly once')
           test_path.write_text(test.replace(marker, replacement_test, 1), encoding='utf-8')
