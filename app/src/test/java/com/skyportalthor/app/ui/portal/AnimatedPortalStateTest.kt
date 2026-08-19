@@ -153,6 +153,7 @@ class AnimatedPortalStateTest {
         )
 
         assertEquals(PortalVisualMode.READY_IDLE, visual.mode)
+        assertEquals("Éclairage du portail en veille", visual.title)
         assertFalse(visual.active)
         assertFalse(visual.pulse)
         assertEquals(9L, visual.sequence)
