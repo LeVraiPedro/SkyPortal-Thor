@@ -1,0 +1,202 @@
+# Copyright 2026 LeVraiPedro and SkyPortal Thor contributors
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: Apply V6 animated portal layout fix v2
+
+on:
+  push:
+    branches:
+      - agent/v6-animated-portal-layout-fix
+    paths:
+      - .github/workflows/apply-v6-animated-portal-layout-fix-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout corrective branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: agent/v6-animated-portal-layout-fix
+          fetch-depth: 0
+
+      - name: Patch portal layout and labels
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          portal_path = Path('app/src/main/java/com/skyportalthor/app/ui/portal/AnimatedPortal.kt')
+          state_path = Path('app/src/main/java/com/skyportalthor/app/ui/portal/AnimatedPortalState.kt')
+          test_path = Path('app/src/test/java/com/skyportalthor/app/ui/portal/AnimatedPortalStateTest.kt')
+
+          portal = portal_path.read_text(encoding='utf-8')
+          anchor = portal.index('modifier = modifier.heightIn(min = 132.dp)')
+          start = portal.rfind('    Card(', 0, anchor)
+          next_function = portal.index('@Composable\nprivate fun PortalColorChip', anchor)
+          closing = portal.rfind('\n}\n\n', anchor, next_function)
+          if start < 0 or closing < 0:
+              raise SystemExit('Could not isolate AnimatedPortalPanel card body')
+
+          replacement = '''    Card(
+              modifier = modifier.heightIn(min = 132.dp),
+              colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
+              border = BorderStroke(1.dp, toneColor.copy(alpha = 0.72f)),
+              shape = RoundedCornerShape(20.dp)
+          ) {
+              Box(
+                  modifier = Modifier
+                      .fillMaxSize()
+                      .padding(horizontal = 12.dp, vertical = 9.dp)
+              ) {
+                  // The Canvas now owns the full panel height. On the Thor lower display the
+                  // previous stacked Column left only a few pixels after header/actions.
+                  PortalCanvas(
+                      visual = visual,
+                      leftColor = leftColor,
+                      rightColor = rightColor,
+                      trapColor = trapColor,
+                      activation = activation,
+                      ambience = ambience,
+                      rotation = rotation,
+                      interactionBurst = interactionBurst.value,
+                      modifier = Modifier.fillMaxSize()
+                  )
+
+                  Column(
+                      modifier = Modifier.fillMaxSize(),
+                      verticalArrangement = Arrangement.SpaceBetween
+                  ) {
+                      Row(
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .background(
+                                  PortalPalette.Panel.copy(alpha = 0.82f),
+                                  RoundedCornerShape(14.dp)
+                              )
+                              .padding(horizontal = 8.dp, vertical = 5.dp),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.CenterVertically
+                      ) {
+                          Column(modifier = Modifier.weight(1f)) {
+                              Text(
+                                  "PORTAL EXPERIENCE • V6",
+                                  color = PortalPalette.Accent,
+                                  style = MaterialTheme.typography.labelSmall,
+                                  fontWeight = FontWeight.Black
+                              )
+                              Row(
+                                  horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                  verticalAlignment = Alignment.CenterVertically
+                              ) {
+                                  Box(
+                                      modifier = Modifier
+                                          .size(8.dp)
+                                          .background(toneColor, CircleShape)
+                                  )
+                                  Text(
+                                      visual.title,
+                                      color = Color.White,
+                                      style = MaterialTheme.typography.titleMedium,
+                                      fontWeight = FontWeight.Black,
+                                      maxLines = 1,
+                                      overflow = TextOverflow.Ellipsis
+                                  )
+                              }
+                              Text(
+                                  "${visual.detail} • ${if (playerTwoEnabled) "mode 2 joueurs" else "mode 1 joueur"}",
+                                  color = PortalPalette.Muted,
+                                  style = MaterialTheme.typography.bodySmall,
+                                  maxLines = 1,
+                                  overflow = TextOverflow.Ellipsis
+                              )
+                          }
+                          Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                              OutlinedButton(onClick = onTeams) {
+                                  Text(if (teamCount > 0) "Équipes ($teamCount)" else "Équipes")
+                              }
+                              OutlinedButton(onClick = onDiagnostics) {
+                                  Text("Diagnostic")
+                              }
+                          }
+                      }
+
+                      Row(
+                          modifier = Modifier.fillMaxWidth(),
+                          horizontalArrangement = Arrangement.SpaceBetween,
+                          verticalAlignment = Alignment.Bottom
+                      ) {
+                          Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                              PortalColorChip("G", visual.left, leftColor)
+                              PortalColorChip("D", visual.right, rightColor)
+                              visual.trap?.let { PortalColorChip("Trap", it, trapColor) }
+                          }
+                          visual.warning?.let { warning ->
+                              Text(
+                                  "Canal LED : $warning",
+                                  color = PortalPalette.Warning,
+                                  style = MaterialTheme.typography.labelSmall,
+                                  maxLines = 1,
+                                  overflow = TextOverflow.Ellipsis,
+                                  modifier = Modifier.padding(start = 8.dp)
+                              )
+                          }
+                      }
+                  }
+              }
+          }
+          }'''
+          portal = portal[:start] + replacement + portal[closing + 3:]
+
+          geometry = [
+              ('val portalWidth = min(canvasWidth * 0.64f, canvasHeight * 2.35f)',
+               'val portalWidth = min(canvasWidth * 0.76f, canvasHeight * 4.40f)'),
+              ('val portalHeight = portalWidth * 0.29f',
+               'val portalHeight = portalWidth * 0.20f'),
+              ('val center = Offset(canvasWidth * 0.52f, canvasHeight * 0.45f)',
+               'val center = Offset(canvasWidth * 0.50f, canvasHeight * 0.40f)'),
+          ]
+          for old, new in geometry:
+              if portal.count(old) != 1:
+                  raise SystemExit(f'Geometry marker mismatch: {old}')
+              portal = portal.replace(old, new, 1)
+          portal_path.write_text(portal, encoding='utf-8')
+
+          state = state_path.read_text(encoding='utf-8')
+          old_title = 'title = "Portail en veille"'
+          if state.count(old_title) != 1:
+              raise SystemExit('Idle title marker mismatch')
+          state_path.write_text(
+              state.replace(old_title, 'title = "Éclairage du portail en veille"', 1),
+              encoding='utf-8'
+          )
+
+          test = test_path.read_text(encoding='utf-8')
+          old_test = '        assertEquals(PortalVisualMode.READY_IDLE, visual.mode)\n        assertFalse(visual.active)'
+          new_test = '        assertEquals(PortalVisualMode.READY_IDLE, visual.mode)\n        assertEquals("Éclairage du portail en veille", visual.title)\n        assertFalse(visual.active)'
+          if test.count(old_test) != 1:
+              raise SystemExit('Idle state test marker mismatch')
+          test_path.write_text(test.replace(old_test, new_test, 1), encoding='utf-8')
+          PY
+
+          rm -f \
+            .github/workflows/apply-v6-animated-portal-layout-fix.yml \
+            .github/workflows/apply-v6-animated-portal-layout-fix-v2.yml
+          git diff --check
+          python3 tools/check_licensing.py
+
+      - name: Commit only the product fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -A
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Fix animated portal layout on the Thor lower display'
+          git push origin HEAD:agent/v6-animated-portal-layout-fix
