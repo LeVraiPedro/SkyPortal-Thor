@@ -19,13 +19,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -130,39 +128,36 @@ internal fun AnimatedPortalPanel(
     }
 
     Card(
-    modifier = modifier.heightIn(min = 132.dp),
-    colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
-    border = BorderStroke(1.dp, toneColor.copy(alpha = 0.72f)),
-    shape = RoundedCornerShape(20.dp)
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 9.dp)
+        modifier = modifier.heightIn(min = 132.dp),
+        colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
+        border = BorderStroke(1.dp, toneColor.copy(alpha = 0.72f)),
+        shape = RoundedCornerShape(20.dp)
     ) {
-        // The Canvas now owns the full panel height. On the Thor lower display the
-        // previous stacked Column left only a few pixels after header/actions.
-        PortalCanvas(
-            visual = visual,
-            leftColor = leftColor,
-            rightColor = rightColor,
-            trapColor = trapColor,
-            activation = activation,
-            ambience = ambience,
-            rotation = rotation,
-            interactionBurst = interactionBurst.value,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 9.dp)
         ) {
+            // Keep the portal itself full-size behind the status chrome. This preserves the
+            // wide Portal of Power silhouette on the Thor's comparatively short lower panel.
+            PortalCanvas(
+                visual = visual,
+                leftColor = leftColor,
+                rightColor = rightColor,
+                trapColor = trapColor,
+                activation = activation,
+                ambience = ambience,
+                rotation = rotation,
+                interactionBurst = interactionBurst.value,
+                modifier = Modifier.fillMaxSize()
+            )
+
             Row(
                 modifier = Modifier
+                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .background(
-                        PortalPalette.Panel.copy(alpha = 0.82f),
+                        PortalPalette.Panel.copy(alpha = 0.84f),
                         RoundedCornerShape(14.dp)
                     )
                     .padding(horizontal = 8.dp, vertical = 5.dp),
@@ -212,31 +207,38 @@ internal fun AnimatedPortalPanel(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
+                color = PortalPalette.Background.copy(alpha = 0.94f),
+                border = BorderStroke(1.dp, toneColor.copy(alpha = 0.38f)),
+                shape = RoundedCornerShape(13.dp)
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     PortalColorChip("G", visual.left, leftColor)
                     PortalColorChip("D", visual.right, rightColor)
                     visual.trap?.let { PortalColorChip("Trap", it, trapColor) }
-                }
-                visual.warning?.let { warning ->
-                    Text(
-                        "Canal LED : $warning",
-                        color = PortalPalette.Warning,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
+                    visual.warning?.let { warning ->
+                        Text(
+                            "Canal LED : $warning",
+                            color = PortalPalette.Warning,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
     }
 }
-}
+
 @Composable
 private fun PortalColorChip(
     label: String,
@@ -244,18 +246,24 @@ private fun PortalColorChip(
     color: Color
 ) {
     Surface(
-        color = PortalPalette.Background.copy(alpha = 0.78f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.72f)),
+        color = color.copy(alpha = 0.14f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.88f)),
         shape = RoundedCornerShape(50)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.size(7.dp).background(color, CircleShape))
+            Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
             Text(
-                "$label ${rgb.toHex()}",
+                label,
+                color = Color.White,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                rgb.toHex(),
                 color = Color.White,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold
@@ -295,10 +303,10 @@ private fun PortalCanvas(
         )
         val portalSize = Size(portalWidth, portalHeight)
         val glowStrength = (
-            0.12f +
-                activation * 0.26f * ambience +
-                interactionBurst * 0.24f
-            ).coerceIn(0.08f, 0.68f)
+            0.16f +
+                activation * 0.34f * ambience +
+                interactionBurst * 0.26f
+            ).coerceIn(0.10f, 0.80f)
 
         repeat(4) { layer ->
             val expansion = portalHeight * (0.16f + layer * 0.12f)
@@ -343,8 +351,8 @@ private fun PortalCanvas(
         drawOval(
             brush = Brush.horizontalGradient(
                 colors = listOf(
-                    leftColor.copy(alpha = 0.22f * activation),
-                    rightColor.copy(alpha = 0.22f * activation)
+                    leftColor.copy(alpha = 0.30f * activation),
+                    rightColor.copy(alpha = 0.30f * activation)
                 ),
                 startX = center.x - baseWidth / 2f,
                 endX = center.x + baseWidth / 2f
@@ -369,15 +377,15 @@ private fun PortalCanvas(
         drawOval(
             brush = Brush.horizontalGradient(
                 colors = listOf(
-                    leftColor.copy(alpha = 0.58f * activation),
-                    rightColor.copy(alpha = 0.58f * activation)
+                    leftColor.copy(alpha = 0.76f * activation),
+                    rightColor.copy(alpha = 0.76f * activation)
                 ),
                 startX = portalTopLeft.x,
                 endX = portalTopLeft.x + portalWidth
             ),
             topLeft = portalTopLeft,
             size = portalSize,
-            style = Stroke(width = (portalHeight * 0.16f).coerceIn(5f, 14f))
+            style = Stroke(width = (portalHeight * 0.17f).coerceIn(5f, 15f))
         )
 
         val innerInsetX = portalWidth * 0.10f
@@ -398,8 +406,8 @@ private fun PortalCanvas(
         drawOval(
             brush = Brush.horizontalGradient(
                 colors = listOf(
-                    leftColor.copy(alpha = 0.30f * activation),
-                    rightColor.copy(alpha = 0.30f * activation)
+                    leftColor.copy(alpha = 0.40f * activation),
+                    rightColor.copy(alpha = 0.40f * activation)
                 ),
                 startX = innerTopLeft.x,
                 endX = innerTopLeft.x + innerSize.width
@@ -410,7 +418,7 @@ private fun PortalCanvas(
 
         rotate(degrees = rotation, pivot = center) {
             drawArc(
-                color = Color.White.copy(alpha = 0.18f * activation),
+                color = Color.White.copy(alpha = 0.22f * activation),
                 startAngle = 8f,
                 sweepAngle = 82f,
                 useCenter = false,
@@ -422,7 +430,7 @@ private fun PortalCanvas(
                 )
             )
             drawArc(
-                color = Color.White.copy(alpha = 0.10f * activation),
+                color = Color.White.copy(alpha = 0.14f * activation),
                 startAngle = 188f,
                 sweepAngle = 58f,
                 useCenter = false,
@@ -451,7 +459,7 @@ private fun PortalCanvas(
             )
             drawLine(
                 color = (if (cosValue < 0f) leftColor else rightColor)
-                    .copy(alpha = 0.42f * activation),
+                    .copy(alpha = 0.52f * activation),
                 start = start,
                 end = end,
                 strokeWidth = (portalHeight * 0.025f).coerceAtLeast(1.3f),
@@ -461,7 +469,7 @@ private fun PortalCanvas(
 
         val sideLightRadius = (portalHeight * 0.12f).coerceAtLeast(4f)
         drawCircle(
-            color = leftColor.copy(alpha = (0.46f + interactionBurst * 0.30f) * activation),
+            color = leftColor.copy(alpha = (0.62f + interactionBurst * 0.28f) * activation),
             radius = sideLightRadius,
             center = Offset(
                 center.x - portalWidth * 0.40f,
@@ -469,7 +477,7 @@ private fun PortalCanvas(
             )
         )
         drawCircle(
-            color = rightColor.copy(alpha = (0.46f + interactionBurst * 0.30f) * activation),
+            color = rightColor.copy(alpha = (0.62f + interactionBurst * 0.28f) * activation),
             radius = sideLightRadius,
             center = Offset(
                 center.x + portalWidth * 0.40f,
@@ -484,7 +492,7 @@ private fun PortalCanvas(
             )
             val trapSize = (portalHeight * 0.27f).coerceAtLeast(9f)
             drawCircle(
-                color = trapColor.copy(alpha = 0.20f * ambience * activation),
+                color = trapColor.copy(alpha = 0.28f * ambience * activation),
                 radius = trapSize * 1.45f,
                 center = trapCenter
             )
@@ -498,7 +506,7 @@ private fun PortalCanvas(
             drawPath(
                 path = trapPath,
                 brush = Brush.radialGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.72f), trapColor),
+                    colors = listOf(Color.White.copy(alpha = 0.78f), trapColor),
                     center = trapCenter,
                     radius = trapSize * 1.25f
                 ),
@@ -506,7 +514,7 @@ private fun PortalCanvas(
             )
             drawPath(
                 path = trapPath,
-                color = Color.White.copy(alpha = 0.58f * activation),
+                color = Color.White.copy(alpha = 0.64f * activation),
                 style = Stroke(width = (trapSize * 0.10f).coerceAtLeast(1f))
             )
         }
