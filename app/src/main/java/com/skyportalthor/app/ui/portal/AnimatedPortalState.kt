@@ -188,7 +188,7 @@ internal object AnimatedPortalStateMapper {
         if (!led.active) {
             return AnimatedPortalState(
                 mode = PortalVisualMode.READY_IDLE,
-                title = "Portail en veille",
+                title = "Éclairage du portail en veille",
                 detail = "Dolphin API 4 • séquence ${led.sequence}",
                 active = false,
                 left = led.left,

@@ -130,17 +130,42 @@ internal fun AnimatedPortalPanel(
     }
 
     Card(
-        modifier = modifier.heightIn(min = 132.dp),
-        colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
-        border = BorderStroke(1.dp, toneColor.copy(alpha = 0.72f)),
-        shape = RoundedCornerShape(20.dp)
+    modifier = modifier.heightIn(min = 132.dp),
+    colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
+    border = BorderStroke(1.dp, toneColor.copy(alpha = 0.72f)),
+    shape = RoundedCornerShape(20.dp)
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 12.dp, vertical = 9.dp)
     ) {
+        // The Canvas now owns the full panel height. On the Thor lower display the
+        // previous stacked Column left only a few pixels after header/actions.
+        PortalCanvas(
+            visual = visual,
+            leftColor = leftColor,
+            rightColor = rightColor,
+            trapColor = trapColor,
+            activation = activation,
+            ambience = ambience,
+            rotation = rotation,
+            interactionBurst = interactionBurst.value,
+            modifier = Modifier.fillMaxSize()
+        )
+
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        PortalPalette.Panel.copy(alpha = 0.82f),
+                        RoundedCornerShape(14.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -187,49 +212,31 @@ internal fun AnimatedPortalPanel(
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .heightIn(min = 78.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
             ) {
-                PortalCanvas(
-                    visual = visual,
-                    leftColor = leftColor,
-                    rightColor = rightColor,
-                    trapColor = trapColor,
-                    activation = activation,
-                    ambience = ambience,
-                    rotation = rotation,
-                    interactionBurst = interactionBurst.value,
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                Row(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(start = 4.dp, bottom = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     PortalColorChip("G", visual.left, leftColor)
                     PortalColorChip("D", visual.right, rightColor)
                     visual.trap?.let { PortalColorChip("Trap", it, trapColor) }
                 }
-            }
-
-            visual.warning?.let { warning ->
-                Text(
-                    "Canal LED : $warning",
-                    color = PortalPalette.Warning,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                visual.warning?.let { warning ->
+                    Text(
+                        "Canal LED : $warning",
+                        color = PortalPalette.Warning,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
             }
         }
     }
 }
-
+}
 @Composable
 private fun PortalColorChip(
     label: String,
@@ -279,9 +286,9 @@ private fun PortalCanvas(
         val canvasHeight = size.height
         if (canvasWidth <= 0f || canvasHeight <= 0f) return@Canvas
 
-        val portalWidth = min(canvasWidth * 0.64f, canvasHeight * 2.35f)
-        val portalHeight = portalWidth * 0.29f
-        val center = Offset(canvasWidth * 0.52f, canvasHeight * 0.45f)
+        val portalWidth = min(canvasWidth * 0.76f, canvasHeight * 4.40f)
+        val portalHeight = portalWidth * 0.20f
+        val center = Offset(canvasWidth * 0.50f, canvasHeight * 0.40f)
         val portalTopLeft = Offset(
             x = center.x - portalWidth / 2f,
             y = center.y - portalHeight / 2f
