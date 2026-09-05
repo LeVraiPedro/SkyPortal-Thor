@@ -3,6 +3,7 @@
 package com.skyportalthor.app.ui.portal
 
 import com.skyportalthor.app.data.SmartPortalReadiness
+import com.skyportalthor.app.data.SkylandersGame
 import com.skyportalthor.app.portal.PortalState
 import com.skyportalthor.app.portal.led.PortalLedState
 import com.skyportalthor.app.portal.led.PortalRgb
@@ -99,6 +100,7 @@ class AnimatedPortalStateTest {
                 apiVersion = 4,
                 readiness = SmartPortalReadiness.READY,
                 portalEnabled = true,
+                skylandersGame = SkylandersGame.TRAP_TEAM,
                 portalLedState = led
             )
         )
@@ -110,6 +112,60 @@ class AnimatedPortalStateTest {
         assertEquals(led.trap, visual.trap)
         assertEquals(72L, visual.sequence)
         assertTrue(visual.active)
+        assertTrue("couleur Trap ${led.trap!!.toHex()}" in visual.accessibilityDescription)
+    }
+
+    @Test
+    fun spyrosAdventureAndUnknownGameHideTrapInBothLightingStates() {
+        for (game in listOf(SkylandersGame.SPYROS_ADVENTURE, null)) {
+            for (active in listOf(true, false)) {
+                val led = PortalLedState(
+                    schemaVersion = 1,
+                    active = active,
+                    sequence = 73,
+                    left = PortalRgb(160, 64, 255),
+                    right = PortalRgb(12, 100, 220),
+                    trap = PortalRgb(255, 40, 0)
+                )
+                val visual = AnimatedPortalStateMapper.from(
+                    PortalState(
+                        connected = true,
+                        apiVersion = 4,
+                        readiness = SmartPortalReadiness.READY,
+                        portalEnabled = true,
+                        skylandersGame = game,
+                        portalLedState = led
+                    )
+                )
+
+                assertNull("Trap hidden for $game, active=$active", visual.trap)
+                assertFalse("Trap absent from accessibility for $game, active=$active", "Trap" in visual.accessibilityDescription)
+                assertEquals(led.left, visual.left)
+                assertEquals(led.right, visual.right)
+                assertEquals(active, visual.active)
+                assertTrue("Couleur gauche ${led.left.toHex()}" in visual.accessibilityDescription)
+                assertTrue("couleur droite ${led.right.toHex()}" in visual.accessibilityDescription)
+            }
+        }
+    }
+
+    @Test
+    fun trapTeamRetainsTrapColorAndAccessibilityWhileLightingIsIdle() {
+        val trap = PortalRgb(255, 40, 0)
+        val visual = AnimatedPortalStateMapper.from(
+            PortalState(
+                connected = true,
+                apiVersion = 4,
+                readiness = SmartPortalReadiness.READY,
+                portalEnabled = true,
+                skylandersGame = SkylandersGame.TRAP_TEAM,
+                portalLedState = PortalLedState.off(sequence = 74).copy(trap = trap)
+            )
+        )
+
+        assertEquals(PortalVisualMode.READY_IDLE, visual.mode)
+        assertEquals(trap, visual.trap)
+        assertTrue("couleur Trap ${trap.toHex()}" in visual.accessibilityDescription)
     }
 
     @Test

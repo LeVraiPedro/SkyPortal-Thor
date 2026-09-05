@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -46,7 +47,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -135,31 +135,14 @@ internal fun AnimatedPortalPanel(
         border = BorderStroke(1.dp, toneColor.copy(alpha = 0.72f)),
         shape = RoundedCornerShape(20.dp)
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 12.dp, vertical = 9.dp)
         ) {
-            // The top status strip, center portal and bottom RGB strip now have independent
-            // vertical regions so nothing overlaps on the Thor's short lower display.
-            PortalCanvas(
-                visual = visual,
-                leftColor = leftColor,
-                rightColor = rightColor,
-                trapColor = trapColor,
-                showTrapZone = showTrapZone,
-                activation = activation,
-                ambience = ambience,
-                rotation = rotation,
-                interactionBurst = interactionBurst.value,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = 50.dp, bottom = 32.dp, start = 6.dp, end = 6.dp)
-            )
-
+            // Measure the text and RGB strips first; the canvas owns the remaining space.
             Row(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .background(
                         PortalPalette.Panel.copy(alpha = 0.88f),
@@ -205,9 +188,21 @@ internal fun AnimatedPortalPanel(
                 }
             }
 
+            PortalCanvas(
+                visual = visual,
+                leftColor = leftColor,
+                rightColor = rightColor,
+                trapColor = trapColor,
+                showTrapZone = showTrapZone,
+                activation = activation,
+                ambience = ambience,
+                rotation = rotation,
+                interactionBurst = interactionBurst.value,
+                modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 6.dp)
+            )
+
             Surface(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
                     .fillMaxWidth(),
                 color = PortalPalette.Background.copy(alpha = 0.96f),
                 border = BorderStroke(1.dp, toneColor.copy(alpha = 0.38f)),
@@ -286,7 +281,7 @@ private fun PortalCanvas(
     modifier: Modifier = Modifier
 ) {
     Canvas(
-        modifier = modifier.semantics {
+        modifier = modifier.clipToBounds().semantics {
             contentDescription = visual.accessibilityDescription
             stateDescription = visual.title
         }
@@ -417,32 +412,32 @@ private fun PortalCanvas(
             size = innerSize
         )
 
-        rotate(degrees = rotation, pivot = center) {
-            drawArc(
-                color = Color.White.copy(alpha = 0.22f * activation),
-                startAngle = 8f,
-                sweepAngle = 82f,
-                useCenter = false,
-                topLeft = portalTopLeft,
-                size = portalSize,
-                style = Stroke(
-                    width = (portalHeight * 0.055f).coerceAtLeast(2f),
-                    cap = StrokeCap.Round
-                )
+        // Move highlights along the horizontal ellipse; rotating the whole ellipse would
+        // send its wide axis through the status/RGB strips at quarter turns.
+        drawArc(
+            color = Color.White.copy(alpha = 0.22f * activation),
+            startAngle = rotation + 8f,
+            sweepAngle = 82f,
+            useCenter = false,
+            topLeft = portalTopLeft,
+            size = portalSize,
+            style = Stroke(
+                width = (portalHeight * 0.055f).coerceAtLeast(2f),
+                cap = StrokeCap.Round
             )
-            drawArc(
-                color = Color.White.copy(alpha = 0.14f * activation),
-                startAngle = 188f,
-                sweepAngle = 58f,
-                useCenter = false,
-                topLeft = portalTopLeft,
-                size = portalSize,
-                style = Stroke(
-                    width = (portalHeight * 0.04f).coerceAtLeast(1.5f),
-                    cap = StrokeCap.Round
-                )
+        )
+        drawArc(
+            color = Color.White.copy(alpha = 0.14f * activation),
+            startAngle = rotation + 188f,
+            sweepAngle = 58f,
+            useCenter = false,
+            topLeft = portalTopLeft,
+            size = portalSize,
+            style = Stroke(
+                width = (portalHeight * 0.04f).coerceAtLeast(1.5f),
+                cap = StrokeCap.Round
             )
-        }
+        )
 
         val radiusX = portalWidth * 0.43f
         val radiusY = portalHeight * 0.40f

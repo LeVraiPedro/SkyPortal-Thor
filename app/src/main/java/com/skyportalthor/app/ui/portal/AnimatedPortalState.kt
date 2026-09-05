@@ -3,6 +3,7 @@
 package com.skyportalthor.app.ui.portal
 
 import com.skyportalthor.app.data.DolphinServiceState
+import com.skyportalthor.app.data.GameFeature
 import com.skyportalthor.app.data.SmartPortalReadiness
 import com.skyportalthor.app.portal.PortalState
 import com.skyportalthor.app.portal.led.PortalLedState
@@ -181,10 +182,19 @@ internal object AnimatedPortalStateMapper {
             )
         }
 
-        return fromLedState(led, warning)
+        return fromLedState(
+            led,
+            warning,
+            showTrapZone = state.skylandersGame?.features?.contains(GameFeature.TRAPS) == true
+        )
     }
 
-    private fun fromLedState(led: PortalLedState, warning: String?): AnimatedPortalState {
+    private fun fromLedState(
+        led: PortalLedState,
+        warning: String?,
+        showTrapZone: Boolean
+    ): AnimatedPortalState {
+        val trap = led.trap.takeIf { showTrapZone }
         if (!led.active) {
             return AnimatedPortalState(
                 mode = PortalVisualMode.READY_IDLE,
@@ -193,7 +203,7 @@ internal object AnimatedPortalStateMapper {
                 active = false,
                 left = led.left,
                 right = led.right,
-                trap = led.trap,
+                trap = trap,
                 sequence = led.sequence,
                 tone = if (warning == null) PortalVisualTone.NEUTRAL else PortalVisualTone.WARNING,
                 pulse = false,
@@ -208,7 +218,7 @@ internal object AnimatedPortalStateMapper {
             active = true,
             left = led.left,
             right = led.right,
-            trap = led.trap,
+            trap = trap,
             sequence = led.sequence,
             tone = if (warning == null) PortalVisualTone.SUCCESS else PortalVisualTone.WARNING,
             pulse = true,
