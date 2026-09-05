@@ -40,8 +40,8 @@ Dolphin LED API 4    ✓ fusionnée (PR #11), observée historiquement sur Thor/
 Portail animé       ✓ fusionné (PR #12), affichage observé historiquement sur Thor
 Activation/keepalive ✓ corrigée et validée historiquement sur Thor (PR #13)
 Composition Thor    ✓ revalidée puis fusionnée (PR #14), main 12d23a1
-Bifrost             PR #15 brouillon ; baseline physique et réception validées,
-                    synchronisation physique / restitution en attente
+Bifrost             PR #15 brouillon ; couleurs synchronisées et restitution
+                    après OFF confirmées physiquement ; interruptions à valider
 ```
 
 État courant du 5 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14), initialement ouverte en brouillon, a été fusionnée après autorisation dans `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`. La [CI de main](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33962044116) a réussi. Les preuves de cette étape et le nouveau point de reprise restent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md) ; ils ne valident pas automatiquement les modifications Bifrost.
@@ -64,8 +64,18 @@ contrôles locaux ont réussi sur `3be0796` ; le candidat signé est installé e
 contrôles hors jeu ont réussi. Le parcours 20:21–20:24 du 5 septembre confirme
 la réception des commandes dans SSA et une cadence observée d’environ 1,97 Hz.
 Le parcours 20:46–20:51 ajoute J1 en partie, reconnexion du compagnon sans doublon,
-watchdog et CLEAR logiciel. L’effet physique SkyPortal, la restitution et les autres
-régressions restent à vérifier. Les builds et leurs provenances figurent dans le suivi.
+watchdog et CLEAR logiciel. L’utilisateur a ensuite confirmé, le 5 septembre sur
+le même candidat `3be0796`, les couleurs physiques suivant le portail puis le
+retour bleu gauche / rouge droite après OFF. Cette confirmation ne couvre pas la
+restitution après watchdog, veille, perte Dolphin ou arrêt Bifrost, ni la calibration
+de luminosité. Les autres régressions restent à vérifier ; les builds et leurs
+provenances figurent dans le suivi.
+
+Le candidat `159dbe0` remplace ensuite `3be0796` sur la Thor : correction ciblée
+du bouton « Bifrost en haut », contrôles locaux/CI réussis, APK officiel du run
+`33986789250` installé et bouton revalidé. Le moteur LED et Dolphin sont inchangés.
+Les preuves physiques précédentes restent attachées à leur candidat ; suite des
+tests en partie en attente de réactivation de la commande Wii après veille.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
 
@@ -209,9 +219,10 @@ Cette étape a été explicitement autorisée après la clôture de la PR #14. L
 (Android minimum API 33). Toute autre version reste désactivée jusqu’à un nouvel
 audit. La fiabilisation préalable et l’intégration se poursuivent sur
 `agent/v6-bifrost-integration`. Le périmètre initial ci-dessous est implémenté dans
-la branche et a passé les contrôles locaux. La baseline physique Bifrost et la
-réception des commandes SkyPortal ont leurs preuves distinctes ; leur effet
-physique synchronisé et la restitution ne sont pas encore validés. Les modes LED J1/J2 et priorité J1
+la branche et a passé les contrôles locaux. La baseline physique Bifrost, la
+réception des commandes SkyPortal, puis les couleurs physiques synchronisées et
+leur restitution après OFF ont leurs preuves distinctes sur le candidat `3be0796`.
+Les autres restitutions et la variation de luminosité restent à vérifier. Les modes LED J1/J2 et priorité J1
 ne sont pas ajoutés : V6.0 n’est pas déclarée achevée. Une fusion ou publication
 nécessitera son autorisation propre.
 
@@ -288,8 +299,9 @@ Le diagnostic doit afficher :
 - modes 1J/2J et fonctions V5 inchangés ;
 - tests réels sur AYN Thor et contrôle Logcat.
 
-Les critères matériels de synchronisation et restitution restent à exécuter ;
-la baseline physique Bifrost et les premiers accusés receiver sont consignés.
+Les couleurs synchronisées et le retour bleu gauche / rouge droite après OFF
+ont été confirmés physiquement par l’utilisateur le 5 septembre ; les autres
+critères matériels, notamment les restitutions après interruption, restent distincts.
 Les contrôles locaux sur
 le code `3be0796` ont réussi : 157 tests, Lint sans erreur bloquante, compilation
 Debug et licence. La checklist détaillée figure dans [`V6_BIFROST.md`](V6_BIFROST.md) ;

@@ -8,7 +8,8 @@ V6.0 Bifrost, avec fiabilisation préalable et audit du contrat officiel termin�
 Bifrost officiel est installé, le contrôle tiers autorisé et son service démarré
 pour un test STATIC isolé, dont le bleu gauche / rouge droite a été confirmé
 physiquement par l’utilisateur. Les commandes SkyPortal sont maintenant reçues
-dans SSA ; leur effet physique et la restitution restent à confirmer. La campagne PR #14
+dans SSA ; l’utilisateur a confirmé leur effet physique et la restitution après
+OFF sur le candidat `3be0796`. Les autres interruptions restent distinctes. La campagne PR #14
 ci-dessous est conservée comme historique ; elle ne valide pas les changements
 du nouveau chantier. Les rapports V5 et leurs cases de checklist restent également
 des preuves historiques.
@@ -30,12 +31,14 @@ des preuves historiques.
 - Branche courante : `agent/v6-bifrost-integration`, créée depuis ce `main` ;
   base `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`, arbre propre à son ouverture.
 - [PR #15](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15) : ouverte en
-  brouillon ; dernier commit de code `3be07965921ee9205a22fdd06c06222fe400d76e`.
+  brouillon ; dernier commit de code `159dbe07facbd7fde414a411a318b6537f372be5`
+  (ouverture Bifrost sur l’écran supérieur). Le code LED validé précédemment est
+  `3be07965921ee9205a22fdd06c06222fe400d76e` ; provenances distinctes ci-dessous.
 - L’utilisateur a ensuite autorisé V6.0 Bifrost avec une fiabilisation préalable,
   puis l’installation officielle de Bifrost, absent de la Thor au contrôle initial.
   L’audit du source Bifrost `1.3.1` / code `16` est terminé et l’APK officiel est
-  installé. Les essais d’intégration ont commencé ; aucun fonctionnement
-  des LED physiques via SkyPortal n’est déclaré validé à ce point.
+  installé. Les couleurs physiques via SkyPortal et leur restitution après OFF
+  ont depuis été confirmées ; la validation complète de V6.0 reste ouverte.
 - Version Android conservée : `0.5.0`, code `7` ; aucun tag ni release V6 créé.
   Cette autorisation de développement ne constitue pas une autorisation de fusion
   ou de publication du nouveau chantier.
@@ -679,11 +682,121 @@ encore été confirmées par l’utilisateur. La baseline isolée déjà confirm
 remplace pas ces observations. Accueil/veille, arrêt Dolphin, arrêt Bifrost, J2 et
 la protection des fiches pendant la mort Dolphin restent à rejouer sur ce candidat.
 
+### Confirmation physique et interruptions — 5 septembre, à partir de 21:06 Paris
+
+L’utilisateur a répondu explicitement « OUI » à la question portant sur les anneaux
+suivant les couleurs du portail, puis revenant au bleu gauche / rouge droite après
+OFF. Cela clôt ces deux observations du parcours précédent, avec l’APK `3be0796`.
+Cela ne valide ni les autres chemins de restitution ni la variation/calibration
+du curseur de luminosité. Les mentions « en attente » des parcours horodatés
+précédents décrivent leur point d’arrêt historique.
+
+Contrôles de reprise : ADB autorisé, deux écrans ON (`0` / `4`), batterie 74 %,
+service Bifrost foreground, SSA demandant une figurine et slots vides. Les CI
+documentaires de `92d063d` sont réussies : runs `33985608945` et `33985607654`.
+Les essais suivants utilisent encore le même candidat `3be0796` et Dolphin API 4 :
+
+- Option ON/35 %, focus donné au jeu sur `0` : DISPLAY continuent sur une
+  couleur identique. L’accueil à 21:07:50 masque Dolphin mais laisse SkyPortal
+  visible : CLEAR accepté à 21:07:50.691, sans DISPLAY ultérieur dans la fenêtre
+  contrôlée. Ce n’est pas un test d’arrêt du cycle de vie de SkyPortal.
+- Retour au jeu existant : réception reprise. Le bouton « Dolphin en haut »
+  ouvre sa bibliothèque ; Retour permet de retrouver l’émulation existante.
+  Un sélecteur de fichier ouvert par le bouton lecture de Dolphin a été annulé,
+  sans sélectionner ni modifier de fichier.
+- SkyPortal réellement masqué par les paramètres Android sur `4` : activité
+  `STOPPED`, CLEAR accepté à 21:09:57.358 (2 ms), dernier DISPLAY antérieur.
+  Retour du compagnon : même processus, dialogue ON/35 % et commandes reprises.
+- Veille explicite : Android `Asleep`, les deux écrans OFF, CLEAR accepté à
+  21:10:20.848 (2 ms), aucun DISPLAY postérieur avant réveil. Réveil : compagnon
+  sur `4`, jeu sur `0`, commandes de nouveau acceptées. Résultat physique de ces
+  restitutions non demandé ni déduit du test OFF déjà confirmé.
+- Arrêt forcé Bifrost à 21:12:32 environ : service absent avant et après la
+  demande de chargement de Whirlwind ; SkyPortal reste réactif et précise
+  toujours que l’éclairage est non confirmé. Son receiver peut accepter sans
+  service vivant, conformément à la limite documentée.
+- Whirlwind chargé par le compagnon, identifié seul dans le slot natif
+  `#0 (0/0)`. Le jeu affiche toutefois la télécommande Wii déconnectée après
+  veille : pas de validation visuelle de Whirlwind dans le jeu pour ce parcours.
+  L’utilisateur a été invité à réactiver sa commande habituelle.
+- Bifrost relancé explicitement sur `0`, service redémarré par son interface,
+  preset temporaire conservé. Contrôle tiers désactivé temporairement : message
+  « Autorisez le contrôle LED par les applications tierces dans Bifrost. »,
+  essais espacés d’environ 5 s. Autorisation rétablie, réception reprise.
+- Diagnostic à 21:16 : Binder/API 4, `SSPP52 / RUNNING`, USB présent / attaché /
+  protocole, SAF persistant et 32 fichiers. Whirlwind seul en slot `#0 (0/0)`.
+  Synchronisation remise OFF/35 %, contrôle tiers ON, service Bifrost actif,
+  preset temporaire conservé, Default intact. Aucun remplacement d’APK à ce point.
+- Journaux conservés entre 21:06 et 21:16:30 : 8 107 lignes, aucun crash, ANR,
+  `DeadObjectException`, échec de transaction LED ou mapping périmé recherché.
+  Une `SecurityException` GoogleCertificates provient de Google Play Services
+  (processus vérifié), pas des trois applications testées. Des avertissements
+  de canaux d’entrée et de routage multi-écrans Bifrost sont conservés.
+
+**Défaut trouvé :** le bouton du compagnon lançait Bifrost sur l’écran courant,
+donc `4`. Bifrost 1.3.1 se relance lui-même sur `0` puis termine son activité ;
+sa réutilisation explique probablement la fermeture immédiate observée sans
+crash. Le lancement explicite sur `0` fonctionne. Correction minimale en cours
+côté compagnon : cible `Display.DEFAULT_DISPLAY`, libellé « Bifrost en haut ».
+Aucun changement du transport LED, de Dolphin ou de Bifrost tiers. La préférence
+privée Bifrost forçant l’écran inférieur n’est pas couverte par ce parcours.
+Un nouvel APK signé devra valider le bouton réel ; les résultats du candidat
+`3be0796` ne seront pas attribués automatiquement à ce nouveau binaire.
+
+Le correctif `159dbe07facbd7fde414a411a318b6537f372be5` ne modifie que deux
+fichiers : `PortalActivity.kt` et `LightingSettingsDialog.kt`. Contrôles locaux
+réexécutés sur cet état : **157 tests JVM, zéro échec/erreur/ignoré**, Lint
+**zéro erreur / 17 avertissements**, Debug réussi (suite complète en 38 s),
+contrôle de licence réussi sur 91 sources et `git diff --check` réussi.
+Construction signée officielle lancée sur ce commit exact :
+[run 33986789250](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33986789250).
+L’ancien APK installé a été réextrait et son hash/certificat correspondent toujours
+au candidat `3be0796`, conservé en privé pour une éventuelle remise en place.
+
+### Candidat correctif installé et testé — 5 septembre, 21:25–21:27 Paris
+
+Le run `33986789250` a réussi sur `159dbe07facbd7fde414a411a318b6537f372be5`.
+Les deux Android CI de ce commit sont vertes (`33986789093`, `33986790891`).
+Les contrôles locaux ci-dessus ont été réexécutés, pas seulement relus.
+
+- Arbre app : `28c05b248618f085b236578647ef368b8dc0a9bb`.
+- APK : `SkyPortal_Thor_API4_LayoutValidation.apk` (nom hérité du workflow),
+  8 323 494 octets, package `com.skyportalthor.app`, `0.5.0` / code `7`.
+- SHA-256 APK : `b26ac9276830e68b4e4b0e624c22ea780ebc44482a0f95e75763f4deed04d1fb`.
+- SHA-256 source : `20c149becc8b2fab8bcdd507454991f264b15560d9db9add204d596abd1cafc6`.
+- Signature `PERSISTENT_RELEASE_KEY`, certificat
+  `502ae2f53a97b32a142cb11bda410a62dee5ee80af5b2d8fca2b70e05ed3229e`.
+  Les APK SkyPortal précédent et Dolphin installé ont été réextraits avant mise
+  à jour : même certificat vérifié. Dolphin reste identique au hash `6443c729…`.
+- Les cinq sommes du paquet ont été vérifiées localement, puis mise à jour du
+  seul SkyPortal par `adb install -r` réussie. L’APK réextrait après installation
+  a exactement le hash du candidat ; aucun fichier de signature manipulé localement.
+- Whirlwind retrouvé sans second chargement, même slot natif unique `#0 (0/0)` ;
+  scan de 32 fichiers, droits SAF, mode solo et OFF/35 % conservés.
+- Bouton réel « Bifrost en haut » testé deux fois, dont réouverture de la même
+  activité : Bifrost reste affiché sur `0`, SkyPortal sur `4`, sans disparition.
+  Retour permet de retrouver l’émulation existante. Avec ON, le dialogue passe
+  de commandes acceptées à restitution demandée pendant que Bifrost masque le
+  jeu, puis revient aux commandes acceptées au retour.
+- OFF final : CLEAR accepté à 21:27:05.382, dernier DISPLAY à 21:27:04.874,
+  aucun DISPLAY ultérieur dans l’historique contrôlé. Synchronisation OFF/35 %
+  laissée ; aucune nouvelle observation physique revendiquée pour ce binaire.
+- Logcat 21:25:35–21:27:08 : 2 803 lignes, aucune des erreurs recherchées
+  (crash/ANR, permission, Binder, transaction LED, mapping périmé ou conflit
+  d’écran Bifrost). Le jeu reste bloqué par la commande Wii déjà déconnectée
+  avant cette installation ; l’apparition/retrait en jeu ne sont pas revalidés.
+
+**État laissé :** compagnon `159dbe0` sur `4`, Dolphin API 4 inchangé sur `0`,
+Whirlwind seul monté, Bifrost actif avec contrôle tiers ON et preset temporaire,
+Default intact. Pas de suppression, de nouvelle version, de tag ou de publication.
+La PR #15 reste ouverte en brouillon ; les documents actualisés ne modifient pas
+l’arbre app de ce candidat. Les captures, journaux et copies d’APK restent privés.
+
 ## Prochaine action et conditions de validation du nouveau chantier
 
-**Obtenir la confirmation physique des couleurs synchronisées puis du retour
-au bleu gauche / rouge droite après OFF**, avec le candidat `3be0796` testé.
-Le CLEAR et le watchdog ont leurs preuves logicielles distinctes ci-dessus.
+**Prochaine action : réactiver la commande Wii dans la partie existante**, puis
+reprendre J2, mort/reprise Dolphin, fiches d’actions, backup sécurisé et les
+restitutions physiques après interruptions encore non confirmées.
 La validation doit associer tests déterministes et observation
 réelle des LED, vérifier le mode sans Bifrost et les libérations de contrôle,
 puis documenter les limites de restauration du service tiers. Aucun résultat

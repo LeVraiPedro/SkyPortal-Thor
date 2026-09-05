@@ -14,6 +14,9 @@
   [le contrat et les limites](docs/V6_BIFROST.md).
 - Fiche d’actions et confirmation backup invalidées quand leur montage disparaît
   ou change ; maintien de l’opération backup après son propre retrait sécurisé.
+- Bouton « Bifrost en haut » : lancement direct sur l’écran principal pour éviter
+  la relance puis fermeture de Bifrost 1.3.1 depuis l’écran inférieur. Aucun changement
+  du service LED ni du Dolphin installé ; validation du binaire dans le suivi.
 - Essais de cette branche suivis dans `docs/PROJECT_STATUS.md`, distincts de #14.
 
 ### Reprise du menu Dolphin — PR #14 fusionnée le 5 septembre 2026

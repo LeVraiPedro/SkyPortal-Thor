@@ -33,9 +33,19 @@ La validation de #14 ci-dessous est historique. La nouvelle intégration doit
   dans l’historique contrôlé. Ce ne sont pas des confirmations physiques.
 - [x] Logcat 20:46–20:51 : aucune erreur critique recherchée ; avertissements Android
   de fermeture de canaux d’entrée conservés dans le rapport, sans crash.
-- [ ] Contrôle tiers désactivé : refus explicite, aucune prétention de succès matériel.
-- [ ] Couleurs réelles des joysticks gauche/droite et luminosité **pilotées par SkyPortal**
-  confirmées visuellement ; ne pas déduire ce résultat de la baseline isolée.
+- [x] Couleurs physiques pilotées par SkyPortal puis restitution bleu gauche /
+  rouge droite après OFF confirmées explicitement par l’utilisateur le 5 septembre,
+  sur `3be0796`. Preuve distincte de la baseline isolée et des accusés receiver.
+- [ ] Variation de luminosité au curseur et absence de clignotement parasite observées.
+- [x] Contrôle tiers désactivé : refus explicite sur `3be0796`, temporisation
+  observée d’environ 5 s, puis réception reprise après restauration de l’autorisation.
+- [x] `3be0796`, 21:06–21:16 : commandes conservées avec focus du jeu ; CLEAR
+  logiciel après accueil côté Dolphin, masquage réel du compagnon (`STOPPED`)
+  et veille des deux écrans. Reprise au retour ; résultat physique encore distinct.
+- [x] Arrêt Bifrost : service absent, compagnon utilisable, chargement Whirlwind
+  confirmé en slot natif `#0 (0/0)`, aucun faux état matériel. Relance du service
+  par l’interface puis reprise des commandes. Apparition en jeu non validée :
+  télécommande Wii déconnectée après veille, intervention utilisateur demandée.
 - [ ] Heartbeat 2 Hz sans rafale ; réponse du receiver distinguée du résultat physique.
 - [ ] Retour accueil, écran éteint et arrêt du compagnon : restitution Bifrost observée.
 - [ ] Mort Dolphin et reconnexion : fin puis reprise du flux, sans doublon de figurine.
@@ -45,9 +55,22 @@ La validation de #14 ci-dessous est historique. La nouvelle intégration doit
 - [ ] Backup normal terminé après son propre retrait, sans écriture de fichier monté.
 - [ ] Absence de crash/ANR et d’erreur Binder/SAF dans la fenêtre Logcat examinée.
 
-Point d’arrêt : SSA attend une figurine, 16 slots libres, synchronisation OFF/35 %.
-CLEAR logiciel observé ; effet physique SkyPortal et restitution encore à confirmer.
-Preset temporaire Bifrost actif pour l’observation, Default intact.
+Point d’arrêt à 21:16 : Whirlwind seul en slot natif `#0 (0/0)`, synchronisation
+OFF/35 %, Binder/API 4 et SAF valides. Jeu bloqué par la commande Wii déconnectée.
+Preset temporaire Bifrost actif, contrôle tiers rétabli, Default intact.
+Couleurs synchronisées et restitution après OFF confirmées sur `3be0796`.
+
+- [x] Correctif `159dbe0` : 157 tests locaux, Lint zéro erreur/17 avertissements,
+  Debug, licence et CI réussis. Run signé `33986789250`, certificat officiel commun
+  et sommes vérifiés ; seul SkyPortal mis à jour, APK réextrait identique.
+- [x] `159dbe0` sur Thor, 21:25–21:27 : bouton Bifrost testé deux fois sur `0`,
+  compagnon maintenu sur `4`, Whirlwind retrouvé dans le seul slot `#0 (0/0)`,
+  32 fichiers et réglages conservés. Réception/restitution logicielle/reprise
+  avec le bouton vérifiées ; OFF final, Logcat du parcours sans erreur recherchée.
+
+Point d’arrêt actualisé : compagnon `159dbe0` installé, état précédent conservé,
+commande Wii toujours à réactiver. La preuve physique sur `3be0796` reste attachée
+à ce binaire ; les autres restitutions physiques et cas restants ne sont pas cochés.
 
 ## Reprise V6 / PR #14 — 5 septembre 2026
 
