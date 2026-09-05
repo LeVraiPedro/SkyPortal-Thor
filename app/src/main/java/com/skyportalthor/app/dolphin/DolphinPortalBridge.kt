@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.DeadObjectException
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.DolphinFigureCatalog
@@ -57,6 +58,9 @@ import kotlin.coroutines.resume
 class DolphinPortalBridge(private val context: Context) : PortalBridge {
     private val _state = MutableStateFlow(PortalState())
     override val state: StateFlow<PortalState> = _state.asStateFlow()
+    // Monotonic freshness for physical LED output, without forcing UI recomposition at every poll.
+    @Volatile var lastLedConfirmedAtMs: Long? = null
+        private set
 
     private val connectMutex = Mutex()
     private val operationMutex = Mutex()
@@ -279,6 +283,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
                     emulationState = current.emulationState
                 ) ?: return@ledRefresh
                 updateStateIfCurrent(token) {
+                    lastLedConfirmedAtMs = if (resolution.fresh) SystemClock.elapsedRealtime() else null
                     it.copy(
                         portalLedState = resolution.state,
                         portalLedWarnings = resolution.warnings,
@@ -440,6 +445,7 @@ class DolphinPortalBridge(private val context: Context) : PortalBridge {
             )
         }
         if (!committed) return@withContext false
+        lastLedConfirmedAtMs = if (ledResolution.fresh) SystemClock.elapsedRealtime() else null
 
         committedSlots.forEach { slot ->
             val remote = snapshot.logicalSlots.firstOrNull { it.logicalSlot == slot.logicalSlot }

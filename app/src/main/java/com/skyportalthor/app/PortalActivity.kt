@@ -3,8 +3,10 @@
 package com.skyportalthor.app
 
 import android.content.Intent
+import android.app.ActivityOptions
 import android.net.Uri
 import android.os.Bundle
+import android.view.Display
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -19,6 +21,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.DolphinFigureCatalog
 import com.skyportalthor.app.data.EmulationState
@@ -27,11 +31,16 @@ import com.skyportalthor.app.data.FigureKey
 import com.skyportalthor.app.data.QuickTeam
 import com.skyportalthor.app.data.CollectionStateLogic
 import com.skyportalthor.app.diagnostics.DiagnosticAssistant
+import com.skyportalthor.app.diagnostics.DiagnosticItem
+import com.skyportalthor.app.diagnostics.DiagnosticLevel
 import com.skyportalthor.app.dolphin.DolphinLauncher
 import com.skyportalthor.app.dolphin.DolphinPortalBridge
 import com.skyportalthor.app.portal.PortalResult
 import com.skyportalthor.app.portal.PortalProtocol
 import com.skyportalthor.app.portal.PortalReadinessPolicy
+import com.skyportalthor.app.portal.led.bifrost.AndroidBifrostTransport
+import com.skyportalthor.app.portal.led.bifrost.BifrostLightingController
+import com.skyportalthor.app.ui.portal.LightingSettingsDialog
 import com.skyportalthor.app.storage.BackupRepository
 import com.skyportalthor.app.storage.CollectionPreferences
 import com.skyportalthor.app.storage.CollectionMigrationResult
@@ -57,6 +66,15 @@ class PortalActivity : ComponentActivity() {
             val diagnosticAssistant = remember { DiagnosticAssistant(applicationContext) }
             val bridge = remember { DolphinPortalBridge(applicationContext) }
             val portalState by bridge.state.collectAsState()
+            val lighting = remember(bridge) { BifrostLightingController(applicationContext, bridge) }
+            val lightingSettings by lighting.settings.collectAsState()
+            val lightingStatus by lighting.status.collectAsState()
+            var showLighting by remember { mutableStateOf(false) }
+
+            LaunchedEffect(lighting) {
+                // onPause alone is not an exit on the Thor: both display activities may be visible.
+                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { lighting.runWhileVisible() }
+            }
 
             var rootUri by remember { mutableStateOf(prefs.getRootUri()) }
             var figures by remember { mutableStateOf<List<Skylander>>(emptyList()) }
@@ -259,6 +277,24 @@ class PortalActivity : ComponentActivity() {
             }
 
             MaterialTheme(colorScheme = PortalColorScheme) {
+                if (showLighting) {
+                    LightingSettingsDialog(
+                        settings = lightingSettings,
+                        status = lightingStatus,
+                        availability = lighting.availability(),
+                        onChange = lighting::updateSettings,
+                        onDismiss = { showLighting = false },
+                        onOpenBifrost = {
+                            val launch = packageManager.getLaunchIntentForPackage(AndroidBifrostTransport.PACKAGE)
+                            val opened = launch != null && runCatching {
+                                // Bifrost 1.3.1 redirects secondary-screen launches and may finish its reused activity.
+                                val options = ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY)
+                                startActivity(launch, options.toBundle())
+                            }.isSuccess
+                            if (!opened) uiMessage = UiNotice("Impossible d’ouvrir Bifrost. Vérifie son installation.", NoticeKind.ERROR)
+                        }
+                    )
+                }
                 PortalScreen(
                     portalState = reconciledPortalState,
                     figures = figures,
@@ -370,8 +406,14 @@ class PortalActivity : ComponentActivity() {
                             figures = figures,
                             portalState = portalState,
                             preferredDolphinPackage = prefs.getDolphinPackage()
+                        ) + DiagnosticItem(
+                            title = "Éclairage Bifrost",
+                            level = DiagnosticLevel.INFO,
+                            detail = "${lighting.availability()} • ${if (lightingSettings.enabled) lightingStatus.message else "Désactivé dans SkyPortal"} • 2 Hz maximum",
+                            recovery = "Le service et l’éclairage physique ne sont pas confirmés par l’API Bifrost. Voir le bouton LED pour les réglages."
                         )
                     },
+                    onLightingSettings = { showLighting = true },
                     onPlayerTwoEnabledChange = { enabled -> setPlayerTwoMode(enabled) },
                     onBackup = backup@{ logicalSlot, figure ->
                         val root = rootUri

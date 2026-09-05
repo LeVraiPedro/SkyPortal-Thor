@@ -8,10 +8,12 @@
     <queries>
         <package android:name="org.dolphinemu.dolphinemu.debug" />
         <package android:name="org.dolphinemu.dolphinemu" />
+        <package android:name="com.moonbench.bifrost" />
     </queries>
 
     <uses-feature android:name="android.software.activities_on_secondary_displays" android:required="false" />
     <uses-permission android:name="com.skyportalthor.permission.PORTAL_CONTROL" />
+    <uses-permission android:name="com.moonbench.bifrost.permission.CONTROL_LEDS" />
 
     <application
         android:allowBackup="true"

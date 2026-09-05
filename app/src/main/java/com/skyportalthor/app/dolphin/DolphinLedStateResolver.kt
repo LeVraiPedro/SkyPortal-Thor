@@ -11,7 +11,8 @@ import com.skyportalthor.app.portal.led.PortalLedUpdateDisposition
 internal data class DolphinLedStateResolution(
     val state: PortalLedState?,
     val warnings: List<String> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val fresh: Boolean = false
 )
 
 /**
@@ -59,7 +60,8 @@ internal object DolphinLedStateResolver {
                     PortalLedUpdateDisposition.ADVANCED,
                     PortalLedUpdateDisposition.DUPLICATE -> DolphinLedStateResolution(
                         state = reduction.state,
-                        warnings = parsed.warnings
+                        warnings = parsed.warnings,
+                        fresh = true
                     )
 
                     PortalLedUpdateDisposition.STALE -> DolphinLedStateResolution(

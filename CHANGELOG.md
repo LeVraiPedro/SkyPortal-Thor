@@ -2,7 +2,24 @@
 
 ## V6 — développement non publié
 
-### Reprise du menu Dolphin — validation ciblée achevée, revue attendue
+### Bifrost — intégration en cours, non publiée
+
+- Synchronisation opt-in des joysticks via l’API externe locale de Bifrost 1.3.1,
+  couleurs gauche/droite Dolphin API 4, luminosité réglable et cadence maximale
+  de deux DISPLAY par seconde ; aucun changement Dolphin ni accès direct aux LED.
+- Heartbeat borné et restitution demandée à la sortie, en veille ou si le portail
+  n’est plus fiable. Aucune écriture de profil Bifrost ; fonctionnement sans Bifrost.
+- Les accusés de réception ne sont pas présentés comme une preuve matérielle ;
+  seules les versions dont le bail a été audité sont autorisées. Voir
+  [le contrat et les limites](docs/V6_BIFROST.md).
+- Fiche d’actions et confirmation backup invalidées quand leur montage disparaît
+  ou change ; maintien de l’opération backup après son propre retrait sécurisé.
+- Bouton « Bifrost en haut » : lancement direct sur l’écran principal pour éviter
+  la relance puis fermeture de Bifrost 1.3.1 depuis l’écran inférieur. Aucun changement
+  du service LED ni du Dolphin installé ; validation du binaire dans le suivi.
+- Essais de cette branche suivis dans `docs/PROJECT_STATUS.md`, distincts de #14.
+
+### Reprise du menu Dolphin — PR #14 fusionnée le 5 septembre 2026
 
 - Deux crashs natifs du Dolphin préexistant ont interrompu le parcours Thor du
   5 septembre 2026 : les requêtes du menu Wii tentaient de créer un noyau IOS
@@ -40,7 +57,7 @@
   sa réexécution sur un arbre déjà API 4 n’est pas prise en charge, comme le
   documente [le suivi de reprise](docs/PROJECT_STATUS.md).
 
-### Composition du portail — PR #14 revalidée sur Thor, non fusionnée
+### Composition du portail — PR #14 revalidée sur Thor et fusionnée
 
 - Séparation du panneau en une zone supérieure d’état/actions, une zone centrale pour le Canvas et une bande RGB inférieure.
 - Conservation des commandes Équipes et Diagnostic et des repères gauche/droite avec leurs valeurs RGB.

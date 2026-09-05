@@ -1,5 +1,117 @@
 # Validation sur AYN Thor / Android 13
 
+## V6.0 Bifrost — chantier autorisé après fusion de #14
+
+La validation de #14 ci-dessous est historique. La nouvelle intégration doit
+être validée avec son propre APK signé, sans remplacer Dolphin API 4.
+
+- [x] Bifrost officiel 1.3.1/code 16 audité ; APK signé et SHA-256 vérifiés.
+- [x] Installation autorisée sur Thor, sans remplacement Dolphin ni effacement.
+- [x] Test isolé Bifrost : preset temporaire STATIC bleu gauche / rouge droite,
+  Default préservé, service foreground confirmé et conservé derrière Dolphin.
+  L’utilisateur a confirmé physiquement ces couleurs ; seule la baseline Bifrost
+  est validée, pas la synchronisation SkyPortal ni la restitution.
+- [x] Candidat `3be0796` / run `33971500140` signé officiellement, vérifié,
+  installé par mise à jour ; APK réextrait identique. CI et 157 tests réussis.
+- [x] Parcours **hors jeu** : écran 4, portail sans chevauchement, LED OFF/35 %,
+  Binder/API4, droits SAF et 32 fichiers ; modes 1J/2J/1J et sélecteur J2.
+  Les cases en jeu ci-dessous restent ouvertes.
+- [x] Reprise 5 septembre 20:21–20:24 : SSA `SSPP52`, API 4 / `RUNNING`, USB prêt,
+  16 slots libres ; option ON/35 %, accusé receiver dans dialogue et diagnostic.
+  Aucun dump chargé ; SSA attendait encore « Appuie sur A » au dernier contrôle.
+- [x] Cadence observée : 47 DISPLAY Android, 46 intervalles de 504 à 516 ms,
+  moyenne 506,46 ms ; override Bifrost actif, sans expiration relevée.
+  Cela ne mesure ni les couleurs physiques ni leur fréquence de rendu.
+- [x] Logcat limité à 20:21–20:23:10 : aucun crash, ANR, `SecurityException`,
+  `DeadObjectException` ou échec de transaction LED relevé.
+- [x] Parcours en partie 20:46–20:51 : Lightning Rod chargé, remplacé par Sonic Boom,
+  puis retrait ; apparitions et retrait confirmés dans SSA, 16 slots libres à la fin.
+- [x] Arrêt forcé / relance SkyPortal avec Sonic Boom monté : même Dolphin vivant,
+  même slot unique `#0 (1/0)`, reprise du flux LED sans second chargement demandé.
+- [x] Watchdog Bifrost après arrêt forcé, puis CLEAR explicite après OFF observés
+  séparément ; retour Android `resultCode=0`, aucune émission DISPLAY après OFF
+  dans l’historique contrôlé. Ce ne sont pas des confirmations physiques.
+- [x] Logcat 20:46–20:51 : aucune erreur critique recherchée ; avertissements Android
+  de fermeture de canaux d’entrée conservés dans le rapport, sans crash.
+- [x] Couleurs physiques pilotées par SkyPortal puis restitution bleu gauche /
+  rouge droite après OFF confirmées explicitement par l’utilisateur le 5 septembre,
+  sur `3be0796`. Preuve distincte de la baseline isolée et des accusés receiver.
+- [ ] Variation de luminosité au curseur et absence de clignotement parasite observées.
+- [x] Contrôle tiers désactivé : refus explicite sur `3be0796`, temporisation
+  observée d’environ 5 s, puis réception reprise après restauration de l’autorisation.
+- [x] `3be0796`, 21:06–21:16 : commandes conservées avec focus du jeu ; CLEAR
+  logiciel après accueil côté Dolphin, masquage réel du compagnon (`STOPPED`)
+  et veille des deux écrans. Reprise au retour ; résultat physique encore distinct.
+- [x] Arrêt Bifrost : service absent, compagnon utilisable, chargement Whirlwind
+  confirmé en slot natif `#0 (0/0)`, aucun faux état matériel. Relance du service
+  par l’interface puis reprise des commandes. Apparition en jeu non validée :
+  télécommande Wii déconnectée après veille, intervention utilisateur demandée.
+- [ ] Heartbeat 2 Hz sans rafale ; réponse du receiver distinguée du résultat physique.
+- [ ] Retour accueil, écran éteint et arrêt du compagnon : restitution Bifrost observée.
+- [ ] Mort Dolphin et reconnexion : fin puis reprise du flux, sans doublon de figurine.
+- [ ] Service Bifrost arrêté : le compagnon reste utilisable, aucun faux état physique.
+- [ ] J2 et autres régressions complètes du portail sur ce candidat ; J1 couvert ci-dessus.
+- [ ] Fiche d’actions ouverte puis mort Dolphin : aucune ancienne action disponible.
+- [ ] Backup normal terminé après son propre retrait, sans écriture de fichier monté.
+- [ ] Absence de crash/ANR et d’erreur Binder/SAF dans la fenêtre Logcat examinée.
+
+Point d’arrêt à 21:16 : Whirlwind seul en slot natif `#0 (0/0)`, synchronisation
+OFF/35 %, Binder/API 4 et SAF valides. Jeu bloqué par la commande Wii déconnectée.
+Preset temporaire Bifrost actif, contrôle tiers rétabli, Default intact.
+Couleurs synchronisées et restitution après OFF confirmées sur `3be0796`.
+
+- [x] Correctif `159dbe0` : 157 tests locaux, Lint zéro erreur/17 avertissements,
+  Debug, licence et CI réussis. Run signé `33986789250`, certificat officiel commun
+  et sommes vérifiés ; seul SkyPortal mis à jour, APK réextrait identique.
+- [x] `159dbe0` sur Thor, 21:25–21:27 : bouton Bifrost testé deux fois sur `0`,
+  compagnon maintenu sur `4`, Whirlwind retrouvé dans le seul slot `#0 (0/0)`,
+  32 fichiers et réglages conservés. Réception/restitution logicielle/reprise
+  avec le bouton vérifiées ; OFF final, Logcat du parcours sans erreur recherchée.
+
+Point d’arrêt actualisé : compagnon `159dbe0` installé, état précédent conservé,
+commande Wii toujours à réactiver. La preuve physique sur `3be0796` reste attachée
+à ce binaire ; les autres restitutions physiques et cas restants ne sont pas cochés.
+
+### Reprise `159dbe0` — 5 septembre, 21:46–21:59
+
+Cette section actualise le point d’arrêt précédent sans réattribuer les essais
+anciens. APK installé inchangé, SHA-256 relu ; aucun build ni mise à jour d’APK ici.
+
+- [x] Retour de Whirlwind visible en partie après intervention utilisateur.
+- [x] J2 dans le compagnon : Lightning Rod chargé, remplacé par Sonic Boom,
+  natifs `#0 (0/0)` / `#1 (1/0)`, retrait J2 puis Whirlwind seul visible en jeu.
+- [ ] Coopération réelle à deux commandes : partie restée solo, message « trop de
+  jouets » avec deux personnages. Ne pas confondre avec le test de slots réussi.
+- [x] Backup annulé : montage conservé, aucun fichier ajouté. Backup confirmé :
+  retrait, fermeture de fiche et copie unique, aucun rechargement automatique ;
+  source démontée et copie de 1 024 octets avec SHA-256 identiques. Copie conservée.
+- [x] Rescan via diagnostic : 32 fichiers, backup exclu ; slots natifs libres
+  après les retraits du parcours. Warnado brièvement chargé pendant navigation,
+  retiré normalement, sans apparition en jeu revendiquée.
+- [x] Confirmation Backup ouverte puis mort Dolphin : fermeture automatique,
+  slots vidés, aucune copie supplémentaire ni ancienne action disponible.
+- [x] Mort Dolphin : CLEAR accepté et retour logiciel STATIC Bifrost ; service
+  automatiquement reconnecté, état « Aucun jeu », sans faux prêt.
+- [x] Relance réelle SSA : API 4, `SSPP52 / RUNNING`, USB confirmé, aucun ancien
+  montage restauré ; flux Bifrost repris. Écran titre, pas nouvelle partie jouée.
+- [x] Whirlwind chargé après relance ; compagnon forcé à l’arrêt puis relancé :
+  Dolphin vivant, unique natif `#0 (0/0)`, aucun deuxième chargement demandé,
+  mode solo, SAF, collection et option ON/35 % conservés. OFF final.
+- [x] Watchdog et OFF confirmés logiciellement ; échantillon final de 47 DISPLAY,
+  intervalles 504–521 ms, puis aucun DISPLAY après CLEAR. Pas de preuve physique.
+- [x] Logcat du parcours : 8 464 lignes, aucun crash/ANR, erreur Binder/permission,
+  retrait incertain ou backup échoué recherché ; avertissements non fatals conservés.
+- [x] Restitution physique après arrêt volontaire Dolphin à 21:53:47, sur
+  `159dbe0` : retour bleu gauche / rouge droite confirmé explicitement par
+  l’utilisateur le 5 septembre (consigné à 22:13). Aucun autre chemin déduit.
+- [ ] Cause du retour du message Wii déconnectée vers 21:50 identifiée ; pas de
+  causalité établie avec Bifrost ou le backup.
+
+État à 21:59 : SSA sur l’écran titre, Whirlwind seul en J1, SkyPortal OFF/35 %,
+écrans `0`/`4` respectés, Bifrost temporaire actif et Default intact. Suite :
+observation physique après veille/arrêt du compagnon et variation de luminosité ;
+arrêt Dolphin désormais confirmé. Aucune fusion autorisée.
+
 ## Reprise V6 / PR #14 — 5 septembre 2026
 
 Le [suivi courant](docs/PROJECT_STATUS.md) identifie commits, APK, certificat et
