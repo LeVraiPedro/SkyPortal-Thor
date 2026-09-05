@@ -100,6 +100,14 @@ class BifrostSession(private val transport: BifrostTransport) {
                 clearLocked()
                 return@withLock
             }
+            // Package discovery also uses Binder: do not poll it on every UI tick.
+            // Cleanup above remains immediate even during a rejection backoff.
+            if (lastRejectedAtMs?.let { now - it < REJECTION_BACKOFF_MS } == true) {
+                return@withLock
+            }
+            if (lastDisplayAtMs?.let { now - it < HEARTBEAT_INTERVAL_MS } == true) {
+                return@withLock
+            }
 
             val available = try {
                 transport.availability()
@@ -109,6 +117,7 @@ class BifrostSession(private val transport: BifrostTransport) {
                 BifrostAvailability.UNAVAILABLE
             }
             if (available != BifrostAvailability.AVAILABLE) {
+                lastRejectedAtMs = now
                 // Best effort relinquishment, once, if a previous call may have landed.
                 clearLocked()
                 mutableStatus.value = when (available) {
@@ -123,12 +132,6 @@ class BifrostSession(private val transport: BifrostTransport) {
                         BifrostSessionState.UNAVAILABLE, "Bifrost est indisponible."
                     )
                 }
-                return@withLock
-            }
-            if (lastRejectedAtMs?.let { now - it < REJECTION_BACKOFF_MS } == true) {
-                return@withLock
-            }
-            if (lastDisplayAtMs?.let { now - it < HEARTBEAT_INTERVAL_MS } == true) {
                 return@withLock
             }
 

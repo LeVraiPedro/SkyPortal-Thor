@@ -56,6 +56,33 @@ class BifrostSessionTest {
     }
 
     @Test
+    fun rapidTicksOnlyDiscoverAvailableBifrostTwicePerSecond() = runBlocking {
+        val transport = FakeTransport()
+        val session = BifrostSession(transport)
+        for (now in 0L..1_900L step 100L) session.tick(frame, now)
+        assertEquals(4, transport.availabilityCalls)
+        assertEquals(4, transport.frames.size)
+    }
+
+    @Test
+    fun absentBifrostIsDiscoveredEveryFiveSecondsAndCanAppearLater() = runBlocking {
+        val transport = FakeTransport().apply { availabilityValue = BifrostAvailability.NOT_INSTALLED }
+        val session = BifrostSession(transport)
+        for (now in 0L..4_900L step 100L) session.tick(frame, now)
+        assertEquals(1, transport.availabilityCalls)
+        session.tick(frame, 5_000)
+        assertEquals(2, transport.availabilityCalls)
+        transport.availabilityValue = BifrostAvailability.AVAILABLE
+        for (now in 5_100L..9_900L step 100L) session.tick(frame, now)
+        assertEquals(2, transport.availabilityCalls)
+        assertTrue(transport.frames.isEmpty())
+        session.tick(frame, 10_000)
+        assertEquals(3, transport.availabilityCalls)
+        assertEquals(1, transport.frames.size)
+        assertEquals(BifrostSessionState.ACCEPTED_UNCONFIRMED, session.status.value.state)
+    }
+
+    @Test
     fun changedFrameUsesNewestColorsWithoutBurstOrCatchUp() = runBlocking {
         val transport = FakeTransport()
         val session = BifrostSession(transport)
@@ -77,6 +104,7 @@ class BifrostSessionTest {
             session.tick(frame, 499)
             session.tick(frame, 4_999)
             assertEquals(1, transport.frames.size)
+            assertEquals(1, transport.availabilityCalls)
             session.tick(null, 4_999)
             assertEquals(1, transport.clears)
             session.tick(frame, 5_000)
@@ -115,19 +143,41 @@ class BifrostSessionTest {
     }
 
     @Test
-    fun disappearanceIsDetectedEvenBetweenHeartbeatsAndReleasesOnlyOnce() = runBlocking {
+    fun disappearanceIsDetectedAtNextHeartbeatAndReleasesOnlyOnce() = runBlocking {
         val transport = FakeTransport()
         val session = BifrostSession(transport)
         session.tick(frame, 0)
         transport.availabilityValue = BifrostAvailability.NOT_INSTALLED
         session.tick(frame, 1)
-        session.tick(frame, 2)
+        assertEquals(1, transport.availabilityCalls)
+        assertEquals(0, transport.clears)
+        session.tick(frame, 500)
+        session.tick(frame, 501)
         assertEquals(1, transport.frames.size)
+        assertEquals(2, transport.availabilityCalls)
         assertEquals(1, transport.clears)
         assertEquals(BifrostSessionState.NOT_INSTALLED, session.status.value.state)
         transport.availabilityValue = BifrostAvailability.AVAILABLE
-        session.tick(frame, 500)
+        session.tick(frame, 5_499)
+        assertEquals(1, transport.frames.size)
+        session.tick(frame, 5_500)
         assertEquals(2, transport.frames.size)
+    }
+
+    @Test
+    fun explicitReleaseBypassesRejectionBackoffWithoutRediscovery() = runBlocking {
+        val transport = FakeTransport().apply { displayReply = BifrostReply.CONTROL_DISABLED }
+        val session = BifrostSession(transport)
+        session.tick(frame, 0)
+        session.tick(frame, 100)
+        session.release()
+        assertEquals(1, transport.clears)
+        assertEquals(1, transport.availabilityCalls)
+        session.tick(frame, 200)
+        session.tick(null, 300)
+        session.release()
+        assertEquals(1, transport.clears)
+        assertEquals(1, transport.availabilityCalls)
     }
 
     @Test
@@ -253,8 +303,10 @@ class BifrostSessionTest {
         var beforeDisplay: suspend () -> Unit = {}
         val frames = mutableListOf<LedOutputFrame>()
         var clears = 0
+        var availabilityCalls = 0
 
         override fun availability(): BifrostAvailability {
+            availabilityCalls++
             availabilityFailure?.let { throw it }
             return availabilityValue
         }
