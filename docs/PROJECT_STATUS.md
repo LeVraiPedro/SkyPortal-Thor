@@ -792,11 +792,105 @@ Default intact. Pas de suppression, de nouvelle version, de tag ou de publicatio
 La PR #15 reste ouverte en brouillon ; les documents actualisés ne modifient pas
 l’arbre app de ce candidat. Les captures, journaux et copies d’APK restent privés.
 
+### Reprise en partie et protections — 5 septembre, 21:46–21:59 Paris
+
+Réponse utilisateur « c’est bon » après réactivation de la commande Wii. Branche
+`agent/v6-bifrost-integration`, HEAD de reprise `817ab54`, arbre app toujours
+`28c05b248618f085b236578647ef368b8dc0a9bb` (code `159dbe0`). Le SHA-256 de l’APK
+installé a été relu sur l’appareil : `b26ac927…04d1fb`, identique au candidat signé
+décrit ci-dessus. Aucun APK reconstruit ni installé dans ce parcours. ADB autorisé,
+deux écrans ON, batterie 60 % au départ ; CI documentaires `33987501892` et
+`33987499937` de `817ab54` réussies. Les tests JVM/Lint/build précédents n’ont pas
+été présentés comme réexécutés pendant ce parcours matériel.
+
+**Partie et J2 :**
+
+- Whirlwind est réellement visible dans SSA au départ, compagnon sur `4`, jeu
+  sur `0`. Cela lève l’attente d’apparition de Whirlwind du parcours précédent.
+- Synchronisation ON/35 %, activation J2 dans SkyPortal. Lightning Rod chargé
+  dans J2, remplacé par Sonic Boom : diagnostic montrant exactement
+  `#0 (0/0)` pour Whirlwind et `#1 (1/0)` pour Sonic Boom.
+- La partie restée en solo affiche « Il y a trop de jouets sur le Portal of
+  Power ». Retrait J2 réussi ; Whirlwind redevient visible dans la partie.
+  Retour au mode solo. Ces essais valident les opérations du second emplacement,
+  **pas une partie coopérative à deux commandes**.
+
+**Backup sécurisé :**
+
+- Confirmation annonçant le retrait préalable et l’absence de rechargement
+  automatique. Annulation : Whirlwind reste monté, liste des backups inchangée.
+- Confirmation suivante validée une seule fois : copie créée à 21:50:46, fiche
+  fermée après son propre retrait, J1 vide. Un seul nouveau fichier dans
+  `99_Backups/SkyPortal/Whirlwind`, conservé sur la console.
+- Source démontée et copie : 1 024 octets chacune, SHA-256 identiques. Comparaison
+  effectuée en lecture seule après retrait, puis encore identique après la mort
+  Dolphin décrite ci-dessous. Les empreintes de données utilisateur restent privées.
+- Rescan demandé depuis le diagnostic : 32 fichiers, backup exclu de la collection.
+  Les 16 slots natifs sont ensuite constatés libres. Pendant la navigation entre
+  ces vérifications, un tap sur le sélecteur a aussi chargé Warnado ; il a été
+  retiré normalement dès constat, sans validation en jeu revendiquée.
+- Le message de commande Wii déconnectée est réapparu au contrôle visuel suivant
+  le backup. Il n’est donc pas possible d’affirmer, pour ce retrait, avoir observé
+  le message du jeu demandant une figurine. La cause de cette déconnexion n’est
+  pas établie ; ne pas l’attribuer au backup ni à Bifrost sans preuve.
+- Inspection du code en complément : copie de la source read-only, mutex couvrant
+  réconciliation/retrait/copie, retrait confirmé côté Dolphin après fermeture du
+  fichier. L’égalité des fichiers ne remplace pas une instrumentation des écritures.
+
+**Mort Dolphin avec confirmation Backup ouverte :**
+
+- Whirlwind rechargé, confirmation ouverte mais non validée. Arrêt forcé de
+  Dolphin à 21:53:47 : ancien processus mort, nouveau processus créé pour
+  `SkyPortalService` à 21:53:47.821 par la reconnexion automatique.
+- Confirmation et fiche fermées sans action utilisateur ; J1 vide. Après
+  initialisation, l’en-tête dit « Aucun jeu », sans ancien état prêt. Aucun nouveau
+  backup, liste de fichiers inchangée. Le redémarrage du service n’est pas décrit
+  comme un redémarrage du jeu.
+- Dernier DISPLAY à 21:53:47.365 ; CLEAR à 21:53:47.470, accepté (8 ms).
+  Aucun DISPLAY postérieur dans la fenêtre avant relance du jeu. Bifrost revient
+  à son animation STATIC et indique l’override externe inactif : **preuve
+  logicielle**, observation physique demandée à l’utilisateur, non encore reçue.
+- Relance manuelle de SSA depuis la bibliothèque Dolphin sur `0`. Un avertissement
+  de certificat SSL Wii absent est ignoré pour cette session seulement ; aucune
+  configuration réseau ni donnée NAND modifiée. Le jeu démarre, API 4 /
+  `SSPP52 / RUNNING`, USB présent/attaché/protocole, 16 slots libres et commandes
+  Bifrost reprises. Aucun ancien montage ressuscité.
+- Whirlwind chargé une seule fois après relance. Arrêt forcé du compagnon à
+  21:57:56 puis relance par son lanceur : Dolphin reste vivant, Whirlwind retrouvé
+  dans le seul slot `#0 (0/0)`, sans deuxième chargement demandé. L’option ON/35 %,
+  le mode solo, les 32 fichiers et les permissions SAF sont conservés.
+- Le jeu relancé attend « Appuie sur A » au dernier contrôle supérieur : le
+  montage après redémarrage est confirmé nativement, pas par une nouvelle
+  apparition dans la partie. Synchronisation remise OFF/35 % à la fin.
+- Watchdog après arrêt du compagnon : expiration observée à 21:57:58.251,
+  STATIC repris à 21:57:58.528, puis override actif après relance. OFF final :
+  CLEAR à 21:59:03.771, accepté (2 ms), aucun DISPLAY postérieur dans l’historique.
+  L’échantillon final contient 47 DISPLAY consécutifs, tous acceptés ;
+  46 intervalles de 504 à 521 ms, moyenne 507,304 ms. Ce n’est ni une mesure du
+  rendu matériel ni une confirmation physique de restitution.
+
+**Logcat final :** 8 464 lignes, 21:46:01.821–21:59:04.978, aucun crash Java/natif,
+ANR, `SecurityException`, `DeadObjectException`, erreur bridge, retrait incertain
+ou backup échoué recherché. Avertissements non fatals conservés : OpenGL,
+callbacks Retour, canaux de fenêtres et descripteurs détachés. Deux audits SELinux
+de luminosité en mode permissif ne prouvent ni un refus appliqué ni l’effet physique.
+Le journal ne fournit pas de cause directe de la déconnexion Wii ; une suspension
+du gyroscope proche dans le temps ne suffit pas à établir cette causalité.
+
+**État laissé à 21:59 :** SkyPortal `159dbe0` sur `4`, Dolphin API 4 sur `0`,
+SSA à son écran titre, Whirlwind seul monté en J1 ; synchronisation OFF/35 %.
+Bifrost reste actif sur le preset temporaire, Default intact. Un backup cohérent
+supplémentaire conservé ; aucun fichier existant supprimé ni écrasé par SkyPortal.
+Pas de nouvelle version, clé, tag, release ou fusion. Les captures tierces et
+journaux restent privés ; PR #15 toujours en brouillon.
+
 ## Prochaine action et conditions de validation du nouveau chantier
 
-**Prochaine action : réactiver la commande Wii dans la partie existante**, puis
-reprendre J2, mort/reprise Dolphin, fiches d’actions, backup sécurisé et les
-restitutions physiques après interruptions encore non confirmées.
+**Prochaine action : terminer l’observation physique guidée des LED sur `159dbe0`**
+(luminosité et restitution après interruptions). La partie devra être reprise
+depuis l’écran titre ; la déconnexion Wii récurrente reste une anomalie à isoler.
+J2 coopératif et les autres restitutions physiques ne sont pas déclarés validés
+par les contrôles logiciels réussis ci-dessus.
 La validation doit associer tests déterministes et observation
 réelle des LED, vérifier le mode sans Bifrost et les libérations de contrôle,
 puis documenter les limites de restauration du service tiers. Aucun résultat

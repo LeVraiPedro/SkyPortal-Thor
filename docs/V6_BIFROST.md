@@ -214,6 +214,15 @@ logicielle/reprise vérifiés. Les couleurs physiques ne sont pas automatiquemen
 revalidées pour ce nouveau binaire ; la commande Wii déconnectée limite les essais
 en jeu. Provenance et empreintes complètes dans le suivi.
 
+Parcours supplémentaire sur ce même `159dbe0`, 21:46–21:59 : Whirlwind visible
+en partie, opérations J2 confirmées nativement (pas de coop à deux commandes),
+backup après retrait comparé read-only, invalidation de sa confirmation à la mort
+Dolphin, reconnexion du service puis relance SSA, et recréation du compagnon sans
+doublon. CLEAR après mort Dolphin est accepté et Bifrost reprend STATIC ; son
+résultat physique reste en attente d’observation. Aucun APK modifié pour ces essais.
+Le message Wii déconnectée a réapparu pendant le parcours ; sa cause reste inconnue.
+Le jeu relancé est laissé au titre, Whirlwind monté et synchronisation OFF/35 %.
+
 ### Contrôles sur AYN Thor
 
 - [x] Contrôles limités hors jeu sur ce candidat : UI inférieure, OFF/35 %,

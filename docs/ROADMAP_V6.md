@@ -74,8 +74,12 @@ provenances figurent dans le suivi.
 Le candidat `159dbe0` remplace ensuite `3be0796` sur la Thor : correction ciblée
 du bouton « Bifrost en haut », contrôles locaux/CI réussis, APK officiel du run
 `33986789250` installé et bouton revalidé. Le moteur LED et Dolphin sont inchangés.
-Les preuves physiques précédentes restent attachées à leur candidat ; suite des
-tests en partie en attente de réactivation de la commande Wii après veille.
+Les preuves physiques précédentes restent attachées à leur candidat. Le parcours
+suivant (21:46–21:59) ajoute Whirlwind visible en partie, les opérations du slot J2
+(sans coop à deux commandes), backup sécurisé vérifié et reconnexions Dolphin /
+compagnon. La restitution physique après interruptions reste à observer ; un
+nouveau message Wii déconnectée a été constaté, sans cause établie. Détails et
+point d’arrêt dans le suivi, PR #15 toujours en brouillon.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
 

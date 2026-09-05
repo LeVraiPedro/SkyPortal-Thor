@@ -72,6 +72,43 @@ Point d’arrêt actualisé : compagnon `159dbe0` installé, état précédent c
 commande Wii toujours à réactiver. La preuve physique sur `3be0796` reste attachée
 à ce binaire ; les autres restitutions physiques et cas restants ne sont pas cochés.
 
+### Reprise `159dbe0` — 5 septembre, 21:46–21:59
+
+Cette section actualise le point d’arrêt précédent sans réattribuer les essais
+anciens. APK installé inchangé, SHA-256 relu ; aucun build ni mise à jour d’APK ici.
+
+- [x] Retour de Whirlwind visible en partie après intervention utilisateur.
+- [x] J2 dans le compagnon : Lightning Rod chargé, remplacé par Sonic Boom,
+  natifs `#0 (0/0)` / `#1 (1/0)`, retrait J2 puis Whirlwind seul visible en jeu.
+- [ ] Coopération réelle à deux commandes : partie restée solo, message « trop de
+  jouets » avec deux personnages. Ne pas confondre avec le test de slots réussi.
+- [x] Backup annulé : montage conservé, aucun fichier ajouté. Backup confirmé :
+  retrait, fermeture de fiche et copie unique, aucun rechargement automatique ;
+  source démontée et copie de 1 024 octets avec SHA-256 identiques. Copie conservée.
+- [x] Rescan via diagnostic : 32 fichiers, backup exclu ; slots natifs libres
+  après les retraits du parcours. Warnado brièvement chargé pendant navigation,
+  retiré normalement, sans apparition en jeu revendiquée.
+- [x] Confirmation Backup ouverte puis mort Dolphin : fermeture automatique,
+  slots vidés, aucune copie supplémentaire ni ancienne action disponible.
+- [x] Mort Dolphin : CLEAR accepté et retour logiciel STATIC Bifrost ; service
+  automatiquement reconnecté, état « Aucun jeu », sans faux prêt.
+- [x] Relance réelle SSA : API 4, `SSPP52 / RUNNING`, USB confirmé, aucun ancien
+  montage restauré ; flux Bifrost repris. Écran titre, pas nouvelle partie jouée.
+- [x] Whirlwind chargé après relance ; compagnon forcé à l’arrêt puis relancé :
+  Dolphin vivant, unique natif `#0 (0/0)`, aucun deuxième chargement demandé,
+  mode solo, SAF, collection et option ON/35 % conservés. OFF final.
+- [x] Watchdog et OFF confirmés logiciellement ; échantillon final de 47 DISPLAY,
+  intervalles 504–521 ms, puis aucun DISPLAY après CLEAR. Pas de preuve physique.
+- [x] Logcat du parcours : 8 464 lignes, aucun crash/ANR, erreur Binder/permission,
+  retrait incertain ou backup échoué recherché ; avertissements non fatals conservés.
+- [ ] Restitution physique après mort Dolphin : question posée, réponse attendue.
+- [ ] Cause du retour du message Wii déconnectée vers 21:50 identifiée ; pas de
+  causalité établie avec Bifrost ou le backup.
+
+État à 21:59 : SSA sur l’écran titre, Whirlwind seul en J1, SkyPortal OFF/35 %,
+écrans `0`/`4` respectés, Bifrost temporaire actif et Default intact. Suite :
+observation physique des restitutions et de la luminosité ; aucune fusion autorisée.
+
 ## Reprise V6 / PR #14 — 5 septembre 2026
 
 Le [suivi courant](docs/PROJECT_STATUS.md) identifie commits, APK, certificat et
