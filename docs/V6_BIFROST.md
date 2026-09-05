@@ -30,9 +30,12 @@ autre version, même annonçant l’API 1, doit être réauditée avant activati
 le bail et la restauration dépendent du service, pas uniquement des constantes API.
 
 Au contrôle initial, Bifrost était absent de la Thor. L’APK officiel a depuis été
-installé après vérification et autorisation ; le guide initial est visible, mais
-la configuration du service et du contrôle tiers attend confirmation utilisateur.
-L’intégration SkyPortal est présente en branche et les contrôles locaux ont réussi.
+installé après vérification et autorisation. L’utilisateur a confirmé les notifications
+et la configuration du contrôle tiers, également constaté activé sur capture ; le
+service reste absent. Il a été demandé de quitter le mode initial Ambient pour
+Static et de démarrer « Call Heimdall ». L’intégration SkyPortal est présente dans
+la [PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15), code
+`3be0796`, et les contrôles locaux ont réussi.
 Les essais des LED physiques et de restauration restent à faire ; ni l’installation
 de Bifrost ni un audit source ne constituent ces preuves.
 
@@ -81,7 +84,10 @@ Le protocole initial prévoit `DISPLAY` en `STATIC`, avec `until = EXPLICIT_CLEA
 et sans `durationMs`. SkyPortal renouvelle l’état toutes les **500 ms**, soit au
 plus **2 DISPLAY/s** ; les changements intermédiaires sont regroupés en conservant
 le plus récent. Une couleur inchangée doit encore produire ce heartbeat.
-Les rejets imposent une temporisation de 5 s. Le contrôleur suit un cycle de vie
+Les rejets imposent une temporisation de 5 s. La découverte PackageManager est
+effectuée seulement lorsqu’un tick peut émettre ; l’absence de Bifrost impose
+aussi 5 s avant une nouvelle recherche, sans découverte à chaque frame.
+Le contrôleur suit un cycle de vie
 au moins `STARTED`, l’état `isInteractive` et une fraîcheur du payload de 1 500 ms
 maximum ; les essais multi-écrans restent nécessaires pour valider ce comportement.
 
@@ -139,12 +145,21 @@ Les résultats, APK exacts, empreintes et limites sont consignés dans
 - [ ] `EXPLICIT_CLEAR` sans durée courte, libérations et annulation des tâches vérifiées.
 - [ ] Résultats corrélés, rejets, délais et exceptions sans faux succès matériel.
 - [ ] Aucune installation de profil, API matérielle directe, modification Dolphin ou écriture `.sky`.
-- [x] Contrôles de l’arbre de travail avant commit : 154 tests JVM réussis,
-  Lint zéro erreur / 17 avertissements, compilation Debug et licence réussies.
-- [ ] Construction et vérification de l’APK Release du commit candidat exact.
+- [x] Contrôles du code `3be0796` : 157 tests JVM réussis,
+  Lint zéro erreur / 17 avertissements, compilation Debug 33 s et licence 91 sources réussies.
+- [x] Construction et vérification du candidat Release `3be0796`, run `33971500140` ;
+  APK installé et réextrait identique, provenance et certificat dans le suivi.
+
+Le premier build signé `33971097637` sur `3d38933` a réussi sans installation.
+Le build `33971500140` sur `3be0796` a réussi et son APK exact est installé :
+contrôles hors jeu seulement à ce stade, LED physiques encore non validées.
+Aucun APK précédent ne valide le nouveau code.
 
 ### Contrôles sur AYN Thor
 
+- [x] Contrôles limités hors jeu sur ce candidat : UI inférieure, OFF/35 %,
+  Binder/API4, SAF, 32 fichiers et bascule 1J/2J/1J. Aucun résultat physique LED
+  ni chargement en jeu déduit de ce parcours.
 - [x] Préparation : provenance, version et signature Bifrost officielles vérifiées ;
   installation `adb install -r` réussie. Cela ne valide pas une commande LED.
 - [ ] Réglage utilisateur initial relevé ; aucune modification de preset/profil.

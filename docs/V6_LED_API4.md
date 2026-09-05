@@ -19,7 +19,11 @@ Jeu Skylanders
 → PortalLedState dans SkyPortal
 ```
 
-Le transport décrit ici alimente désormais le [portail animé Compose](V6_ANIMATED_PORTAL.md), intégré séparément dans la PR #12. Il n’envoie aucune commande à Bifrost.
+Le transport décrit ici alimente le [portail animé Compose](V6_ANIMATED_PORTAL.md),
+intégré séparément dans la PR #12. Il n’envoie pas lui-même de commande à Bifrost :
+la sortie facultative du compagnon, désormais développée dans la
+[PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15), consomme
+ce modèle sans modifier Dolphin. Voir le [contrat Bifrost](V6_BIFROST.md).
 
 ## État de validation
 
@@ -31,7 +35,13 @@ Le transport décrit ici alimente désormais le [portail animé Compose](V6_ANIM
 - cycle de vie Dolphin : menu avec figurine, sortie d’une session restaurée et reconnexion automatique après arrêt forcé contrôlés ; preuves et limites dans [PROJECT_STATUS.md](PROJECT_STATUS.md) ;
 - release stable publique : reste `v0.5.0`, Dolphin API 3.
 
-Les preuves historiques restent distinctes de la revalidation du 5 septembre. Elles ne valident ni les autres jeux, ni le canal Trap en jeu, ni chaque APK ultérieur. Les deux APK réellement utilisés et leur provenance sont identifiés dans le suivi : le compagnon produit par le workflow de paire Dolphin n’a pas été installé. La validation ciblée est achevée ; la PR #14 reste ouverte, avec revue et accord de fusion attendus.
+Les preuves historiques restent distinctes de la revalidation du 5 septembre.
+Elles ne valident ni les autres jeux, ni le canal Trap en jeu, ni chaque APK ultérieur.
+Les deux APK réellement utilisés et leur provenance sont identifiés dans le suivi :
+le compagnon produit par le workflow de paire Dolphin de cette campagne n’a pas
+été installé. La PR #14 a été fusionnée après autorisation explicite dans
+`12d23a1db1b0fb9214d4386072dcfc44c1858f2f`, avec CI de `main` réussie. La PR #15
+reste un chantier distinct, sans validation matérielle Bifrost revendiquée.
 
 ## Contrat AIDL
 
@@ -155,7 +165,12 @@ portalLedWarnings: List<String>
 portalLedError: String?
 ```
 
-Ces champs alimentent le portail animé V6 via `AnimatedPortalStateMapper`. Le rendu Trap est conditionné à la disponibilité du canal et à `GameFeature.TRAPS` du jeu actif : la présence d’un canal dans le JSON ne suffit pas. Bifrost reste une future sortie facultative du même modèle :
+Ces champs alimentent le portail animé V6 via `AnimatedPortalStateMapper`. Le rendu
+Trap est conditionné à la disponibilité du canal et à `GameFeature.TRAPS` du jeu
+actif : la présence d’un canal dans le JSON ne suffit pas. La PR #15 ajoute une
+sortie Bifrost facultative, désactivée par défaut, utilisant le même modèle avec
+un contrôle de fraîcheur de 1 500 ms maximum. Les séquences et couleurs observées
+dans Compose ne prouvent pas l’application aux LED physiques :
 
 ```text
 AnimatedPortal
@@ -192,10 +207,18 @@ Il couvre les trois zones, les doublons, l’alias gauche `0x04` et les transiti
 
 - le snapshot transporte la couleur cible, pas la durée de fondu des commandes `J` ;
 - Compose produit les transitions visuelles entre deux états ; la disposition corrigée a été contrôlée sur l’écran inférieur dans SSA, sans chevauchement ni canal Trap injustifié ;
-- Bifrost n’est pas encore déclaré ni contacté ;
-- aucune LED physique n’est encore modifiée ;
+- Bifrost est désormais déclaré et son transport est implémenté en branche dans
+  la PR #15, pas encore fusionné ; la provenance du candidat et les contrôles
+  locaux sont consignés dans le suivi ;
+- aucun résultat de commande sur les LED physiques ni de restauration Bifrost
+  n’est encore validé ; une réponse du receiver ne confirme pas le matériel ;
 - les essais matériels, historiques et du 5 septembre, restent limités à Spyro’s Adventure ; les autres jeux et le canal Trap n’ont pas été validés matériellement.
 
 ## Étape suivante
 
-Soumettre les preuves et limites de la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) à la revue puis attendre l’accord explicite de fusion. L’intégration Bifrost ne peut commencer qu’après clôture de cette étape et autorisation explicite distincte de l’utilisateur.
+La PR #14 est clôturée et l’intégration Bifrost a été autorisée séparément.
+La [PR #15](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15) reste en brouillon :
+terminer la préparation du service Bifrost et vérifier le candidat signé du dernier
+commit avant les tests matériels décrits dans [V6_BIFROST.md](V6_BIFROST.md).
+Les modes LED J1/J2 et priorité J1 restent à faire ; cette étape ne clôture pas
+V6.0. Le [suivi courant](PROJECT_STATUS.md) fait autorité sur les résultats récents.

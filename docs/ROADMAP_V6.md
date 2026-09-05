@@ -40,7 +40,7 @@ Dolphin LED API 4    ✓ fusionnée (PR #11), observée historiquement sur Thor/
 Portail animé       ✓ fusionné (PR #12), affichage observé historiquement sur Thor
 Activation/keepalive ✓ corrigée et validée historiquement sur Thor (PR #13)
 Composition Thor    ✓ revalidée puis fusionnée (PR #14), main 12d23a1
-Bifrost             en branche ; contrôles locaux réussis, essais LED en attente
+Bifrost             PR #15 en brouillon ; 157 tests réussis, essais LED en attente
 ```
 
 État courant du 5 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14), initialement ouverte en brouillon, a été fusionnée après autorisation dans `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`. La [CI de main](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33962044116) a réussi. Les preuves de cette étape et le nouveau point de reprise restent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md) ; ils ne valident pas automatiquement les modifications Bifrost.
@@ -54,11 +54,14 @@ figurent dans le suivi. Après fusion de #14, l’utilisateur a autorisé V6.0 B
 avec fiabilisation préalable. La branche `agent/v6-bifrost-integration` part de
 `12d23a1` ; l’audit du source officiel Bifrost 1.3.1 est terminé, sans fonctionnement
 Bifrost déclaré validé sur matériel. Absent au contrôle initial de la Thor, Bifrost
-officiel a depuis été installé après autorisation. Sa configuration initiale
-attend confirmation utilisateur. Le compagnon en branche inclut désormais le
+officiel a depuis été installé après autorisation. Les notifications et le contrôle
+tiers sont configurés ; le service reste absent, avec demande de passer en Static
+puis de le démarrer. Le compagnon dans la [PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15) inclut désormais le
 transport borné, la session 2 Hz, le contrôle de cycle de vie/fraîcheur, le réglage
 OFF / 35 %, le diagnostic et la protection de fiche d’actions périmée. Les
-contrôles locaux ont réussi ; installation du candidat et essais LED restent à faire.
+contrôles locaux ont réussi sur `3be0796` ; le candidat signé est installé et les
+contrôles hors jeu ont réussi. Les essais LED et les régressions en jeu restent
+à faire. Les builds et leurs provenances figurent dans le suivi.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
 
@@ -202,7 +205,7 @@ Cette étape a été explicitement autorisée après la clôture de la PR #14. L
 (Android minimum API 33). Toute autre version reste désactivée jusqu’à un nouvel
 audit. La fiabilisation préalable et l’intégration se poursuivent sur
 `agent/v6-bifrost-integration`. Le périmètre initial ci-dessous est implémenté dans
-l’arbre de travail et a passé les contrôles locaux, sans commande physique ni
+la branche et a passé les contrôles locaux, sans commande physique ni
 restauration d’éclairage revendiquée validée. Les modes LED J1/J2 et priorité J1
 ne sont pas ajoutés : V6.0 n’est pas déclarée achevée. Une fusion ou publication
 nécessitera son autorisation propre.
@@ -281,7 +284,7 @@ Le diagnostic doit afficher :
 - tests réels sur AYN Thor et contrôle Logcat.
 
 Les critères matériels restent à exécuter pour Bifrost. Les contrôles locaux sur
-l’arbre de travail ont réussi : 154 tests, Lint sans erreur bloquante, compilation
+le code `3be0796` ont réussi : 157 tests, Lint sans erreur bloquante, compilation
 Debug et licence. La checklist détaillée figure dans [`V6_BIFROST.md`](V6_BIFROST.md) ;
 les résultats et leur provenance restent dans le [suivi courant](PROJECT_STATUS.md).
 

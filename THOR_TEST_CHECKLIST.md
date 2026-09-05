@@ -7,6 +7,11 @@ La validation de #14 ci-dessous est historique. La nouvelle intégration doit
 
 - [x] Bifrost officiel 1.3.1/code 16 audité ; APK signé et SHA-256 vérifiés.
 - [x] Installation autorisée sur Thor, sans remplacement Dolphin ni effacement.
+- [x] Candidat `3be0796` / run `33971500140` signé officiellement, vérifié,
+  installé par mise à jour ; APK réextrait identique. CI et 157 tests réussis.
+- [x] Parcours **hors jeu** : écran 4, portail sans chevauchement, LED OFF/35 %,
+  Binder/API4, droits SAF et 32 fichiers ; modes 1J/2J/1J et sélecteur J2.
+  Les cases en jeu ci-dessous restent ouvertes.
 - [ ] Contrôle tiers désactivé : refus explicite, aucune prétention de succès matériel.
 - [ ] Couleurs réelles des joysticks gauche/droite et luminosité confirmées visuellement.
 - [ ] Heartbeat 2 Hz sans rafale ; réponse du receiver distinguée du résultat physique.
