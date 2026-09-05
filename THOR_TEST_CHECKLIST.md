@@ -101,13 +101,16 @@ anciens. APK installé inchangé, SHA-256 relu ; aucun build ni mise à jour d�
   intervalles 504–521 ms, puis aucun DISPLAY après CLEAR. Pas de preuve physique.
 - [x] Logcat du parcours : 8 464 lignes, aucun crash/ANR, erreur Binder/permission,
   retrait incertain ou backup échoué recherché ; avertissements non fatals conservés.
-- [ ] Restitution physique après mort Dolphin : question posée, réponse attendue.
+- [x] Restitution physique après arrêt volontaire Dolphin à 21:53:47, sur
+  `159dbe0` : retour bleu gauche / rouge droite confirmé explicitement par
+  l’utilisateur le 5 septembre (consigné à 22:13). Aucun autre chemin déduit.
 - [ ] Cause du retour du message Wii déconnectée vers 21:50 identifiée ; pas de
   causalité établie avec Bifrost ou le backup.
 
 État à 21:59 : SSA sur l’écran titre, Whirlwind seul en J1, SkyPortal OFF/35 %,
 écrans `0`/`4` respectés, Bifrost temporaire actif et Default intact. Suite :
-observation physique des restitutions et de la luminosité ; aucune fusion autorisée.
+observation physique après veille/arrêt du compagnon et variation de luminosité ;
+arrêt Dolphin désormais confirmé. Aucune fusion autorisée.
 
 ## Reprise V6 / PR #14 — 5 septembre 2026
 

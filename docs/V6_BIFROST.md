@@ -218,8 +218,10 @@ Parcours supplémentaire sur ce même `159dbe0`, 21:46–21:59 : Whirlwind visib
 en partie, opérations J2 confirmées nativement (pas de coop à deux commandes),
 backup après retrait comparé read-only, invalidation de sa confirmation à la mort
 Dolphin, reconnexion du service puis relance SSA, et recréation du compagnon sans
-doublon. CLEAR après mort Dolphin est accepté et Bifrost reprend STATIC ; son
-résultat physique reste en attente d’observation. Aucun APK modifié pour ces essais.
+doublon. CLEAR après mort Dolphin est accepté et Bifrost reprend STATIC. L’utilisateur
+a ensuite confirmé le retour physique bleu gauche / rouge droite après cet arrêt
+volontaire à 21:53:47 sur `159dbe0` (confirmation consignée le 5 septembre à 22:13).
+Les autres chemins de restitution restent distincts. Aucun APK modifié pour ces essais.
 Le message Wii déconnectée a réapparu pendant le parcours ; sa cause reste inconnue.
 Le jeu relancé est laissé au titre, Whirlwind monté et synchronisation OFF/35 %.
 
@@ -263,8 +265,11 @@ Le jeu relancé est laissé au titre, Whirlwind monté et synchronisation OFF/35
 - [ ] Contrôle conservé lorsque seul le focus passe à Dolphin sur l’écran supérieur.
 - [x] Après désactivation OFF : retour physique bleu gauche / rouge droite confirmé
   par l’utilisateur le 5 septembre sur `3be0796`, en complément du CLEAR observé.
-- [ ] `CLEAR` après sortie, veille et déconnexion ; réglage Bifrost retrouvé pour chacun
-  de ces chemins, indépendamment du résultat après OFF.
+- [x] Arrêt volontaire Dolphin à 21:53:47 sur `159dbe0` : retour physique bleu
+  gauche / rouge droite confirmé explicitement par l’utilisateur le 5 septembre,
+  en complément du CLEAR. Ne valide pas les autres causes de déconnexion.
+- [ ] `CLEAR` après sortie, veille et autres déconnexions ; réglage Bifrost retrouvé
+  pour chacun de ces chemins, indépendamment des résultats OFF et arrêt Dolphin.
 - [ ] Arrêt brutal SkyPortal : expiration du bail et restauration observées, Bifrost vivant.
 - [ ] Arrêt/reprise Bifrost : absence de crash SkyPortal, limites de restauration documentées.
 - [ ] Reprise après veille, reconnexion, fiches d’actions et J1/J2 vérifiés sans mapping périmé.

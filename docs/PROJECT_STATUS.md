@@ -849,7 +849,8 @@ deux écrans ON, batterie 60 % au départ ; CI documentaires `33987501892` et
 - Dernier DISPLAY à 21:53:47.365 ; CLEAR à 21:53:47.470, accepté (8 ms).
   Aucun DISPLAY postérieur dans la fenêtre avant relance du jeu. Bifrost revient
   à son animation STATIC et indique l’override externe inactif : **preuve
-  logicielle**, observation physique demandée à l’utilisateur, non encore reçue.
+  logicielle**, observation physique alors demandée à l’utilisateur ; confirmation
+  reçue ensuite, consignée ci-dessous.
 - Relance manuelle de SSA depuis la bibliothèque Dolphin sur `0`. Un avertissement
   de certificat SSL Wii absent est ignoré pour cette session seulement ; aucune
   configuration réseau ni donnée NAND modifiée. Le jeu démarre, API 4 /
@@ -884,10 +885,23 @@ supplémentaire conservé ; aucun fichier existant supprimé ni écrasé par Sky
 Pas de nouvelle version, clé, tag, release ou fusion. Les captures tierces et
 journaux restent privés ; PR #15 toujours en brouillon.
 
+### Confirmation utilisateur — consignée le 5 septembre à 22:13 Paris
+
+L’utilisateur répond « oui » à la question explicite portant sur le retour des
+joysticks au bleu à gauche et rouge à droite **lors de l’arrêt volontaire de
+Dolphin**. Cette observation physique valide la restitution du parcours
+`159dbe0` à 21:53:47, en complément du CLEAR et du retour STATIC enregistrés.
+Elle ne valide pas la veille, l’arrêt du compagnon/watchdog, la luminosité,
+la coopération J2 ou la résolution de la déconnexion Wii. Aucun nouveau test ADB,
+build, changement d’APK ou réglage matériel n’a été effectué pour consigner cette
+réponse. Les CI de `2af8dcc` ont été vérifiées réussies (`33988917950`, `33988915920`).
+La PR #15 reste ouverte en brouillon ; ce « oui » n’est pas une autorisation de fusion.
+
 ## Prochaine action et conditions de validation du nouveau chantier
 
 **Prochaine action : terminer l’observation physique guidée des LED sur `159dbe0`**
-(luminosité et restitution après interruptions). La partie devra être reprise
+(luminosité, veille et arrêt du compagnon ; arrêt Dolphin désormais confirmé).
+La partie devra être reprise
 depuis l’écran titre ; la déconnexion Wii récurrente reste une anomalie à isoler.
 J2 coopératif et les autres restitutions physiques ne sont pas déclarés validés
 par les contrôles logiciels réussis ci-dessus.

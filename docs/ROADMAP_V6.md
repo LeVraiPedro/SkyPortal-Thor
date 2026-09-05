@@ -40,8 +40,8 @@ Dolphin LED API 4    ✓ fusionnée (PR #11), observée historiquement sur Thor/
 Portail animé       ✓ fusionné (PR #12), affichage observé historiquement sur Thor
 Activation/keepalive ✓ corrigée et validée historiquement sur Thor (PR #13)
 Composition Thor    ✓ revalidée puis fusionnée (PR #14), main 12d23a1
-Bifrost             PR #15 brouillon ; couleurs synchronisées et restitution
-                    après OFF confirmées physiquement ; interruptions à valider
+Bifrost             PR #15 brouillon ; couleurs synchronisées, restitution OFF
+                    et arrêt Dolphin confirmées ; autres interruptions à valider
 ```
 
 État courant du 5 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14), initialement ouverte en brouillon, a été fusionnée après autorisation dans `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`. La [CI de main](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33962044116) a réussi. Les preuves de cette étape et le nouveau point de reprise restent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md) ; ils ne valident pas automatiquement les modifications Bifrost.
@@ -77,8 +77,10 @@ du bouton « Bifrost en haut », contrôles locaux/CI réussis, APK officiel du 
 Les preuves physiques précédentes restent attachées à leur candidat. Le parcours
 suivant (21:46–21:59) ajoute Whirlwind visible en partie, les opérations du slot J2
 (sans coop à deux commandes), backup sécurisé vérifié et reconnexions Dolphin /
-compagnon. La restitution physique après interruptions reste à observer ; un
-nouveau message Wii déconnectée a été constaté, sans cause établie. Détails et
+compagnon. Le retour physique bleu gauche / rouge droite après l’arrêt volontaire
+Dolphin à 21:53:47 sur `159dbe0` est ensuite confirmé par l’utilisateur le 5 septembre.
+Veille, arrêt du compagnon et luminosité restent à observer ; un nouveau message
+Wii déconnectée a été constaté, sans cause établie. Détails et
 point d’arrêt dans le suivi, PR #15 toujours en brouillon.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
@@ -226,7 +228,9 @@ audit. La fiabilisation préalable et l’intégration se poursuivent sur
 la branche et a passé les contrôles locaux. La baseline physique Bifrost, la
 réception des commandes SkyPortal, puis les couleurs physiques synchronisées et
 leur restitution après OFF ont leurs preuves distinctes sur le candidat `3be0796`.
-Les autres restitutions et la variation de luminosité restent à vérifier. Les modes LED J1/J2 et priorité J1
+Le retour après arrêt volontaire Dolphin a ensuite sa confirmation physique
+distincte sur `159dbe0`. Les autres restitutions et la variation de luminosité
+restent à vérifier. Les modes LED J1/J2 et priorité J1
 ne sont pas ajoutés : V6.0 n’est pas déclarée achevée. Une fusion ou publication
 nécessitera son autorisation propre.
 
@@ -304,8 +308,10 @@ Le diagnostic doit afficher :
 - tests réels sur AYN Thor et contrôle Logcat.
 
 Les couleurs synchronisées et le retour bleu gauche / rouge droite après OFF
-ont été confirmés physiquement par l’utilisateur le 5 septembre ; les autres
-critères matériels, notamment les restitutions après interruption, restent distincts.
+ont été confirmés physiquement par l’utilisateur le 5 septembre sur `3be0796` ;
+le retour après arrêt volontaire Dolphin est confirmé séparément sur `159dbe0`.
+Les autres critères matériels, notamment veille, arrêt du compagnon et luminosité,
+restent distincts et non validés par ces confirmations.
 Les contrôles locaux sur
 le code `3be0796` ont réussi : 157 tests, Lint sans erreur bloquante, compilation
 Debug et licence. La checklist détaillée figure dans [`V6_BIFROST.md`](V6_BIFROST.md) ;
