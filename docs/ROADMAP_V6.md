@@ -55,8 +55,8 @@ avec fiabilisation préalable. La branche `agent/v6-bifrost-integration` part de
 `12d23a1` ; l’audit du source officiel Bifrost 1.3.1 est terminé, sans fonctionnement
 Bifrost déclaré validé sur matériel. Absent au contrôle initial de la Thor, Bifrost
 officiel a depuis été installé après autorisation. Les notifications et le contrôle
-tiers sont configurés ; le service reste absent, avec demande de passer en Static
-puis de le démarrer. Le compagnon dans la [PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15) inclut désormais le
+tiers sont configurés ; le service est désormais actif pour un test STATIC isolé,
+Default préservé. Les couleurs physiques restent à confirmer. Le compagnon dans la [PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15) inclut désormais le
 transport borné, la session 2 Hz, le contrôle de cycle de vie/fraîcheur, le réglage
 OFF / 35 %, le diagnostic et la protection de fiche d’actions périmée. Les
 contrôles locaux ont réussi sur `3be0796` ; le candidat signé est installé et les

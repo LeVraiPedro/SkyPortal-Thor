@@ -5,8 +5,8 @@
 
 Ce document est le point de reprise courant. Le chantier autorisé est désormais
 V6.0 Bifrost, avec fiabilisation préalable et audit du contrat officiel terminé.
-Bifrost officiel est installé et le contrôle tiers autorisé ; son service reste
-à démarrer avant la validation matérielle de la nouvelle intégration. La campagne PR #14
+Bifrost officiel est installé, le contrôle tiers autorisé et son service démarré
+pour un test STATIC isolé ; l’observation physique reste en attente. La campagne PR #14
 ci-dessous est conservée comme historique ; elle ne valide pas les changements
 du nouveau chantier. Les rapports V5 et leurs cases de checklist restent également
 des preuves historiques.
@@ -489,10 +489,10 @@ officiel `1.3.1` a été installé avec `adb install -r` : `Success`, provenance
 certificat et hash conservés conformes à l’audit. Le guide de premier démarrage
 a été observé sur l’écran supérieur `0`, malgré une demande de lancement sur `4`.
 L’utilisateur a confirmé les notifications et la configuration du contrôle tiers ;
-une capture confirme « Allow third-party LED control » activé. Le service reste
-cependant absent : « Call Heimdall » est désactivé et le mode initial est Ambient.
-Il a été demandé de choisir Static puis de démarrer le service. Cela reste distinct
-d’une preuve de commande LED appliquée. Aucun profil n’a été installé par SkyPortal.
+une capture confirme « Allow third-party LED control » activé. À ce premier contrôle,
+le service était absent : « Call Heimdall » désactivé et mode initial Ambient.
+Le démarrage du test isolé est consigné ci-dessous ; il ne prouve pas une commande
+SkyPortal appliquée. Aucun profil n’a été installé par SkyPortal.
 
 L’implémentation a été commitée sur la branche : code initial `93c4e3b`, suivi et
 contrat `3d38933`, puis optimisation `3be07965921ee9205a22fdd06c06222fe400d76e` :
@@ -561,7 +561,7 @@ Observations réelles **hors jeu**, pas validation des LED physiques :
   `FATAL EXCEPTION`, signal fatal, ANR, `SecurityException` ou `DeadObjectException`
   trouvé. Cette fenêtre ne couvre pas un essai en jeu.
 
-État laissé : solo, tous les slots libres, synchronisation SkyPortal OFF à 35 %.
+État à la fin de ce premier parcours : solo, tous les slots libres, synchronisation SkyPortal OFF à 35 %.
 Bifrost a le contrôle tiers autorisé ; son service n’a pas encore été observé
 actif. L’utilisateur a été invité à choisir Static puis activer « Call Heimdall ».
 Captures et Logcat restent hors Git et hors des pièces jointes publiques.
@@ -573,10 +573,40 @@ J1 n’ont pas été ajoutés ; ce chantier n’est pas une clôture complète d
 La restauration après arrêt/crash Bifrost reste sans garantie.
 Les autres étapes V6.1–V6.4 restent des éléments de roadmap, sans démarrage implicite.
 
+### Test Bifrost isolé — 5 septembre, 16:59–17:02 Paris
+
+À la demande de l’utilisateur, le réglage et le démarrage ont été réalisés via
+l’interface Bifrost pilotée par ADB, sans réinstallation ni changement de code :
+
+- preset initial `Default` (Ambient / High) conservé ; création du seul preset
+  temporaire `SkyPortal-Test-Temp`, STATIC gauche `#0000FF`, droite `#FF0000`,
+  luminosité au curseur d’environ 35 % ;
+- `Call Heimdall` activé ; `APP MODE` reste OFF. Aucune autorisation
+  d’accessibilité, d’usage, de capture ou root supplémentaire ;
+- `LEDService` confirmé `isForeground=true`, `startRequested=true` au démarrage
+  puis lors d’un second contrôle ;
+- retour à la bibliothèque Dolphin sur `0` : même processus et service Bifrost
+  toujours actif. Capture du compagnon sur `4`, connecté, aucun jeu, J1 vide,
+  collection de 32 fichiers ; aucun chargement, backup ou écriture de dump ;
+- Logcat de 16:59 au contrôle de 17:00 : 357 lignes, aucun `FATAL EXCEPTION`,
+  signal fatal, `ANR in`, `SecurityException` ou `DeadObjectException` trouvé ;
+- CI de la tête documentaire `3c85064` revérifiées : runs `33972389700` et
+  `33972388209` réussis ; PR #15 toujours ouverte en brouillon.
+
+**Limite :** la couleur des anneaux physiques a été demandée à l’utilisateur,
+mais n’est pas encore confirmée. Une capture d’écran et un service Android actif
+ne prouvent pas que les LED brillent. Aucun test de synchronisation SkyPortal,
+de heartbeat ou de restitution n’est revendiqué : l’option SkyPortal reste OFF.
+Le preset temporaire est laissé actif pour cette observation, sans altérer Default.
+Après les essais, arrêter `Call Heimdall`, supprimer uniquement ce preset par
+appui bref sur la corbeille après vérification de son nom, puis sélectionner
+explicitement `Default`, service OFF. Ne pas maintenir la corbeille (suppression
+globale). Captures et journaux restent privés, hors dépôt.
+
 ## Prochaine action et conditions de validation du nouveau chantier
 
-**Choisir Static puis démarrer le service Bifrost**, puis reprendre les essais
-en jeu avec le candidat signé `3be0796` déjà installé.
+**Confirmer le bleu physique à gauche et le rouge à droite du test isolé**,
+puis reprendre les essais en jeu avec le candidat signé `3be0796` déjà installé.
 La validation doit associer tests déterministes et observation
 réelle des LED, vérifier le mode sans Bifrost et les libérations de contrôle,
 puis documenter les limites de restauration du service tiers. Aucun résultat

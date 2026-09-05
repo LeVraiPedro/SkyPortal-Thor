@@ -7,6 +7,9 @@ La validation de #14 ci-dessous est historique. La nouvelle intégration doit
 
 - [x] Bifrost officiel 1.3.1/code 16 audité ; APK signé et SHA-256 vérifiés.
 - [x] Installation autorisée sur Thor, sans remplacement Dolphin ni effacement.
+- [x] Test isolé Bifrost : preset temporaire STATIC bleu gauche / rouge droite,
+  Default préservé, service foreground confirmé et conservé derrière Dolphin.
+  Observation physique et synchronisation SkyPortal encore non validées.
 - [x] Candidat `3be0796` / run `33971500140` signé officiellement, vérifié,
   installé par mise à jour ; APK réextrait identique. CI et 157 tests réussis.
 - [x] Parcours **hors jeu** : écran 4, portail sans chevauchement, LED OFF/35 %,

@@ -32,8 +32,9 @@ le bail et la restauration dépendent du service, pas uniquement des constantes 
 Au contrôle initial, Bifrost était absent de la Thor. L’APK officiel a depuis été
 installé après vérification et autorisation. L’utilisateur a confirmé les notifications
 et la configuration du contrôle tiers, également constaté activé sur capture ; le
-service reste absent. Il a été demandé de quitter le mode initial Ambient pour
-Static et de démarrer « Call Heimdall ». L’intégration SkyPortal est présente dans
+service a ensuite été démarré pour un test STATIC isolé, avec un preset temporaire
+bleu gauche / rouge droite et Default préservé. Sa présence en arrière-plan est
+confirmée par ADB, pas encore la couleur physique. L’intégration SkyPortal est présente dans
 la [PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15), code
 `3be0796`, et les contrôles locaux ont réussi.
 Les essais des LED physiques et de restauration restent à faire ; ni l’installation
@@ -162,7 +163,10 @@ Aucun APK précédent ne valide le nouveau code.
   ni chargement en jeu déduit de ce parcours.
 - [x] Préparation : provenance, version et signature Bifrost officielles vérifiées ;
   installation `adb install -r` réussie. Cela ne valide pas une commande LED.
-- [ ] Réglage utilisateur initial relevé ; aucune modification de preset/profil.
+- [x] Réglage initial relevé ; Default préservé, seul un preset temporaire créé
+  par l’interface Bifrost pour le test isolé (pas par SkyPortal).
+- [x] Service démarré et conservé derrière la bibliothèque Dolphin ; résultat
+  physique du test STATIC bleu gauche / rouge droite encore en attente.
 - [ ] Refus du contrôle tiers affiché clairement ; service inconnu sans faux état prêt.
 - [ ] Mode OFF puis absence/arrêt de Bifrost sans régression SkyPortal ou Dolphin.
 - [ ] Avec consentement et service actif, couleurs physiques gauche/droite et luminosité observées.
