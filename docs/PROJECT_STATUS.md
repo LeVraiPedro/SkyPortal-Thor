@@ -6,7 +6,9 @@
 Ce document est le point de reprise courant. Le chantier autorisé est désormais
 V6.0 Bifrost, avec fiabilisation préalable et audit du contrat officiel terminé.
 Bifrost officiel est installé, le contrôle tiers autorisé et son service démarré
-pour un test STATIC isolé ; l’observation physique reste en attente. La campagne PR #14
+pour un test STATIC isolé, dont le bleu gauche / rouge droite a été confirmé
+physiquement par l’utilisateur. Les commandes SkyPortal sont maintenant reçues
+dans SSA ; leur effet physique et la restitution restent à confirmer. La campagne PR #14
 ci-dessous est conservée comme historique ; elle ne valide pas les changements
 du nouveau chantier. Les rapports V5 et leurs cases de checklist restent également
 des preuves historiques.
@@ -32,7 +34,7 @@ des preuves historiques.
 - L’utilisateur a ensuite autorisé V6.0 Bifrost avec une fiabilisation préalable,
   puis l’installation officielle de Bifrost, absent de la Thor au contrôle initial.
   L’audit du source Bifrost `1.3.1` / code `16` est terminé et l’APK officiel est
-  installé. Les essais d’intégration restent à effectuer ; aucun fonctionnement
+  installé. Les essais d’intégration ont commencé ; aucun fonctionnement
   des LED physiques via SkyPortal n’est déclaré validé à ce point.
 - Version Android conservée : `0.5.0`, code `7` ; aucun tag ni release V6 créé.
   Cette autorisation de développement ne constitue pas une autorisation de fusion
@@ -593,20 +595,95 @@ l’interface Bifrost pilotée par ADB, sans réinstallation ni changement de co
 - CI de la tête documentaire `3c85064` revérifiées : runs `33972389700` et
   `33972388209` réussis ; PR #15 toujours ouverte en brouillon.
 
-**Limite :** la couleur des anneaux physiques a été demandée à l’utilisateur,
-mais n’est pas encore confirmée. Une capture d’écran et un service Android actif
-ne prouvent pas que les LED brillent. Aucun test de synchronisation SkyPortal,
-de heartbeat ou de restitution n’est revendiqué : l’option SkyPortal reste OFF.
-Le preset temporaire est laissé actif pour cette observation, sans altérer Default.
+**État historique à 17:02 :** la couleur des anneaux physiques avait été demandée
+à l’utilisateur, sans réponse à ce point. Cette attente a depuis été levée :
+l’utilisateur a confirmé le bleu gauche / rouge droite du test isolé. Cela valide
+ce preset Bifrost, pas la synchronisation SkyPortal ni sa restitution. L’option
+SkyPortal était encore OFF pendant ce premier parcours. Le preset temporaire a
+été laissé actif pour l’observation, sans altérer Default.
 Après les essais, arrêter `Call Heimdall`, supprimer uniquement ce preset par
 appui bref sur la corbeille après vérification de son nom, puis sélectionner
 explicitement `Default`, service OFF. Ne pas maintenir la corbeille (suppression
 globale). Captures et journaux restent privés, hors dépôt.
 
+### Réception SkyPortal dans SSA — 5 septembre, 20:21–20:24 Paris
+
+Reprise au commit documentaire `972e90873bc68e1109928b3a5b554bdbd63c1773`,
+arbre propre avant actualisation. La PR #15 reste ouverte en brouillon ; ses CI
+[33973678906](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33973678906)
+et [33973677587](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33973677587)
+ont été revérifiées réussies. Elles ne couvrent pas les changements documentaires
+postérieurs. Aucun nouvel APK : compagnon signé `3be0796` et Dolphin API 4 conservés.
+
+- Bifrost toujours foreground, même processus derrière Dolphin ; baseline physique
+  bleu gauche / rouge droite confirmée par l’utilisateur avant la synchronisation.
+- Lancement SSA depuis la bibliothèque sur `0`, SkyPortal sur `4`. Les deux alertes
+  SSL connues `clientca.pem` / `clientcakey.pem` ont été acquittées séparément par
+  OK, sans changement de configuration ni désactivation des avertissements.
+- Diagnostic : API 4, `SSPP52`, `RUNNING`, USB présent / attaché / protocole à
+  `true`, **16 slots natifs libres**. Aucun dump chargé, remplacé ou sauvegardé.
+- Synchronisation SkyPortal activée à 35 %. Dialogue et diagnostic affichent
+  « Commandes acceptées par Bifrost ; éclairage non confirmé. » : accusé receiver,
+  pas preuve d’un changement physique des anneaux.
+- Bifrost démarre le STATIC externe à 20:22:46.307, puis signale l’override actif
+  de façon répétée, sans expiration du bail dans la fenêtre examinée.
+- Historique Android entre 20:23:27 et 20:23:51 : **47 `ACTION_DISPLAY`**, appelant
+  SkyPortal et `resultCode=0`. Les 46 intervalles vont de **504 à 516 ms**, moyenne
+  **506,46 ms** (environ 1,97 Hz). Cette mesure concerne les broadcasts de cet
+  échantillon, pas la fréquence des LED physiques.
+- Logcat 20:21–20:23:10 : aucun `FATAL EXCEPTION`, signal fatal, ANR,
+  `SecurityException`, `DeadObjectException`, `LED transact failed` ou
+  `Failed to get PServerBinder` relevé. Cette fenêtre ne valide pas les scénarios
+  d’interruption ou de restitution restant à exécuter.
+
+À 20:23:51, SSA attend encore « Appuie sur A ». L’utilisateur a été invité à
+entrer dans sa partie et à confirmer que les anneaux quittent le bleu / rouge
+fixe pour suivre le bandeau du portail. **Cette observation est en attente**,
+ainsi que `CLEAR`, la restitution et les régressions en partie. Synchronisation
+laissée ON à 35 % pour cette observation ; preset temporaire conservé, Default
+intact. Captures et journaux restent privés. Le test isolé confirmé ne coche
+aucune validation physique de la synchronisation SkyPortal.
+
+### Parcours en partie et libération — 5 septembre, 20:46–20:51 Paris
+
+L’utilisateur a ouvert sa partie SSA. Même APK compagnon `3be0796` et même
+Dolphin API 4 ; aucune installation ni modification de code pendant ce parcours.
+
+- Lightning Rod chargé en J1 puis remplacé par Sonic Boom : les deux figurines
+  sont apparues dans le jeu, pas uniquement dans l’interface du compagnon.
+- Sonic Boom seul en slot natif `#0 (1/0)` avant l’arrêt forcé du compagnon à
+  20:48:59. Dolphin est resté actif, même processus, Sonic Boom visible en jeu.
+- Bifrost a signalé `external override lease expired → reverting` à 20:49:01.339,
+  puis redémarré STATIC. C’est une preuve du watchdog logiciel, pas d’un CLEAR
+  explicite ni d’une restitution physique observée.
+- Relance SkyPortal sur `4` : reconnexion, même slot unique `#0 (1/0)` retrouvé,
+  collection de 32 fichiers, option ON/35 % conservée et commandes Bifrost
+  de nouveau acceptées. Aucun second chargement demandé.
+- OFF à 20:50:15 : historique Android `ACTION_CLEAR`, appelant SkyPortal,
+  `resultCode=0`, traitement en 2 ms ; aucun DISPLAY postérieur dans l’historique
+  contrôlé à 20:51:36. Bifrost redémarre STATIC à 20:50:15.492, sans nouvelle
+  expiration de bail. Le dialogue OFF masque l’accusé, d’où cette preuve Android.
+- Retrait de Sonic Boom confirmé par la demande de figurine dans SSA et par
+  le diagnostic final : **16 slots libres**, USB prêt et `SSPP52 / RUNNING`.
+- Logcat de 20:46 au contrôle de 20:51 : 3 068 lignes, aucun crash Java/natif,
+  ANR, `SecurityException`, `DeadObjectException`, erreur de transaction LED ou
+  mapping périmé recherché. Avertissements Android de fermeture de canaux
+  d’entrée présents lors des fermetures de fenêtres/du processus, sans crash.
+
+**État laissé :** SSA attend une figurine sur `0`, SkyPortal en solo sur `4`,
+32 fichiers, slots libres, synchronisation OFF/35 %. Bifrost reste actif sur le
+preset temporaire bleu gauche / rouge droite, Default intact. Aucun backup ni
+écriture directe dans les dumps par SkyPortal ; les montages ont utilisé Dolphin.
+Les couleurs physiques pendant la synchronisation et leur restitution n’ont pas
+encore été confirmées par l’utilisateur. La baseline isolée déjà confirmée ne
+remplace pas ces observations. Accueil/veille, arrêt Dolphin, arrêt Bifrost, J2 et
+la protection des fiches pendant la mort Dolphin restent à rejouer sur ce candidat.
+
 ## Prochaine action et conditions de validation du nouveau chantier
 
-**Confirmer le bleu physique à gauche et le rouge à droite du test isolé**,
-puis reprendre les essais en jeu avec le candidat signé `3be0796` déjà installé.
+**Obtenir la confirmation physique des couleurs synchronisées puis du retour
+au bleu gauche / rouge droite après OFF**, avec le candidat `3be0796` testé.
+Le CLEAR et le watchdog ont leurs preuves logicielles distinctes ci-dessus.
 La validation doit associer tests déterministes et observation
 réelle des LED, vérifier le mode sans Bifrost et les libérations de contrôle,
 puis documenter les limites de restauration du service tiers. Aucun résultat

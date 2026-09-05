@@ -34,11 +34,16 @@ installé après vérification et autorisation. L’utilisateur a confirmé les 
 et la configuration du contrôle tiers, également constaté activé sur capture ; le
 service a ensuite été démarré pour un test STATIC isolé, avec un preset temporaire
 bleu gauche / rouge droite et Default préservé. Sa présence en arrière-plan est
-confirmée par ADB, pas encore la couleur physique. L’intégration SkyPortal est présente dans
+confirmée par ADB ; l’utilisateur a depuis confirmé physiquement ces deux couleurs
+du test isolé. L’intégration SkyPortal est présente dans
 la [PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15), code
 `3be0796`, et les contrôles locaux ont réussi.
-Les essais des LED physiques et de restauration restent à faire ; ni l’installation
-de Bifrost ni un audit source ne constituent ces preuves.
+Le 5 septembre à 20:21–20:24 (Paris), les commandes SkyPortal ont été reçues dans
+SSA `SSPP52`, API 4 / `RUNNING`, à 35 %. L’échantillon Android de 47 DISPLAY donne
+46 intervalles de 504 à 516 ms, moyenne 506,46 ms ; Bifrost signale l’override actif.
+Cela confirme la réception et la cadence observée, **pas** les couleurs physiques
+pilotées par SkyPortal ni la restitution, encore en attente. Le preset isolé
+confirmé ne remplace pas ces deux validations.
 
 ## Périmètre SkyPortal retenu
 
@@ -153,7 +158,8 @@ Les résultats, APK exacts, empreintes et limites sont consignés dans
 
 Le premier build signé `33971097637` sur `3d38933` a réussi sans installation.
 Le build `33971500140` sur `3be0796` a réussi et son APK exact est installé :
-contrôles hors jeu seulement à ce stade, LED physiques encore non validées.
+contrôles hors jeu puis réception des commandes dans SSA exécutés, synchronisation
+physique et restitution encore non validées.
 Aucun APK précédent ne valide le nouveau code.
 
 ### Contrôles sur AYN Thor
@@ -165,11 +171,23 @@ Aucun APK précédent ne valide le nouveau code.
   installation `adb install -r` réussie. Cela ne valide pas une commande LED.
 - [x] Réglage initial relevé ; Default préservé, seul un preset temporaire créé
   par l’interface Bifrost pour le test isolé (pas par SkyPortal).
-- [x] Service démarré et conservé derrière la bibliothèque Dolphin ; résultat
-  physique du test STATIC bleu gauche / rouge droite encore en attente.
+- [x] Service démarré et conservé derrière Dolphin ; test STATIC isolé bleu gauche /
+  rouge droite confirmé physiquement par l’utilisateur. Cette attente initiale
+  est levée, sans valider les couleurs commandées par SkyPortal.
+- [x] Réception dans SSA le 5 septembre à 20:21–20:24 : API 4, `SSPP52`, `RUNNING`,
+  USB prêt, 16 slots libres ; accusé receiver et cadence observée d’environ 1,97 Hz
+  sur 47 DISPLAY. Aucun chargement de dump pendant ce parcours.
+- [x] Fenêtre Logcat 20:21–20:23:10 sans crash, ANR, erreur de permission/Binder
+  ni erreur de transaction LED relevée ; les interruptions restent à tester.
+- [x] Parcours SSA 20:46–20:51 : chargement/remplacement/retrait J1 et reconnexion
+  après arrêt forcé du compagnon sans doublon de slot ; reprise des commandes.
+- [x] Watchdog après arrêt forcé et CLEAR explicite après OFF documentés séparément,
+  retour Android `resultCode=0` et absence de DISPLAY ultérieur ; leur résultat
+  physique reste en attente. Logcat du parcours sans erreur critique recherchée.
 - [ ] Refus du contrôle tiers affiché clairement ; service inconnu sans faux état prêt.
 - [ ] Mode OFF puis absence/arrêt de Bifrost sans régression SkyPortal ou Dolphin.
-- [ ] Avec consentement et service actif, couleurs physiques gauche/droite et luminosité observées.
+- [ ] Avec consentement et service actif, couleurs physiques gauche/droite et luminosité
+  commandées par SkyPortal observées (distinctes du test isolé Bifrost).
 - [ ] Couleur constante maintenue au-delà du bail, transitions sans clignotement parasite.
 - [ ] Contrôle conservé lorsque seul le focus passe à Dolphin sur l’écran supérieur.
 - [ ] `CLEAR` après désactivation, sortie, veille et déconnexion ; réglage Bifrost retrouvé.

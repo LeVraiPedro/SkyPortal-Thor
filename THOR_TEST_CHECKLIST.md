@@ -9,22 +9,45 @@ La validation de #14 ci-dessous est historique. La nouvelle intégration doit
 - [x] Installation autorisée sur Thor, sans remplacement Dolphin ni effacement.
 - [x] Test isolé Bifrost : preset temporaire STATIC bleu gauche / rouge droite,
   Default préservé, service foreground confirmé et conservé derrière Dolphin.
-  Observation physique et synchronisation SkyPortal encore non validées.
+  L’utilisateur a confirmé physiquement ces couleurs ; seule la baseline Bifrost
+  est validée, pas la synchronisation SkyPortal ni la restitution.
 - [x] Candidat `3be0796` / run `33971500140` signé officiellement, vérifié,
   installé par mise à jour ; APK réextrait identique. CI et 157 tests réussis.
 - [x] Parcours **hors jeu** : écran 4, portail sans chevauchement, LED OFF/35 %,
   Binder/API4, droits SAF et 32 fichiers ; modes 1J/2J/1J et sélecteur J2.
   Les cases en jeu ci-dessous restent ouvertes.
+- [x] Reprise 5 septembre 20:21–20:24 : SSA `SSPP52`, API 4 / `RUNNING`, USB prêt,
+  16 slots libres ; option ON/35 %, accusé receiver dans dialogue et diagnostic.
+  Aucun dump chargé ; SSA attendait encore « Appuie sur A » au dernier contrôle.
+- [x] Cadence observée : 47 DISPLAY Android, 46 intervalles de 504 à 516 ms,
+  moyenne 506,46 ms ; override Bifrost actif, sans expiration relevée.
+  Cela ne mesure ni les couleurs physiques ni leur fréquence de rendu.
+- [x] Logcat limité à 20:21–20:23:10 : aucun crash, ANR, `SecurityException`,
+  `DeadObjectException` ou échec de transaction LED relevé.
+- [x] Parcours en partie 20:46–20:51 : Lightning Rod chargé, remplacé par Sonic Boom,
+  puis retrait ; apparitions et retrait confirmés dans SSA, 16 slots libres à la fin.
+- [x] Arrêt forcé / relance SkyPortal avec Sonic Boom monté : même Dolphin vivant,
+  même slot unique `#0 (1/0)`, reprise du flux LED sans second chargement demandé.
+- [x] Watchdog Bifrost après arrêt forcé, puis CLEAR explicite après OFF observés
+  séparément ; retour Android `resultCode=0`, aucune émission DISPLAY après OFF
+  dans l’historique contrôlé. Ce ne sont pas des confirmations physiques.
+- [x] Logcat 20:46–20:51 : aucune erreur critique recherchée ; avertissements Android
+  de fermeture de canaux d’entrée conservés dans le rapport, sans crash.
 - [ ] Contrôle tiers désactivé : refus explicite, aucune prétention de succès matériel.
-- [ ] Couleurs réelles des joysticks gauche/droite et luminosité confirmées visuellement.
+- [ ] Couleurs réelles des joysticks gauche/droite et luminosité **pilotées par SkyPortal**
+  confirmées visuellement ; ne pas déduire ce résultat de la baseline isolée.
 - [ ] Heartbeat 2 Hz sans rafale ; réponse du receiver distinguée du résultat physique.
 - [ ] Retour accueil, écran éteint et arrêt du compagnon : restitution Bifrost observée.
 - [ ] Mort Dolphin et reconnexion : fin puis reprise du flux, sans doublon de figurine.
 - [ ] Service Bifrost arrêté : le compagnon reste utilisable, aucun faux état physique.
-- [ ] J1 remplacement/retrait, J2, collection et boutons du portail sans régression.
+- [ ] J2 et autres régressions complètes du portail sur ce candidat ; J1 couvert ci-dessus.
 - [ ] Fiche d’actions ouverte puis mort Dolphin : aucune ancienne action disponible.
 - [ ] Backup normal terminé après son propre retrait, sans écriture de fichier monté.
 - [ ] Absence de crash/ANR et d’erreur Binder/SAF dans la fenêtre Logcat examinée.
+
+Point d’arrêt : SSA attend une figurine, 16 slots libres, synchronisation OFF/35 %.
+CLEAR logiciel observé ; effet physique SkyPortal et restitution encore à confirmer.
+Preset temporaire Bifrost actif pour l’observation, Default intact.
 
 ## Reprise V6 / PR #14 — 5 septembre 2026
 
