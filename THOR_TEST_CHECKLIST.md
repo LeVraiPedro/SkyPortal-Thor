@@ -1,4 +1,119 @@
-# Validation V5 Smart Portal sur AYN Thor / Android 13
+# Validation sur AYN Thor / Android 13
+
+## Reprise V6 / PR #14 — 5 septembre 2026
+
+Le [suivi courant](docs/PROJECT_STATUS.md) identifie commits, APK, certificat et
+preuves de cette session. La section V5 ci-dessous reste historique.
+
+### Premiers essais avec l’ancien Dolphin — historique conservé
+
+Les cases non cochées de ce premier parcours décrivent ses limites à 09:37.
+La revalidation du Dolphin correctif figure dans la section suivante.
+
+- [x] ADB autorisé, écrans logiques `0` supérieur et `4` inférieur vérifiés.
+- [x] APK préexistants conservés, certificat officiel commun vérifié.
+- [x] Dolphin API 4 préexistant conservé pendant les essais initiaux du compagnon,
+  sans remplacement ni suppression de données ; la paire corrective ultérieure
+  dispose d’une validation distincte ci-dessous.
+- [x] APK historique `final-compose` réinstallé par `adb install -r` ; défaut
+  restant reproduit : panneau trop court, portail invisible.
+- [x] Correction compagnon : hauteur réservée, défilement de secours, régions
+  mesurées, clipping, arcs horizontaux et accessibilité Trap conditionnelle.
+- [x] JVM : 115 tests réussis ; Lint : aucune erreur ; Debug : compilation réussie.
+- [x] Nouvel APK Release signé exact vérifié et mis à jour sur la Thor (`d466536`,
+  run `33952416415`) ; APK installé identique par SHA-256.
+- [x] SSA : aucun badge/cristal Trap dans les captures ; description couverte par JVM.
+- [x] Portail central visible, texte et bande RGB séparés à plusieurs phases animées.
+- [x] RGB gauche/droite lisibles ; Équipes et Diagnostic accessibles.
+- [ ] J1 : chargement, remplacement et retrait réels, sans faux succès ni doublon.
+- [ ] J2 activé : nouveau chargement/retrait sur le dernier APK (montage préexistant
+  réconcilié, retrait Warnado et retour solo réussis ; pas de partie coop validée).
+- [x] Sélecteur Slot 3 et collection accessibles ; aucun montage supplémentaire tenté.
+- [x] Recréation du compagnon et reconnexion manuelle avec Whirlwind : un seul slot natif.
+- [ ] Retour accueil/veille/Dolphin sans incident : **échec, crash natif du menu Dolphin**.
+- [ ] Logcat ciblé : aucun crash, ANR, erreur Binder/SAF ou alternance anormale actif/veille.
+- [ ] Preuves actualisées dans la PR ; accord explicite de fusion obtenu séparément.
+
+Deux `SIGTRAP` Dolphin ont été observés à 09:34 et 09:37 lors du retour à son
+menu principal : `onPrepareOptionsMenu → isSystemMenuInstalled → IOS::HLE::Kernel`,
+avec un IOS déjà présent. La PR était alors maintenue en brouillon. Le compagnon a refusé le
+chargement après perte du handshake, sans faux succès. Voir les limites et les
+résultats détaillés dans le suivi ; ne pas cocher le parcours global à partir
+des seules réussites de disposition, de CI ou de reconnexion du compagnon.
+
+### Reprise autorisée du correctif de menu Dolphin
+
+Le candidat `11353ca7cabf28bc4dccbfbefa0593fb321def2f` inclut les gardes JNI du
+menu Wii de `23af6d0` et rend les chemins de restauration/lancement neuf de
+`EmulationFragment` mutuellement exclusifs. Les deux crashs ci-dessus
+restent des observations de l’ancien Dolphin ; aucune case matérielle ne peut
+être cochée pour la nouvelle paire avant installation et rejeu.
+
+- [x] Autorisation utilisateur obtenue pour le correctif Dolphin ciblé.
+- [x] Correctif isolé dans `android-menu-lifecycle.patch`, sans changement API 4
+  ni remise en cause de l’activation/keepalive `A 00`.
+- [x] Contrôles locaux réexécutés sur `11353ca` : 120 tests JVM réussis, Lint 0 erreur / 16
+  avertissements, compilation Debug et contrôle de licence réussis.
+- [x] Pile complète de patchs réversée puis réappliquée sur la base épinglée
+  dans un arbre contrôlé. Reconstruction prévue depuis un checkout **neuf** :
+  le script complet ne peut pas être relancé tel quel sur un arbre déjà API 4
+  (échec reproduit et arbre contrôlé réparé, détails dans le suivi).
+- [x] Run intermédiaire `33953904485` annulé volontairement avant candidat pour
+  intégrer le second correctif, sans le présenter comme un échec de compilation.
+- [x] Nouveau run de paire [33954214843](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33954214843)
+  terminé avec succès en 31 min 32 s, compilation native comprise ; source et
+  kit disponibles, contenu corrigé vérifié et CRC des deux ZIP valides.
+- [x] Nouveaux APK exacts téléchargés, six SHA-256 du manifeste et certificat officiel commun
+  vérifiés, mode `PERSISTENT_RELEASE_KEY` confirmé.
+- [x] Dolphin correctif seul installé par mise à jour à 10:36:58, sans effacement ;
+  APK réextrait identique par SHA-256. Compagnon `d466536` conservé : le compagnon
+  construit par le run de paire n’est pas installé ni revendiqué testé sur Thor.
+- [x] Premier diagnostic : API 4, SSA `SSPP52`, `RUNNING`, trois preuves USB à
+  `true`, 16 slots libres, 32 fichiers et droits SAF conservés.
+- [x] À 10:42, « Dolphin en haut » depuis l’écran-titre SSA ouvre le menu
+  principal ; Retour Android retrouve le même écran-titre et le même processus,
+  sans nouveau démarrage. Aucun personnage n’est monté pendant cet essai.
+- [x] Logcat 10:37–10:43 sans nouvelle erreur fatale, assertion, ANR,
+  `SecurityException` ou `DeadObjectException` ; un seul lancement `Running`,
+  celui de 10:37:28. Historique des sorties inchangé depuis la mise à jour.
+- [x] Partie SSA ouverte par l’utilisateur ; premier chargement de figurine
+  avec le nouveau Dolphin avant poursuite des scénarios.
+- [x] Retour au menu Dolphin pendant la partie avec personnage monté puis après arrêt d’émulation sans
+  nouveau `SIGTRAP`, crash ou ANR.
+- [x] Sortie d’une session restaurée depuis l’état temporaire sans nouveau
+  démarrage involontaire de l’émulation.
+- [x] Chargement/remplacement/retrait J1 et chargement/retrait J2 rejoués ;
+  disposition, reconnexion, accès collection et retour solo préservés.
+- [x] Accueil/veille/reprise rejoués et fenêtre Logcat du nouveau candidat analysée
+  (commande Wii interrompue après veille, distincte de Binder et du rendu).
+- [x] Mort du processus Dolphin avec figurine montée, retour automatique du service,
+  relance SSA et 16 slots libres sans remontage ni mapping fantôme.
+- [x] Preuves de la revalidation 12:16–12:33 consignées dans le suivi et la PR #14.
+- [ ] Accord explicite de fusion obtenu séparément ; Bifrost reste soumis à une
+  autorisation distincte.
+
+Deux avertissements Wii SSL (`clientca.pem`, `clientcakey.pem` manquants) ont
+été acquittés individuellement ; aucune option d’ignorance globale activée.
+Une `DeadObjectException` à 10:36:59 correspond au remplacement du processus
+par l’installation. Le Logcat des scénarios suivants doit être contrôlé séparément.
+Le succès initial depuis l’écran-titre n’a pas été utilisé comme substitut aux
+essais en partie : ceux-ci ont été exécutés ensuite de 12:16 à 12:33. Lightning Rod,
+Sonic Boom et Bash en J1, puis Warnado via J2, ont été présentés réellement par SSA.
+J2 désigne ici le slot logique du compagnon, pas une validation coopérative.
+
+La restauration a été prouvée par un processus neuf et l’OSD « Loaded State from
+temp.sav » après `am kill` en arrière-plan et retour par Récents. La sortie n’a
+pas relancé de session pendant plus de 30 secondes. Logcat 12:16–12:33 : aucun
+nouveau crash, ANR, assertion, `SecurityException`, `DeadObjectException` ou erreur
+du pont SkyPortal. Aucun nouvel APK installé dans ce parcours.
+
+Limites consignées dans le suivi : commande Wii après veille ; nom périmé dans
+une fiche d’actions restée ouverte pendant la mort Dolphin, malgré un slot de fond
+correctement vidé (Backup revalide le montage). Ni les objets, ni les autres jeux,
+ni la coopération à deux commandes ne sont validés par ces essais. La Thor est
+laissée en solo, slots vides, bibliothèque Dolphin sur 0 et compagnon sur 4.
+
+## Historique V5 Smart Portal
 
 Cette checklist distingue les observations faites sur la console des couvertures automatisées. Une case non cochée ne doit pas être interprétée comme un échec : elle signifie que le scénario matériel reste à exécuter ou à documenter.
 

@@ -5,6 +5,10 @@
 
 # SkyPortal Thor V6 — correctif de détection des figurines
 
+## État historique confirmé à la reprise
+
+La [PR #13](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/13) a été fusionnée le 19 août 2026 dans le commit `ffc1e7158e63abf3dae4a6f08aa372c66d8f35d1`. Son corps confirme la validation corrective sur l’AYN Thor Max Android 13 : la détection des figurines dans Spyro’s Adventure fonctionnait de nouveau et le problème ne se reproduisait plus. Il s’agit d’une validation historique, distincte de la session du 5 septembre 2026 et des corrections de composition de la PR #14.
+
 ## Symptôme matériel
 
 Lors de la première validation de Dolphin SkyPortal API 4 sur l’AYN Thor Max :
@@ -56,9 +60,9 @@ La suite JVM vérifie désormais que le patch :
 - ne contient plus d’appel `system.GetSkylanderPortal().Deactivate()` dans le traitement de la commande `A` ;
 - protège le chargement avec `SkylanderConfig.isPortalActivated()`.
 
-La construction complète de la paire doit encore appliquer le patch sur la révision Dolphin épinglée, compiler Dolphin et produire deux APK signés avec la même clé persistante.
+La paire corrective a été construite avec succès par le [run 32197254322](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/32197254322), au commit SkyPortal `1635709f22199d5b2d038f36b7b7d8bca77bdc72`, sur la révision Dolphin épinglée `54070da5851e12f2d1a4389daa528e4fb81327ce`. La PR consigne la vérification de la signature persistante commune et l’installation de cette paire par-dessus la précédente. Cette provenance historique ne doit pas être attribuée à un nouvel APK.
 
-## Validation matérielle attendue
+## Protocole de non-régression à conserver
 
 Sur la Thor, après installation de la paire corrective :
 
@@ -70,4 +74,10 @@ Sur la Thor, après installation de la paire corrective :
 6. effectuer un remplacement et un retrait ;
 7. contrôler Logcat pour exclure crash, ANR et erreur Binder.
 
-Le correctif de mise en page du portail animé et l’intégration Bifrost restent volontairement suspendus jusqu’à la validation de cette correction fonctionnelle.
+## Revalidation distincte du 5 septembre 2026
+
+La correction fonctionnelle a permis de reprendre la mise en page dans la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14). Pendant cette campagne, les incidents du menu Android Dolphin ont conduit à une extension ciblée autorisée : gardes des requêtes JNI et chemins de restauration/lancement rendus exclusifs, sans modification du comportement d’activation/keepalive documenté ici.
+
+Avec le compagnon `d466536` et le Dolphin correctif `11353ca`, la revalidation ciblée SSA de 12:16 à 12:33 a confirmé les opérations J1/J2 logiques, le retour du menu avec figurine, la sortie d’une session restaurée sans nouveau démarrage et la reconnexion automatique après mort Dolphin. Aucun nouveau crash ou ANR n’a été relevé dans cette fenêtre. Ces observations sont distinctes de celles de la paire corrective historique de la PR #13 et ne revendiquent aucun test des autres jeux.
+
+Les résultats complets, les limites de commande Wii et de fiche d’actions périmée, ainsi que les deux APK effectivement utilisés sont identifiés dans [PROJECT_STATUS.md](PROJECT_STATUS.md). La validation ciblée est achevée ; la PR #14 reste ouverte, avec revue et accord de fusion attendus. Bifrost reste suspendu jusqu’à la clôture de cette étape et une autorisation explicite distincte de l’utilisateur.

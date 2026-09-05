@@ -20,6 +20,10 @@ Jeu Skylanders
 
 Elle ne pilote encore aucune LED physique et ne contacte pas Bifrost.
 
+## État de reprise
+
+Le portail animé initial est fusionné dans `main` depuis la [PR #12](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/12). La revalidation ciblée de la composition et des reprises dans SSA est achevée le 5 septembre 2026, de 12:16 à 12:33, avec le compagnon `d466536` conservé et Dolphin `11353ca`. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) reste ouverte ; revue et accord explicite de fusion sont attendus. Les résultats, limites et provenance exacte des deux APK figurent dans [PROJECT_STATUS.md](PROJECT_STATUS.md).
+
 ## Position dans l’interface
 
 Le portail animé remplace le panneau d’actions rapide qui occupait l’espace flexible de l’écran principal.
@@ -32,9 +36,7 @@ En-tête
 → Barre de collection
 ```
 
-Les actions `Équipes` et `Diagnostic` restent accessibles directement dans l’en-tête du panneau animé.
-
-Ce choix évite d’ajouter une hauteur fixe supplémentaire et conserve une mise en page adaptée à l’écran logique inférieur `4`.
+La PR #14 sépare le panneau en trois zones : état et actions en haut, portail central, puis bande RGB gauche/droite en bas. Les actions `Équipes` et `Diagnostic` restent accessibles dans la zone supérieure. La hauteur du Canvas et l’absence de chevauchement ont été contrôlées sur l’écran inférieur pendant la campagne du 5 septembre ; les affichages logiques `0` et `4` ont également été retrouvés après accueil/veille/retour. Les identifiants d’écran sont revérifiés par ADB à chaque session.
 
 ## États visuels
 
@@ -62,7 +64,7 @@ Le composant dessine sans ressource graphique tierce :
 - un anneau coloré gauche/droite ;
 - des repères lumineux ;
 - deux points lumineux latéraux ;
-- une zone Trap en forme de cristal lorsqu’elle est fournie ;
+- une zone Trap en forme de cristal si le canal est fourni et si le jeu actif déclare `GameFeature.TRAPS` ;
 - des arcs en rotation lente ;
 - une respiration lumineuse ;
 - une pulsation courte lorsque la composition des slots change.
@@ -74,8 +76,10 @@ Les transitions de couleur utilisent les valeurs RGB exactes reçues de Dolphin 
 Avec Dolphin API 4 :
 
 - les couleurs gauche et droite viennent du jeu ;
-- la zone Trap est affichée lorsqu’elle est disponible ;
+- la zone et le badge Trap sont affichés uniquement si le canal est disponible et si le jeu actif déclare `GameFeature.TRAPS` ; Spyro’s Adventure, Giants et Swap Force n’affichent pas ce canal ;
 - l’état actif et la séquence sont affichés.
+
+Le libellé « Éclairage du portail en veille » distingue l’état lumineux du fonctionnement du Portal of Power. Le correctif [PR #13](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/13) préserve l’activation/keepalive pendant le polling `A 00` de Spyro’s Adventure ; un changement visuel ne doit pas modifier ce comportement Dolphin.
 
 Avec Dolphin API 1, 2 ou 3 :
 
@@ -112,9 +116,12 @@ Les tests JVM couvrent :
 - l’attente du premier snapshot API 4 ;
 - la conservation exacte des couleurs et de la séquence ;
 - la conservation des couleurs lors d’une erreur temporaire du transport ;
-- le mode veille API 4.
+- le mode veille API 4 ;
+- la visibilité du canal Trap selon les fonctionnalités du jeu actif.
 
-La validation visuelle et les performances doivent encore être observées sur l’écran inférieur réel de la Thor.
+Ces tests sont distincts du contrôle réel. La campagne Thor/SSA du 5 septembre, de 12:16 à 12:33, a confirmé les apparitions/remplacements/retrait J1, le cycle J2 logique puis le retour solo, l’absence de chevauchement ou Trap injustifié, ainsi que les menus et les reconnexions. La restauration Android puis la sortie d’émulation n’ont pas produit de nouveau démarrage. Les preuves détaillées restent dans le suivi afin de les associer aux APK effectivement installés.
+
+Deux limites sont conservées : la commande Wii peut devoir être réactivée après veille ; une fiche d’actions déjà ouverte peut conserver un ancien nom après mort Dolphin, alors que le slot de fond est vidé correctement. Fermer la fiche rétablit l’affichage dans le cas observé ; le scénario de remplacement par un autre client n’a pas été testé. Les autres jeux, Trap en jeu et la coopération à deux commandes ne sont pas validés par cette campagne ciblée.
 
 ## Hors périmètre
 
@@ -129,7 +136,7 @@ Cette étape ne comprend pas :
 
 ## Étape suivante
 
-Après fusion et contrôle visuel du portail :
+Après clôture de la PR #14, validation matérielle et autorisation explicite de l’utilisateur :
 
 ```text
 agent/v6-bifrost

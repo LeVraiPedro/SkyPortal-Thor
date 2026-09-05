@@ -201,6 +201,7 @@ jobs:
             sha256sum \
               dolphin-patch/smart-portal-core.patch \
               dolphin-patch/portal-led-api4.patch \
+              dolphin-patch/android-menu-lifecycle.patch \
               dolphin-patch/skyportal-dolphin.patch \
               dolphin-patch/Source/Android/app/src/main/aidl/com/skyportalthor/ipc/ISkylanderPortalService.aidl \
               dolphin-patch/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/skyportal/SkyPortalService.kt \
@@ -303,6 +304,7 @@ jobs:
             Dolphin_SkyPortal_API4_Rebuild_Kit/SOURCE_INFO.txt \
             Dolphin_SkyPortal_API4_Rebuild_Kit/dolphin-patch/smart-portal-core.patch \
             Dolphin_SkyPortal_API4_Rebuild_Kit/dolphin-patch/portal-led-api4.patch \
+            Dolphin_SkyPortal_API4_Rebuild_Kit/dolphin-patch/android-menu-lifecycle.patch \
             Dolphin_SkyPortal_API4_Rebuild_Kit/dolphin-patch/skyportal-dolphin.patch \
             Dolphin_SkyPortal_API4_Rebuild_Kit/tools/apply_dolphin_patch.py; do
             grep -Fx "${required}" "${RUNNER_TEMP}/skyportal-kit-entries.txt"

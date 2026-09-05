@@ -111,6 +111,17 @@ def apply_git_patch(repo: Path, patch: Path, label: str) -> None:
         cwd=repo,
         check=True,
     )
+    reverse_check = subprocess.run(
+        [
+            "git", "apply", "--reverse", "--check",
+            "--ignore-space-change", "--ignore-whitespace", str(patch)
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    if reverse_check.returncode != 0:
+        raise RuntimeError(f"{label} patch failed its reverse check:\n{reverse_check.stderr}")
     print(f"patched: {label}")
 
 
@@ -140,6 +151,10 @@ def main() -> None:
         (
             here / "dolphin-patch" / "portal-led-api4.patch",
             "native Portal of Power LED state API 4",
+        ),
+        (
+            here / "dolphin-patch" / "android-menu-lifecycle.patch",
+            "Android emulation menu lifecycle",
         ),
     ]
 

@@ -2,6 +2,62 @@
 
 ## V6 — développement non publié
 
+### Reprise du menu Dolphin — validation ciblée achevée, revue attendue
+
+- Deux crashs natifs du Dolphin préexistant ont interrompu le parcours Thor du
+  5 septembre 2026 : les requêtes du menu Wii tentaient de créer un noyau IOS
+  temporaire alors qu’un IOS était déjà présent.
+- Après autorisation utilisateur, ajout de `android-menu-lifecycle.patch`
+  (`23af6d0`) : lecteur commun aux trois requêtes JNI, vérification du cœur
+  arrêté avant puis sous verrou et protection des lectures de TMD indisponible.
+- Complément `11353ca` dans le même patch : chemins de restauration et de
+  lancement neuf d’`EmulationFragment` rendus mutuellement exclusifs ; la sortie
+  d’une session restaurée ne doit plus enchaîner un nouveau démarrage.
+- Conservation du contrat API 4 et du comportement d’activation/keepalive du
+  Portal of Power ; aucune nouvelle fonctionnalité ou version publique.
+- Cinq gardes structurelles JVM ajoutées ; 120 tests locaux réussis, Lint
+  sans erreur (16 avertissements), Debug et contrôle de licence réussis ; pile
+  complète des patchs réversée/réappliquée avec succès. Le run intermédiaire
+  `33953904485` a été annulé volontairement pour intégrer le complément, sans
+  échec de compilation constaté. La paire complète du nouveau
+  [run 33954214843](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33954214843)
+  a été construite avec succès, compilation native comprise ; source, kit,
+  empreintes et certificat officiel commun vérifiés après téléchargement.
+- Mise à jour du seul Dolphin correctif sur la Thor, avec le compagnon `d466536`
+  conservé. Revalidation en partie SSA le 5 septembre de 12:16 à 12:33 :
+  chargements/remplacements/retraits J1 et cycle J2 logique, menu avec figurine,
+  restauration Android suivie d’une sortie sans redémarrage, puis mort/reprise
+  Dolphin et reconnexion automatique confirmés. Aucun nouveau crash ou ANR
+  dans la fenêtre Logcat examinée ; données et droits SAF conservés.
+  Le compagnon produit par le workflow de paire n’a pas été installé et n’est
+  pas présenté comme matériellement testé.
+- Limites observées : commande Wii à réactiver après veille ; une fiche d’actions
+  déjà ouverte peut conserver un ancien nom après mort Dolphin, alors que le slot
+  de fond est vidé correctement. Les cas exacts et réserves, dont le scénario
+  multi-client non testé, figurent dans [le suivi](docs/PROJECT_STATUS.md).
+- Patch inclus dans la procédure d’application, la vérification des notices et la provenance
+  du kit. Le script de préparation doit partir d’un checkout Dolphin neuf :
+  sa réexécution sur un arbre déjà API 4 n’est pas prise en charge, comme le
+  documente [le suivi de reprise](docs/PROJECT_STATUS.md).
+
+### Composition du portail — PR #14 revalidée sur Thor, non fusionnée
+
+- Séparation du panneau en une zone supérieure d’état/actions, une zone centrale pour le Canvas et une bande RGB inférieure.
+- Conservation des commandes Équipes et Diagnostic et des repères gauche/droite avec leurs valeurs RGB.
+- Libellé de veille précisé : « Éclairage du portail en veille ».
+- Après test réel : hauteur de panneau réservée (144 dp), cartes tactiles compactes,
+  défilement de secours, clipping et halo entièrement contenu ; les reflets
+  circulent le long de l’ellipse sans faire pivoter son axe large.
+- Affichage du badge et du cristal Trap uniquement si le jeu actif déclare `GameFeature.TRAPS` et si le canal est disponible ; aucun Trap dans Spyro’s Adventure.
+- Reprise de la validation matérielle le 5 septembre 2026 ; les preuves et les éventuels défauts restants sont consignés dans [PROJECT_STATUS.md](docs/PROJECT_STATUS.md). Aucun changement de version ou nouvelle release n’accompagne ce chantier.
+
+### Activation/keepalive — PR #13 fusionnée le 19 août 2026
+
+- Restauration du comportement Dolphin compatible : toute commande USB `A` valide agit comme une activation/keepalive, y compris `A 00` pendant le polling normal de Spyro’s Adventure.
+- Suppression de l’interprétation `A 00 → Deactivate()` introduite par le premier patch LED API 4, responsable de l’alternance actif/veille et de figurines montées non détectées par le jeu.
+- Précontrôle d’activation native avant chargement et retrait du nouveau montage si le portail devient inactif pendant l’opération.
+- Ajout d’une garde JVM contre cette régression. La [PR #13](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/13) consigne la validation corrective historique sur la vraie Thor ; elle est distincte des tests de composition de la PR #14.
+
 ### Portail animé V6
 
 - Ajout d’un `AnimatedPortalStateMapper` pur qui transforme l’état Smart Portal en modes déconnecté, initialisation, conflit, API historique, veille et actif.
@@ -21,13 +77,13 @@
 - Passage du service Dolphin de l’API 3 à l’API 4 dans la branche de développement.
 - Capture native verrouillée des couleurs gauche, droite et Trap déjà maintenues par le Portal of Power émulé.
 - Ajout d’une séquence monotone qui avance uniquement lors d’un changement visible ou d’une transition d’activation.
-- Correction de la désactivation protocolaire `A 0` et prise en charge de l’alias gauche `0x04` de la commande audio `L`.
+- Prise en charge de l’alias gauche `0x04` de la commande audio `L`. Le traitement de `A 00` a ensuite été corrigé par la PR #13 pour préserver l’activation/keepalive compatible.
 - Exposition JNI d’un snapshot compact de 12 valeurs, contrôlé puis sérialisé en JSON versionné par le service.
 - Ajout d’un transport LED dédié à 100 ms, sérialisé avec les opérations du portail et borné à 750 ms par appel.
 - Conservation d’un mode API 1–3 sans erreur LED et d’un comportement non bloquant en cas de payload invalide.
 - Ajout des tests JVM du resolver API 4, des gardes de contrat et du nettoyage de l’état après déconnexion.
 - Ajout de `portal-led-api4.patch`, appliqué après `smart-portal-core.patch`, et adaptation du workflow de paire aux artefacts API 4.
-- Aucun portail animé, aucune intégration Bifrost et aucune validation matérielle ne sont inclus à ce stade.
+- Le transport API 4 a été fusionné dans la PR #11, puis consommé par le portail animé de la PR #12. Les observations matérielles historiques dans Spyro’s Adventure sont distinguées de la validation finale de composition dans le suivi du projet. Aucune intégration Bifrost n’est incluse.
 
 ## V5 (0.5.0) — 16 août 2026
 

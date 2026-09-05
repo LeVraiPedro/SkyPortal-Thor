@@ -35,11 +35,23 @@ Dolphin demeure le seul processus autorisé à écrire dans une figurine montée
 ## Avancement actuel
 
 ```text
-V6 Foundation       ✓ fusionnée
-Dolphin LED API 4   ✓ fusionnée, validation Thor à faire
-Portail animé       ✓ implémenté dans la source, validation visuelle à faire
-Bifrost             non commencé
+V6 Foundation       ✓ fusionnée (PR #10)
+Dolphin LED API 4    ✓ fusionnée (PR #11), observée historiquement sur Thor/SSA
+Portail animé       ✓ fusionné (PR #12), affichage observé historiquement sur Thor
+Activation/keepalive ✓ corrigée et validée historiquement sur Thor (PR #13)
+Composition Thor    PR #14 : validation ciblée Thor achevée ; revue et accord de fusion attendus
+Bifrost             non commencé ; clôture de #14 et autorisation requises
 ```
+
+État de reprise vérifié le 5 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) est encore ouverte et en brouillon au début de cette reprise. Les résultats de session, l’APK exact et les conditions de clôture figurent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Les tests historiques ne valent pas validation de chaque APK ultérieur.
+
+Après les incidents du menu Dolphin, un correctif ciblé a été autorisé, construit
+et installé. La revalidation du 5 septembre, de 12:16 à 12:33, a confirmé dans
+SSA la composition, les opérations J1/J2 logiques, les menus, la restauration
+Android et les reconnexions. Les preuves, les deux APK utilisés et les limites
+(commande Wii après veille, fiche d’actions pouvant conserver un ancien nom)
+figurent dans le suivi. La PR #14 reste ouverte, avec revue et accord de fusion
+attendus ; Bifrost reste soumis à une autorisation distincte après sa clôture.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
 
@@ -130,7 +142,7 @@ Créer la nouvelle identité visuelle de SkyPortal et synchroniser en temps rée
 
 ## Dolphin SkyPortal API 4
 
-**État : implémenté dans la source, non encore validé sur la Thor.**
+**État : fusionné dans `main` (PR #11).** Les validations historiques sur la Thor avec Spyro’s Adventure ont confirmé les séquences LED et valeurs RGB gauche/droite. La régression d’activation/keepalive a été corrigée et validée sur matériel dans la PR #13. Le canal Trap et les autres jeux n’ont pas de validation matérielle revendiquée.
 
 Le patch Dolphin expose un état lumineux versionné comprenant au minimum :
 
@@ -141,7 +153,7 @@ Le patch Dolphin expose un état lumineux versionné comprenant au minimum :
 - compteur de séquence monotone ;
 - version du schéma.
 
-Première forme envisagée :
+Contrat de schéma 1 implémenté :
 
 ```json
 {
@@ -154,18 +166,18 @@ Première forme envisagée :
 }
 ```
 
-Le contrat API 1–3 existant doit rester inchangé. Toute nouvelle méthode AIDL sera ajoutée à la fin et ne sera appelée qu’après confirmation d’une API 4 compatible.
+Le contrat API 1–3 existant reste inchangé. La méthode LED est ajoutée à la fin et n’est appelée qu’après confirmation d’une API 4 compatible.
 
 ## Portail animé
 
-**État : implémenté dans la source, non encore validé sur l’écran inférieur réel.**
+**État : rendu initial fusionné dans `main` (PR #12).** La mise en page corrigée de la PR #14 a été revalidée sur la vraie Thor dans SSA le 5 septembre. La PR n’est pas encore fusionnée ; revue et accord explicite restent nécessaires. Le suivi conserve les résultats matériels et les limites séparément de la CI.
 
 Le rendu Compose doit prendre en charge :
 
 - activation et extinction progressives ;
 - changements de couleur fluides ;
 - couleurs gauche et droite distinctes ;
-- couleur de Trap lorsqu’elle est disponible ;
+- couleur de Trap lorsque le canal est disponible et que le jeu actif déclare `GameFeature.TRAPS` ;
 - pulsation de pose ;
 - fondu de retrait ;
 - conflit USB ;
@@ -175,6 +187,8 @@ Le rendu Compose doit prendre en charge :
 Le rendu peut rester fluide à la fréquence de l’écran, indépendamment de la cadence des LED physiques.
 
 ## Intégration Bifrost
+
+Cette étape ne démarre qu’après clôture du correctif de composition de la PR #14 et autorisation explicite de l’utilisateur. La fusion de cette PR exige également son accord ; aucun lancement automatique de la suite n’est prévu.
 
 SkyPortal utilisera l’API publique de broadcasts Android de Bifrost, sans copier son contrôleur matériel ni appeler directement `PServerBinder`.
 

@@ -2,7 +2,7 @@
 
 ## État de développement V6 / API 4
 
-> La release publique stable `v0.5.0` utilise toujours Dolphin API 3. Cette documentation décrit la source V6 en cours de validation ; une paire API 4 ne doit pas être présentée comme stable avant le test matériel sur l’AYN Thor.
+> La release publique stable `v0.5.0` utilise toujours Dolphin API 3. La source V6/API 4 comprend désormais le transport LED, le portail animé et le correctif d’activation/keepalive de la PR #13. Des validations historiques ont eu lieu sur l’AYN Thor avec Spyro’s Adventure ; la validation finale de composition de la PR #14 reste le chantier courant. Aucun de ces travaux ne constitue une release V6 publique. Le [suivi du projet](docs/PROJECT_STATUS.md) distingue les preuves historiques des résultats de la session de reprise.
 
 Le bridge n'est plus théorique : il est défini en AIDL et un service Dolphin minimal est fourni dans `dolphin-patch/`.
 
@@ -125,6 +125,8 @@ Ces ajouts restent dans le JSON existant : les huit méthodes AIDL API 1–3 con
 
 Le cœur conserve une séquence monotone sous le même verrou que les trois couleurs. Une commande RGB identique ne crée pas de nouvelle séquence. L’API prend aussi en compte l’activation/désactivation protocolaire et l’alias gauche `0x04` utilisé par la commande audio `L`.
 
+Toute commande USB `A` valide conserve le comportement Dolphin d’activation/keepalive, y compris `A 00`. L’interprétation initiale `A 00 → Deactivate()` du patch LED provoquait une alternance anormale dans Spyro’s Adventure ; elle a été corrigée, validée historiquement sur la Thor et fusionnée dans la [PR #13](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/13). Le réglage d’émulation USB reste la source de disponibilité du périphérique. Cette protection ne doit pas être modifiée pour résoudre un défaut visuel du compagnon.
+
 SkyPortal interroge cet état léger toutes les 100 ms lorsque Dolphin API 4 est connecté. Le timeout est limité à 750 ms et les appels sont sérialisés avec les opérations du portail. Une erreur LED ne transforme jamais un chargement `.sky` en échec. Une API 1–3 efface simplement la capability lumineuse sans diagnostic d’erreur.
 
 Le détail du schéma, du tableau JNI et des limites figure dans [`docs/V6_LED_API4.md`](docs/V6_LED_API4.md).
@@ -157,11 +159,15 @@ SkyPortal ne désactive pas silencieusement une autre base configurée par l'uti
 Le patch est vérifié sur la révision Dolphin amont
 `54070da5851e12f2d1a4389daa528e4fb81327ce`. L'outil
 `tools/apply_dolphin_patch.py` vérifie ce commit **avant toute modification** et applique les
-overlays, puis `smart-portal-core.patch` et enfin `portal-led-api4.patch`, sans chemin absolu propre à une machine :
+overlays, puis `smart-portal-core.patch`, `portal-led-api4.patch` et enfin `android-menu-lifecycle.patch`, sans chemin absolu propre à une machine :
 
 ```powershell
 python tools/apply_dolphin_patch.py C:\chemin\vers\dolphin
 ```
+
+Chaque patch nouvellement appliqué doit passer un contrôle `git apply --reverse --check` avant de poursuivre ; ce contrôle ne retire pas le patch. Le correctif de cycle de vie du menu d’émulation Android est isolé dans `android-menu-lifecycle.patch`, sans changer le contrat API 4 ni le comportement d’activation/keepalive du Portal of Power. Il protège les requêtes JNI du menu Wii et rend les chemins de restauration/lancement neuf d’`EmulationFragment` mutuellement exclusifs, pour éviter un nouveau démarrage après la sortie d’une session restaurée. Sa validation matérielle est suivie séparément de la composition du compagnon dans [PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
+
+La construction complète du [run 33954214843](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33954214843), sur le commit `11353ca`, a réussi. Le Dolphin téléchargé, son source corrigé et son kit ont été vérifiés avant sa mise à jour sur la Thor. Le compagnon de composition `d466536` est conservé ; le compagnon également construit par ce run n’a pas été installé. La revalidation ciblée du 5 septembre, de 12:16 à 12:33, a confirmé les opérations de figurines dans SSA, le retour du menu avec figurine, la restauration Android suivie d’une sortie sans redémarrage et la reconnexion après mort Dolphin. Aucun nouveau crash ni ANR n’a été relevé dans cette fenêtre. Les limites de commande Wii après veille et de fiche d’actions périmée sont documentées dans le suivi ; cette validation ciblée ne vaut ni release V6 ni autorisation de fusion.
 
 Une autre révision est refusée par défaut. L'option `--allow-unsupported` existe uniquement pour
 un portage volontaire dont le diff, la compilation et les tests ont été revus de nouveau ; elle ne
@@ -201,7 +207,7 @@ provenance, ainsi que `SKYPORTAL_LICENSE.txt` et `SKYPORTAL_NOTICE.md`.
 
 Le kit de reconstruction publié au même endroit conserve les éléments de traçabilité :
 
-- `smart-portal-core.patch`, `portal-led-api4.patch` et la référence consolidée historique `skyportal-dolphin.patch` ;
+- `smart-portal-core.patch`, `portal-led-api4.patch`, `android-menu-lifecycle.patch` et la référence consolidée historique `skyportal-dolphin.patch` ;
 - les overlays AIDL et Kotlin ajoutés, ainsi que les modifications Manifest et Gradle ;
 - `tools/apply_dolphin_patch.py` et tout autre script réellement utilisé pour produire l'APK ;
 - les options de construction, dont un éventuel `-PskyPortalVersionCode=...` ;

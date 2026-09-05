@@ -127,8 +127,11 @@ internal fun PortalScreen(
     MaterialTheme(colorScheme = PortalColorScheme) {
         Surface(color = PortalPalette.Background, modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp)
+                // Scroll only when messages or larger fonts need more than the lower display.
+                // A weighted portal could previously be measured at zero height.
+                modifier = Modifier.fillMaxSize().safeDrawingPadding()
+                    .verticalScroll(rememberScrollState()).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Header(
                     portalState = portalState,
@@ -158,7 +161,7 @@ internal fun PortalScreen(
                     portalState = portalState,
                     playerTwoEnabled = playerTwoEnabled,
                     teamCount = quickTeams.size,
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier.fillMaxWidth().height(144.dp),
                     onTeams = { showQuickTeams = true },
                     onDiagnostics = { showDiagnostics = true }
                 )
@@ -838,7 +841,7 @@ private fun PortalSlotCard(
     }
     Card(
         modifier = modifier
-            .heightIn(min = 126.dp)
+            .heightIn(min = 88.dp)
             .semantics(mergeDescendants = true) {
                 role = Role.Button
                 contentDescription = "$title, ${slot.figure?.name ?: slot.label ?: "vide"}"
@@ -850,18 +853,19 @@ private fun PortalSlotCard(
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(title, color = PortalPalette.Accent, fontWeight = FontWeight.Black)
+                Text(title, color = PortalPalette.Accent, fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.labelSmall)
                 SlotStatusLabel(status)
             }
             if (slot.isOccupied()) {
                 Text(
                     slot.figure?.name ?: slot.label.orEmpty(),
                     color = Color.White,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Black,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -870,6 +874,7 @@ private fun PortalSlotCard(
                     slot.figure?.let { "${it.element} • ${it.generation}" }
                         ?: "Slot Dolphin #${slot.actualPortalSlot}",
                     color = PortalPalette.Muted,
+                    style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -881,9 +886,10 @@ private fun PortalSlotCard(
                     overflow = TextOverflow.Ellipsis
                 )
             } else {
-                Spacer(Modifier.height(4.dp))
                 Text("SLOT VIDE", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
-                Text("Touchez pour choisir un Skylander", color = PortalPalette.Success, fontWeight = FontWeight.Bold)
+                Text("Touchez pour choisir un Skylander", color = PortalPalette.Success,
+                    fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -919,7 +925,7 @@ private fun ExtraSlots(
             Card(
                 modifier = Modifier
                     .width(132.dp)
-                    .height(58.dp)
+                    .height(48.dp)
                     .semantics(mergeDescendants = true) {
                         role = Role.Button
                         contentDescription = "Slot ${slot.logicalSlot + 1}, ${slot.figure?.name ?: slot.label ?: "vide"}"
@@ -929,7 +935,7 @@ private fun ExtraSlots(
                 border = BorderStroke(1.dp, if (status == SlotVisualStatus.ERROR) PortalPalette.Error else PortalPalette.PanelRaised),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                Column(modifier = Modifier.padding(9.dp)) {
+                Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)) {
                     Text("SLOT ${slot.logicalSlot + 1}", color = PortalPalette.Accent, fontWeight = FontWeight.Bold)
                     Text(
                         slot.figure?.name ?: slot.label ?: "Toucher pour choisir",
