@@ -106,8 +106,17 @@ def check_third_party_notices(errors: list[str]) -> None:
         if "Apache License" not in apache_license or "Version 2.0" not in apache_license:
             errors.append("Gradle wrapper JAR no longer contains the Apache License 2.0 notice")
 
-    for relative in ("dolphin-patch/smart-portal-core.patch", "dolphin-patch/skyportal-dolphin.patch"):
-        for number, line in enumerate((ROOT / relative).read_text(encoding="utf-8").splitlines(), start=1):
+    for relative in (
+        "dolphin-patch/smart-portal-core.patch",
+        "dolphin-patch/portal-led-api4.patch",
+        "dolphin-patch/android-menu-lifecycle.patch",
+        "dolphin-patch/skyportal-dolphin.patch",
+    ):
+        patch_path = ROOT / relative
+        if not patch_path.is_file():
+            errors.append(f"missing required Dolphin patch: {relative}")
+            continue
+        for number, line in enumerate(patch_path.read_text(encoding="utf-8").splitlines(), start=1):
             if line.startswith("---"):
                 continue
             if line.startswith("-") and ("Copyright" in line or "SPDX-License-Identifier" in line):

@@ -159,11 +159,13 @@ SkyPortal ne désactive pas silencieusement une autre base configurée par l'uti
 Le patch est vérifié sur la révision Dolphin amont
 `54070da5851e12f2d1a4389daa528e4fb81327ce`. L'outil
 `tools/apply_dolphin_patch.py` vérifie ce commit **avant toute modification** et applique les
-overlays, puis `smart-portal-core.patch` et enfin `portal-led-api4.patch`, sans chemin absolu propre à une machine :
+overlays, puis `smart-portal-core.patch`, `portal-led-api4.patch` et enfin `android-menu-lifecycle.patch`, sans chemin absolu propre à une machine :
 
 ```powershell
 python tools/apply_dolphin_patch.py C:\chemin\vers\dolphin
 ```
+
+Chaque patch nouvellement appliqué doit passer un contrôle `git apply --reverse --check` avant de poursuivre ; ce contrôle ne retire pas le patch. Le correctif de cycle de vie du menu d’émulation Android est isolé dans `android-menu-lifecycle.patch`, sans changer le contrat API 4 ni le comportement d’activation/keepalive du Portal of Power. Sa validation matérielle est suivie séparément de la composition du compagnon dans [PROJECT_STATUS.md](docs/PROJECT_STATUS.md).
 
 Une autre révision est refusée par défaut. L'option `--allow-unsupported` existe uniquement pour
 un portage volontaire dont le diff, la compilation et les tests ont été revus de nouveau ; elle ne
@@ -203,7 +205,7 @@ provenance, ainsi que `SKYPORTAL_LICENSE.txt` et `SKYPORTAL_NOTICE.md`.
 
 Le kit de reconstruction publié au même endroit conserve les éléments de traçabilité :
 
-- `smart-portal-core.patch`, `portal-led-api4.patch` et la référence consolidée historique `skyportal-dolphin.patch` ;
+- `smart-portal-core.patch`, `portal-led-api4.patch`, `android-menu-lifecycle.patch` et la référence consolidée historique `skyportal-dolphin.patch` ;
 - les overlays AIDL et Kotlin ajoutés, ainsi que les modifications Manifest et Gradle ;
 - `tools/apply_dolphin_patch.py` et tout autre script réellement utilisé pour produire l'APK ;
 - les options de construction, dont un éventuel `-PskyPortalVersionCode=...` ;
