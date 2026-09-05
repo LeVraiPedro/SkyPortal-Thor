@@ -290,9 +290,10 @@ private fun PortalCanvas(
         val canvasHeight = size.height
         if (canvasWidth <= 0f || canvasHeight <= 0f) return@Canvas
 
-        val portalWidth = min(canvasWidth * 0.68f, canvasHeight * 6.20f)
+        // Include the outer halo in the height budget, not just the ring itself.
+        val portalWidth = min(canvasWidth * 0.68f, canvasHeight * 4.20f)
         val portalHeight = portalWidth * 0.16f
-        val center = Offset(canvasWidth * 0.50f, canvasHeight * 0.40f)
+        val center = Offset(canvasWidth * 0.50f, canvasHeight * 0.50f)
         val portalTopLeft = Offset(
             x = center.x - portalWidth / 2f,
             y = center.y - portalHeight / 2f
