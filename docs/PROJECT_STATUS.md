@@ -1,30 +1,59 @@
 <!-- Copyright 2026 LeVraiPedro and SkyPortal Thor contributors -->
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 
-# Suivi de reprise — 5 septembre 2026
+# Suivi du projet — 5 septembre 2026
 
-Ce document est le point de reprise courant. Les rapports V5 et les anciennes cases
-de la checklist restent des preuves historiques, pas des tests de cette session.
+Ce document est le point de reprise courant. Le chantier autorisé est désormais
+V6.0 Bifrost, avec fiabilisation préalable et audit du contrat officiel terminé.
+Bifrost officiel est installé ; sa configuration et la validation matérielle
+de la nouvelle intégration restent à faire. La campagne PR #14
+ci-dessous est conservée comme historique ; elle ne valide pas les changements
+du nouveau chantier. Les rapports V5 et leurs cases de checklist restent également
+des preuves historiques.
 
 ## État Git et périmètre
 
 - Publié : `v0.5.0`, paire stable API 3, release du 16 août 2026.
 - Fusionné dans `main` : fondation V6 (#10), LED API 4 (#11), portail animé (#12),
-  correction activation/keepalive (#13). `main` relevé à
-  `ffc1e7158e63abf3dae4a6f08aa372c66d8f35d1`.
+  correction activation/keepalive (#13), composition et correctifs du cycle de vie
+  Dolphin (#14). Commit de fusion courant :
+  `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`.
+- [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) : **fusionnée le
+  5 septembre à 10:58 UTC (12:58 Paris), après autorisation explicite**.
+  Tête approuvée : `7684d883e59adaf29386a5eaa06b382aef85415c`, ancêtre du merge,
+  avec arbre source identique ; aucun changement introduit par la fusion.
+- Android CI de `main` après fusion :
+  [run 33962044116](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33962044116)
+  réussi. Ce résultat couvre le commit fusionné, pas le nouveau chantier Bifrost.
+- Branche courante : `agent/v6-bifrost-integration`, créée depuis ce `main` ;
+  base `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`, arbre propre à son ouverture.
+- L’utilisateur a ensuite autorisé V6.0 Bifrost avec une fiabilisation préalable,
+  puis l’installation officielle de Bifrost, absent de la Thor au contrôle initial.
+  L’audit du source Bifrost `1.3.1` / code `16` est terminé et l’APK officiel est
+  installé. Les essais d’intégration restent à effectuer ; aucun fonctionnement
+  des LED physiques via SkyPortal n’est déclaré validé à ce point.
+- Version Android conservée : `0.5.0`, code `7` ; aucun tag ni release V6 créé.
+  Cette autorisation de développement ne constitue pas une autorisation de fusion
+  ou de publication du nouveau chantier.
+
+## Historique de l’ouverture de la reprise PR #14
+
+Les sections qui suivent, jusqu’à « Clôture de la campagne PR #14 », décrivent
+exclusivement cette ancienne campagne. Les mentions « cette session », ses APK,
+ses tests et son état final ne concernent pas le chantier Bifrost en cours,
+consigné séparément en fin de document.
+
+- `main` initial : `ffc1e7158e63abf3dae4a6f08aa372c66d8f35d1` ; la PR #14 était
+  alors ouverte en brouillon et attendait sa validation matérielle.
 - Branche de reprise : `agent/v6-animated-portal-layout-fix` ; tête initiale
   `f0aa3c33a09b1dffa9983001ddb795badea8b97a`, travail local initial propre.
-- Correctif Dolphin courant poussé sur cette branche :
+- Correctif Dolphin ajouté sur cette branche pendant la campagne :
   `11353ca7cabf28bc4dccbfbefa0593fb321def2f` ; construction de paire réussie,
   Dolphin mis à jour ; revalidation matérielle avec le compagnon `d466536`
   conservé, revalidée en partie le 5 septembre, de 12:16 à 12:33 (Paris).
-- [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) : ouverte,
-  **validation matérielle ciblée achevée ; revue et accord de fusion attendus**.
-  Aucune fusion autorisée dans cette reprise.
-- Aucun travail plus récent trouvé dans les PR lors de l’audit.
-- Version Android conservée : `0.5.0`, code `7` ; aucun tag ni release V6 créé.
-- Bifrost et les autres fonctions restent hors périmètre jusqu’à clôture de #14
-  **et autorisation explicite** de la suite.
+- Aucun travail plus récent n’avait été trouvé dans les PR lors de cet audit.
+- Bifrost était hors périmètre de cette campagne. Son autorisation distincte
+  est postérieure à la clôture de #14 et n’altère pas les preuves ci-dessous.
 
 ## Preuves historiques — non réexécutées implicitement
 
@@ -419,10 +448,85 @@ La dernière sortie normale depuis cette session neuve revient également au men
   changement de clé ou installation nouvelle pendant ce parcours. Captures et
   journaux contenant des données privées restent hors dépôt et PR.
 
-## Prochaine action et conditions de clôture
+## Clôture de la campagne PR #14
 
-**Obtenir l’accord explicite de fusion de #14**, après revue des preuves et succès
-de la CI sur la tête documentaire finale. Le parcours ciblé de composition et de
-cycle de vie Dolphin est terminé ; les réserves ci-dessus ne sont pas dissimulées.
-Aucune fusion automatique. Bifrost et toute nouvelle fonctionnalité nécessitent
-ensuite une autorisation distincte, même si #14 est fusionnée.
+Le parcours ciblé de composition et de cycle de vie Dolphin a été achevé, les
+preuves revues et la CI vérifiée. L’accord explicite de l’utilisateur a ensuite
+permis la fusion de #14 dans `12d23a1`, sans modification de l’arbre approuvé.
+La CI de `main` a réussi. Les réserves matérielles et les limites de couverture
+ci-dessus restent connues ; la fusion ne les transforme pas en scénarios validés.
+
+## Chantier courant — V6.0 Bifrost, contrat audité et fiabilisation préalable
+
+Branche : `agent/v6-bifrost-integration`, base `12d23a1`. L’utilisateur a autorisé
+la reprise de V6.0 Bifrost après clôture de #14. La fiabilisation préalable porte
+notamment sur les fiches d’actions pouvant conserver une identité périmée.
+L’interruption de commande Wii après veille reste une observation à distinguer
+de l’état du portail, pas un problème déclaré corrigé.
+
+Audit du 5 septembre : source officiel [Bifrost 1.3.1](https://github.com/Pollux-MoonBench/Bifrost/tree/1.3.1),
+commit `1baddf1644ff0d7edd1bd0f4ba02f7eb6c8e3cfa`, version Android `1.3.1` / code
+`16`, API externe `1`, Android minimum API `33`. Le [contrat technique](V6_BIFROST.md)
+regroupe les références source, les choix et les contrôles à compléter :
+
+- support conservateur de la seule version auditée, jusqu’à un nouvel audit ;
+- option désactivée par défaut, sortie `STATIC` gauche/droite issue de l’API 4,
+  luminosité réglable, renouvellement à 2 Hz ;
+- `EXPLICIT_CLEAR`, bail Bifrost de 1 500 ms et surveillance toutes les 400 ms ;
+  pas de durées courtes répétées, dont le fast-path ne renouvelle pas l’échéance ;
+- `CLEAR` à la sortie, à la déconnexion et à l’extinction des écrans ;
+- commande acceptée par le receiver distincte d’une application physique :
+  l’état réel du service n’est pas fourni par cette API ;
+- restauration preset/profil par Bifrost si son service reste vivant ; aucune
+  garantie après arrêt/crash de Bifrost ni d’isolation entre plusieurs appelants ;
+- aucune installation de profil, aucun accès matériel/root supplémentaire,
+  aucune modification Dolphin nécessaire à cette intégration.
+
+Bifrost était absent de la Thor au contrôle initial. Après autorisation, l’APK
+officiel `1.3.1` a été installé avec `adb install -r` : `Success`, provenance,
+certificat et hash conservés conformes à l’audit. Le guide de premier démarrage
+a été observé sur l’écran supérieur `0`, malgré une demande de lancement sur `4`.
+Les notifications, la configuration initiale, « Allow third-party LED control »
+et le démarrage du service ont été demandés à l’utilisateur ; sa confirmation
+est encore attendue à ce point. Aucun profil n’a été installé par SkyPortal.
+
+L’implémentation est maintenant présente dans l’arbre de travail de la branche :
+
+- transport Android ordonné borné à 1 000 ms et résultat receiver distinct du matériel ;
+- session à 2 Hz, temporisation de 5 s après rejet, contrôle de cycle de vie
+  `STARTED` / `isInteractive` et fraîcheur LED de 1 500 ms maximum ;
+- réglage OFF par défaut, luminosité initiale 35 %, bouton LED, dialogue et diagnostic ;
+- fiabilisation de la fiche d’actions pour refuser une identité de slot périmée.
+
+Tests ciblés réussis sur cet arbre de travail : 8 tests de cible de slot, 16 de
+session Bifrost, 9 de politique LED et 8 de résolution LED. La première suite
+complète a signalé une erreur Lint `NewApi` : accès à `display` API 30 alors que
+le minimum de SkyPortal est 26. L’accès a été corrigé vers `window.decorView.display`.
+La réexécution complète sur cet arbre de travail, avant commit, a réussi :
+
+- 154 tests JVM, zéro échec, erreur ou test ignoré ;
+- Android Lint : zéro erreur, 17 avertissements, dont un conseil `UseKtx`
+  supplémentaire sur les préférences de luminosité ;
+- compilation Debug réussie en 31 s ;
+- contrôle de licence réussi sur 91 sources ; `git diff --check` réussi.
+
+Ces résultats couvrent les sources locales, pas encore un APK Release installé
+et validé sur la Thor. La provenance du candidat signé devra être ajoutée après
+construction et vérification de l’artefact exact.
+
+La synchronisation des LED physiques, la restauration du réglage utilisateur
+et le parcours matériel sans Bifrost restent non confirmés. Les anciens résultats
+API 4/SSA ne constituent pas des tests Bifrost. Les modes LED J1/J2 et la priorité
+J1 n’ont pas été ajoutés ; ce chantier n’est pas une clôture complète de V6.0.
+La restauration après arrêt/crash Bifrost reste sans garantie.
+Les autres étapes V6.1–V6.4 restent des éléments de roadmap, sans démarrage implicite.
+
+## Prochaine action et conditions de validation du nouveau chantier
+
+**Obtenir la confirmation de configuration initiale de Bifrost**, puis vérifier
+le candidat Release signé avant son installation et les essais de LED.
+La validation doit associer tests déterministes et observation
+réelle des LED, vérifier le mode sans Bifrost et les libérations de contrôle,
+puis documenter les limites de restauration du service tiers. Aucun résultat
+ne sera coché sans preuve correspondante, avec provenance des APK testés. Toute
+fusion ou publication du nouveau chantier reste soumise à une autorisation distincte.

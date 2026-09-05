@@ -1,5 +1,23 @@
 # Validation sur AYN Thor / Android 13
 
+## V6.0 Bifrost — chantier autorisé après fusion de #14
+
+La validation de #14 ci-dessous est historique. La nouvelle intégration doit
+être validée avec son propre APK signé, sans remplacer Dolphin API 4.
+
+- [x] Bifrost officiel 1.3.1/code 16 audité ; APK signé et SHA-256 vérifiés.
+- [x] Installation autorisée sur Thor, sans remplacement Dolphin ni effacement.
+- [ ] Contrôle tiers désactivé : refus explicite, aucune prétention de succès matériel.
+- [ ] Couleurs réelles des joysticks gauche/droite et luminosité confirmées visuellement.
+- [ ] Heartbeat 2 Hz sans rafale ; réponse du receiver distinguée du résultat physique.
+- [ ] Retour accueil, écran éteint et arrêt du compagnon : restitution Bifrost observée.
+- [ ] Mort Dolphin et reconnexion : fin puis reprise du flux, sans doublon de figurine.
+- [ ] Service Bifrost arrêté : le compagnon reste utilisable, aucun faux état physique.
+- [ ] J1 remplacement/retrait, J2, collection et boutons du portail sans régression.
+- [ ] Fiche d’actions ouverte puis mort Dolphin : aucune ancienne action disponible.
+- [ ] Backup normal terminé après son propre retrait, sans écriture de fichier monté.
+- [ ] Absence de crash/ANR et d’erreur Binder/SAF dans la fenêtre Logcat examinée.
+
 ## Reprise V6 / PR #14 — 5 septembre 2026
 
 Le [suivi courant](docs/PROJECT_STATUS.md) identifie commits, APK, certificat et
