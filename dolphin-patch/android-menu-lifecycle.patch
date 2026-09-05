@@ -70,3 +70,17 @@ index 995f0d0..50ae86c 100644
  
    if (!tmd.IsValid())
    {
+diff --git a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/fragments/EmulationFragment.kt b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/fragments/EmulationFragment.kt
+index a005995..5ff825b 100644
+--- a/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/fragments/EmulationFragment.kt
++++ b/Source/Android/app/src/main/java/org/dolphinemu/dolphinemu/fragments/EmulationFragment.kt
+@@ -221,8 +221,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
+                         "Cannot start emulation without any game paths"
+                     }
+                     NativeLibrary.Run(paths, riivolution, temporaryStateFilePath, true)
+-                }
+-                if (launchSystemMenu) {
++                } else if (launchSystemMenu) {
+                     Log.debug("[EmulationFragment] Starting emulation thread for the Wii Menu.")
+                     NativeLibrary.RunSystemMenu()
+                 } else if (netplaySession?.isLaunching == true) {

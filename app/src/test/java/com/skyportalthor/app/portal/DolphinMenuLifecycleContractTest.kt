@@ -59,6 +59,19 @@ class DolphinMenuLifecycleContractTest {
     }
 
     @Test
+    fun aRestoredSessionCannotFallThroughIntoAFreshBootAfterExit() {
+        val source = patchedExcerpt()
+        assertTrue(source.contains(
+            "NativeLibrary.Run(paths, riivolution, temporaryStateFilePath, true)\n" +
+                "                } else if (launchSystemMenu) {"
+        ))
+        assertFalse(source.contains(
+            "NativeLibrary.Run(paths, riivolution, temporaryStateFilePath, true)\n" +
+                "                }\n                if (launchSystemMenu) {"
+        ))
+    }
+
+    @Test
     fun patchApplicationAndRebuildKitIncludeTheLifecycleCorrection() {
         val applyScript = locate("tools/apply_dolphin_patch.py").readText()
         val ledPatch = applyScript.indexOf("portal-led-api4.patch")
