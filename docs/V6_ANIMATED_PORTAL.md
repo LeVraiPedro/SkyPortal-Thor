@@ -20,6 +20,10 @@ Jeu Skylanders
 
 Elle ne pilote encore aucune LED physique et ne contacte pas Bifrost.
 
+## État de reprise
+
+Le portail animé est fusionné dans `main` depuis la [PR #12](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/12). Son affichage, les séquences LED et les valeurs gauche/droite ont été observés historiquement sur la Thor avec Spyro’s Adventure, comme le consigne la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14). La correction de composition portée par cette dernière PR reste en validation ; les résultats du 5 septembre 2026 et la provenance de l’APK sont suivis dans [PROJECT_STATUS.md](PROJECT_STATUS.md).
+
 ## Position dans l’interface
 
 Le portail animé remplace le panneau d’actions rapide qui occupait l’espace flexible de l’écran principal.
@@ -32,9 +36,7 @@ En-tête
 → Barre de collection
 ```
 
-Les actions `Équipes` et `Diagnostic` restent accessibles directement dans l’en-tête du panneau animé.
-
-Ce choix évite d’ajouter une hauteur fixe supplémentaire et conserve une mise en page adaptée à l’écran logique inférieur `4`.
+La PR #14 sépare le panneau en trois zones : état et actions en haut, portail central, puis bande RGB gauche/droite en bas. Les actions `Équipes` et `Diagnostic` restent accessibles dans la zone supérieure. La hauteur réellement disponible pour le Canvas et l’absence de chevauchement doivent être contrôlées sur l’écran inférieur ; les identifiants d’écran sont revérifiés par ADB à chaque session.
 
 ## États visuels
 
@@ -62,7 +64,7 @@ Le composant dessine sans ressource graphique tierce :
 - un anneau coloré gauche/droite ;
 - des repères lumineux ;
 - deux points lumineux latéraux ;
-- une zone Trap en forme de cristal lorsqu’elle est fournie ;
+- une zone Trap en forme de cristal si le canal est fourni et si le jeu actif déclare `GameFeature.TRAPS` ;
 - des arcs en rotation lente ;
 - une respiration lumineuse ;
 - une pulsation courte lorsque la composition des slots change.
@@ -74,8 +76,10 @@ Les transitions de couleur utilisent les valeurs RGB exactes reçues de Dolphin 
 Avec Dolphin API 4 :
 
 - les couleurs gauche et droite viennent du jeu ;
-- la zone Trap est affichée lorsqu’elle est disponible ;
+- la zone et le badge Trap sont affichés uniquement si le canal est disponible et si le jeu actif déclare `GameFeature.TRAPS` ; Spyro’s Adventure, Giants et Swap Force n’affichent pas ce canal ;
 - l’état actif et la séquence sont affichés.
+
+Le libellé « Éclairage du portail en veille » distingue l’état lumineux du fonctionnement du Portal of Power. Le correctif [PR #13](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/13) préserve l’activation/keepalive pendant le polling `A 00` de Spyro’s Adventure ; un changement visuel ne doit pas modifier ce comportement Dolphin.
 
 Avec Dolphin API 1, 2 ou 3 :
 
@@ -112,9 +116,10 @@ Les tests JVM couvrent :
 - l’attente du premier snapshot API 4 ;
 - la conservation exacte des couleurs et de la séquence ;
 - la conservation des couleurs lors d’une erreur temporaire du transport ;
-- le mode veille API 4.
+- le mode veille API 4 ;
+- la visibilité du canal Trap selon les fonctionnalités du jeu actif.
 
-La validation visuelle et les performances doivent encore être observées sur l’écran inférieur réel de la Thor.
+Ces tests ne remplacent pas le contrôle de disposition réel. La validation finale de la PR #14 doit vérifier le portail central visible, les zones sans chevauchement, les valeurs RGB lisibles, les actions accessibles et les fonctions de chargement/remplacement/retrait préservées. Les observations historiques ne suffisent pas à valider un nouvel APK ; voir le suivi de reprise pour les résultats associés à chaque artefact.
 
 ## Hors périmètre
 
@@ -129,7 +134,7 @@ Cette étape ne comprend pas :
 
 ## Étape suivante
 
-Après fusion et contrôle visuel du portail :
+Après clôture de la PR #14, validation matérielle et autorisation explicite de l’utilisateur :
 
 ```text
 agent/v6-bifrost

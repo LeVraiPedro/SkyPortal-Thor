@@ -1,4 +1,40 @@
-# Validation V5 Smart Portal sur AYN Thor / Android 13
+# Validation sur AYN Thor / Android 13
+
+## Reprise V6 / PR #14 — 5 septembre 2026
+
+Le [suivi courant](docs/PROJECT_STATUS.md) identifie commits, APK, certificat et
+preuves de cette session. La section V5 ci-dessous reste historique.
+
+- [x] ADB autorisé, écrans logiques `0` supérieur et `4` inférieur vérifiés.
+- [x] APK préexistants conservés, certificat officiel commun vérifié.
+- [x] Dolphin API 4 installé conservé sans remplacement ni suppression de données.
+- [x] APK historique `final-compose` réinstallé par `adb install -r` ; défaut
+  restant reproduit : panneau trop court, portail invisible.
+- [x] Correction compagnon : hauteur réservée, défilement de secours, régions
+  mesurées, clipping, arcs horizontaux et accessibilité Trap conditionnelle.
+- [x] JVM : 115 tests réussis ; Lint : aucune erreur ; Debug : compilation réussie.
+- [x] Nouvel APK Release signé exact vérifié et mis à jour sur la Thor (`d466536`,
+  run `33952416415`) ; APK installé identique par SHA-256.
+- [x] SSA : aucun badge/cristal Trap dans les captures ; description couverte par JVM.
+- [x] Portail central visible, texte et bande RGB séparés à plusieurs phases animées.
+- [x] RGB gauche/droite lisibles ; Équipes et Diagnostic accessibles.
+- [ ] J1 : chargement, remplacement et retrait réels, sans faux succès ni doublon.
+- [ ] J2 activé : nouveau chargement/retrait sur le dernier APK (montage préexistant
+  réconcilié, retrait Warnado et retour solo réussis ; pas de partie coop validée).
+- [x] Sélecteur Slot 3 et collection accessibles ; aucun montage supplémentaire tenté.
+- [x] Recréation du compagnon et reconnexion manuelle avec Whirlwind : un seul slot natif.
+- [ ] Retour accueil/veille/Dolphin sans incident : **échec, crash natif du menu Dolphin**.
+- [ ] Logcat ciblé : aucun crash, ANR, erreur Binder/SAF ou alternance anormale actif/veille.
+- [ ] Preuves actualisées dans la PR ; accord explicite de fusion obtenu séparément.
+
+Deux `SIGTRAP` Dolphin ont été observés à 09:34 et 09:37 lors du retour à son
+menu principal : `onPrepareOptionsMenu → isSystemMenuInstalled → IOS::HLE::Kernel`,
+avec un IOS déjà présent. La PR reste en brouillon. Le compagnon a refusé le
+chargement après perte du handshake, sans faux succès. Voir les limites et les
+résultats détaillés dans le suivi ; ne pas cocher le parcours global à partir
+des seules réussites de disposition, de CI ou de reconnexion du compagnon.
+
+## Historique V5 Smart Portal
 
 Cette checklist distingue les observations faites sur la console des couvertures automatisées. Une case non cochée ne doit pas être interprétée comme un échec : elle signifie que le scénario matériel reste à exécuter ou à documenter.
 

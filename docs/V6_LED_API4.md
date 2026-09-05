@@ -19,16 +19,18 @@ Jeu Skylanders
 → PortalLedState dans SkyPortal
 ```
 
-Elle ne dessine pas encore le portail animé et n’envoie aucune commande à Bifrost.
+Le transport décrit ici alimente désormais le [portail animé Compose](V6_ANIMATED_PORTAL.md), intégré séparément dans la PR #12. Il n’envoie aucune commande à Bifrost.
 
 ## État de validation
 
 - contrat et implémentation Android : couverts par tests JVM et Android CI ;
 - patch natif : vérifié par application/réversion et construction Dolphin dans le workflow de paire ;
-- comportement sur l’AYN Thor : à valider dans une étape matérielle ultérieure ;
+- observations matérielles historiques sur l’AYN Thor : séquences LED, valeurs RGB gauche/droite et affichage du portail dans Spyro’s Adventure, consignés dans la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) ;
+- activation/keepalive : correctif [PR #13](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/13) validé historiquement sur Thor puis fusionné le 19 août 2026 ;
+- composition finale du panneau : chantier de validation PR #14, suivi dans [PROJECT_STATUS.md](PROJECT_STATUS.md) ;
 - release stable publique : reste `v0.5.0`, Dolphin API 3.
 
-Ne pas présenter l’API 4 comme matériellement validée avant un test de la paire exacte sur la Thor.
+Ces observations historiques ne valident ni les autres jeux, ni le canal Trap en jeu, ni chaque APK ultérieur. La provenance de l’APK et les résultats de chaque nouvelle session doivent être relevés séparément.
 
 ## Contrat AIDL
 
@@ -105,7 +107,9 @@ L’API 4 ajoute :
 - la suppression des incréments pour une commande RGB identique ;
 - la prise en charge de `0x04` comme alias gauche utilisé par la commande audio `L` ;
 - la traduction de la position audio `0x01` vers la zone Trap interne `0x03` ;
-- la désactivation réelle lorsque la commande `A` porte la valeur `0`.
+- la conservation du comportement d’activation/keepalive de Dolphin pour toute commande `A` valide, y compris `A 00`.
+
+Le premier patch LED avait interprété `A 00` comme une désactivation. La PR #13 a supprimé cette régression : Spyro’s Adventure peut alterner `A 00` et `A 01` pendant un polling normal. Le réglage d’émulation USB contrôle la disponibilité du périphérique ; l’octet de polling ne doit pas éteindre artificiellement le portail. Voir [le rapport du correctif](V6_PORTAL_DETECTION_FIX.md).
 
 Le patch est séparé dans :
 
@@ -140,7 +144,7 @@ Le transport LED :
 - signale un conflit si deux contenus différents portent la même séquence ;
 - n’empêche jamais un chargement de figurine uniquement parce que le canal LED est indisponible.
 
-## État exposé à la future interface
+## État exposé à l’interface
 
 `PortalState` contient désormais :
 
@@ -150,7 +154,7 @@ portalLedWarnings: List<String>
 portalLedError: String?
 ```
 
-Ces champs ne sont pas encore rendus dans l’interface V5. Ils serviront de source unique à :
+Ces champs alimentent le portail animé V6 via `AnimatedPortalStateMapper`. Le rendu Trap est conditionné à la disponibilité du canal et à `GameFeature.TRAPS` du jeu actif : la présence d’un canal dans le JSON ne suffit pas. Bifrost reste une future sortie facultative du même modèle :
 
 ```text
 AnimatedPortal
@@ -171,6 +175,7 @@ Tests JVM ajoutés :
 - payload initial, obsolète, conflictuel et malformé ;
 - erreur de transport non bloquante ;
 - nettoyage de l’état LED après mort Binder ;
+- garde contre la réintroduction de `A 00 → Deactivate()` et précontrôle d’activation avant chargement ;
 - présence et ordre des patches dans l’outil de build ;
 - noms des artefacts API 4.
 
@@ -185,16 +190,11 @@ Il couvre les trois zones, les doublons, l’alias gauche `0x04` et les transiti
 ## Limites connues
 
 - le snapshot transporte la couleur cible, pas la durée de fondu des commandes `J` ;
-- la fluidité visuelle sera produite plus tard par Compose entre deux états ;
-- aucune couleur n’est encore affichée à l’écran ;
+- Compose produit les transitions visuelles entre deux états ; la composition finale sur l’écran inférieur reste à valider dans la PR #14 ;
 - Bifrost n’est pas encore déclaré ni contacté ;
 - aucune LED physique n’est encore modifiée ;
-- la paire API 4 doit encore être installée et observée sur la vraie Thor.
+- seuls les essais historiques dans Spyro’s Adventure sont documentés ; les autres jeux et le canal Trap n’ont pas été validés matériellement.
 
 ## Étape suivante
 
-```text
-agent/v6-animated-portal
-```
-
-Cette branche devra consommer `PortalState.portalLedState` pour créer le portail Compose animé, sans intégrer Bifrost dans la même pull request.
+Terminer la validation visuelle et fonctionnelle de la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14), avec l’APK identifié dans le suivi de reprise. L’intégration Bifrost ne peut commencer qu’après clôture de cette étape et autorisation explicite de l’utilisateur.

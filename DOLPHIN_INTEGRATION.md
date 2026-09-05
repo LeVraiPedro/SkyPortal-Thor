@@ -2,7 +2,7 @@
 
 ## État de développement V6 / API 4
 
-> La release publique stable `v0.5.0` utilise toujours Dolphin API 3. Cette documentation décrit la source V6 en cours de validation ; une paire API 4 ne doit pas être présentée comme stable avant le test matériel sur l’AYN Thor.
+> La release publique stable `v0.5.0` utilise toujours Dolphin API 3. La source V6/API 4 comprend désormais le transport LED, le portail animé et le correctif d’activation/keepalive de la PR #13. Des validations historiques ont eu lieu sur l’AYN Thor avec Spyro’s Adventure ; la validation finale de composition de la PR #14 reste le chantier courant. Aucun de ces travaux ne constitue une release V6 publique. Le [suivi du projet](docs/PROJECT_STATUS.md) distingue les preuves historiques des résultats de la session de reprise.
 
 Le bridge n'est plus théorique : il est défini en AIDL et un service Dolphin minimal est fourni dans `dolphin-patch/`.
 
@@ -124,6 +124,8 @@ Ces ajouts restent dans le JSON existant : les huit méthodes AIDL API 1–3 con
 ```
 
 Le cœur conserve une séquence monotone sous le même verrou que les trois couleurs. Une commande RGB identique ne crée pas de nouvelle séquence. L’API prend aussi en compte l’activation/désactivation protocolaire et l’alias gauche `0x04` utilisé par la commande audio `L`.
+
+Toute commande USB `A` valide conserve le comportement Dolphin d’activation/keepalive, y compris `A 00`. L’interprétation initiale `A 00 → Deactivate()` du patch LED provoquait une alternance anormale dans Spyro’s Adventure ; elle a été corrigée, validée historiquement sur la Thor et fusionnée dans la [PR #13](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/13). Le réglage d’émulation USB reste la source de disponibilité du périphérique. Cette protection ne doit pas être modifiée pour résoudre un défaut visuel du compagnon.
 
 SkyPortal interroge cet état léger toutes les 100 ms lorsque Dolphin API 4 est connecté. Le timeout est limité à 750 ms et les appels sont sérialisés avec les opérations du portail. Une erreur LED ne transforme jamais un chargement `.sky` en échec. Une API 1–3 efface simplement la capability lumineuse sans diagnostic d’erreur.
 
