@@ -7,7 +7,9 @@ preuves de cette session. La section V5 ci-dessous reste historique.
 
 - [x] ADB autorisé, écrans logiques `0` supérieur et `4` inférieur vérifiés.
 - [x] APK préexistants conservés, certificat officiel commun vérifié.
-- [x] Dolphin API 4 installé conservé sans remplacement ni suppression de données.
+- [x] Dolphin API 4 préexistant conservé pendant les essais initiaux du compagnon,
+  sans remplacement ni suppression de données ; la paire corrective ultérieure
+  dispose d’une validation distincte ci-dessous.
 - [x] APK historique `final-compose` réinstallé par `adb install -r` ; défaut
   restant reproduit : panneau trop court, portail invisible.
 - [x] Correction compagnon : hauteur réservée, défilement de secours, régions
@@ -33,6 +35,60 @@ avec un IOS déjà présent. La PR reste en brouillon. Le compagnon a refusé le
 chargement après perte du handshake, sans faux succès. Voir les limites et les
 résultats détaillés dans le suivi ; ne pas cocher le parcours global à partir
 des seules réussites de disposition, de CI ou de reconnexion du compagnon.
+
+### Reprise autorisée du correctif de menu Dolphin
+
+Le candidat `11353ca7cabf28bc4dccbfbefa0593fb321def2f` inclut les gardes JNI du
+menu Wii de `23af6d0` et rend les chemins de restauration/lancement neuf de
+`EmulationFragment` mutuellement exclusifs. Les deux crashs ci-dessus
+restent des observations de l’ancien Dolphin ; aucune case matérielle ne peut
+être cochée pour la nouvelle paire avant installation et rejeu.
+
+- [x] Autorisation utilisateur obtenue pour le correctif Dolphin ciblé.
+- [x] Correctif isolé dans `android-menu-lifecycle.patch`, sans changement API 4
+  ni remise en cause de l’activation/keepalive `A 00`.
+- [x] Contrôles locaux réexécutés sur `11353ca` : 120 tests JVM réussis, Lint 0 erreur / 16
+  avertissements, compilation Debug et contrôle de licence réussis.
+- [x] Pile complète de patchs réversée puis réappliquée sur la base épinglée
+  dans un arbre contrôlé. Reconstruction prévue depuis un checkout **neuf** :
+  le script complet ne peut pas être relancé tel quel sur un arbre déjà API 4
+  (échec reproduit et arbre contrôlé réparé, détails dans le suivi).
+- [x] Run intermédiaire `33953904485` annulé volontairement avant candidat pour
+  intégrer le second correctif, sans le présenter comme un échec de compilation.
+- [x] Nouveau run de paire [33954214843](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33954214843)
+  terminé avec succès en 31 min 32 s, compilation native comprise ; source et
+  kit disponibles, contenu corrigé vérifié et CRC des deux ZIP valides.
+- [x] Nouveaux APK exacts téléchargés, six SHA-256 du manifeste et certificat officiel commun
+  vérifiés, mode `PERSISTENT_RELEASE_KEY` confirmé.
+- [x] Dolphin correctif seul installé par mise à jour à 10:36:58, sans effacement ;
+  APK réextrait identique par SHA-256. Compagnon `d466536` conservé : le compagnon
+  construit par le run de paire n’est pas installé ni revendiqué testé sur Thor.
+- [x] Premier diagnostic : API 4, SSA `SSPP52`, `RUNNING`, trois preuves USB à
+  `true`, 16 slots libres, 32 fichiers et droits SAF conservés.
+- [x] À 10:42, « Dolphin en haut » depuis l’écran-titre SSA ouvre le menu
+  principal ; Retour Android retrouve le même écran-titre et le même processus,
+  sans nouveau démarrage. Aucun personnage n’est monté pendant cet essai.
+- [x] Logcat 10:37–10:43 sans nouvelle erreur fatale, assertion, ANR,
+  `SecurityException` ou `DeadObjectException` ; un seul lancement `Running`,
+  celui de 10:37:28. Historique des sorties inchangé depuis la mise à jour.
+- [ ] Partie SSA ouverte par l’utilisateur ; premier chargement de figurine
+  avec le nouveau Dolphin avant poursuite des scénarios.
+- [ ] Retour au menu Dolphin pendant la partie avec personnage monté puis après arrêt d’émulation sans
+  nouveau `SIGTRAP`, crash ou ANR.
+- [ ] Sortie d’une session restaurée depuis l’état temporaire sans nouveau
+  démarrage involontaire de l’émulation.
+- [ ] Chargement/remplacement/retrait J1 et chargement/retrait J2 rejoués ;
+  disposition, reconnexion, accès collection et retour solo préservés.
+- [ ] Accueil/veille/reprise rejoués et fenêtre Logcat du nouveau candidat analysée.
+- [ ] PR #14 mise à jour avec les preuves ; accord de fusion demandé seulement
+  après levée des blocages. Bifrost reste soumis à une autorisation distincte.
+
+Deux avertissements Wii SSL (`clientca.pem`, `clientcakey.pem` manquants) ont
+été acquittés individuellement ; aucune option d’ignorance globale activée.
+Une `DeadObjectException` à 10:36:59 correspond au remplacement du processus
+par l’installation. Le Logcat des scénarios suivants doit être contrôlé séparément.
+Le succès du retour au menu depuis l’écran-titre ne valide pas une sortie de
+partie restaurée ni le parcours avec figurines : ces contrôles restent en attente.
 
 ## Historique V5 Smart Portal
 

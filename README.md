@@ -2,7 +2,7 @@
 
 Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor. La version stable actuelle est **0.5.0** (`versionCode 7`).
 
-> **Développement V6 :** `main` contient la fondation lumineuse, le transport Dolphin **API 4**, le portail animé et le correctif d’activation/keepalive de la PR #13. La composition du portail sur l’écran inférieur reste le chantier de validation de la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14). La release publique stable `v0.5.0` reste une paire **API 3**. Ne pas mélanger les APK de ces deux générations. Voir [le suivi de reprise](docs/PROJECT_STATUS.md), [la roadmap V6](docs/ROADMAP_V6.md) et [le contrat LED API 4](docs/V6_LED_API4.md).
+> **Développement V6 :** `main` contient la fondation lumineuse, le transport Dolphin **API 4**, le portail animé et le correctif d’activation/keepalive de la PR #13. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) reste en validation : composition vérifiée sur Thor, puis correctif de menu Dolphin autorisé et installé. Le premier retour menu/écran-titre SSA réussit ; les essais en partie restent à terminer et la PR n’est pas prête à fusionner. La release publique stable `v0.5.0` reste une paire **API 3**. Ne pas mélanger les APK de ces deux générations. Voir [le suivi de reprise](docs/PROJECT_STATUS.md), [la roadmap V6](docs/ROADMAP_V6.md) et [le contrat LED API 4](docs/V6_LED_API4.md).
 
 Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (`Screen-2`) de la Thor, même si l'icône SkyPortal est touchée depuis l'écran inférieur. L'écran supérieur reste ainsi libre pour Dolphin.
 

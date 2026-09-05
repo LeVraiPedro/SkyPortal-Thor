@@ -2,6 +2,40 @@
 
 ## V6 — développement non publié
 
+### Reprise du menu Dolphin — correctif autorisé, validation en cours
+
+- Deux crashs natifs du Dolphin préexistant ont interrompu le parcours Thor du
+  5 septembre 2026 : les requêtes du menu Wii tentaient de créer un noyau IOS
+  temporaire alors qu’un IOS était déjà présent.
+- Après autorisation utilisateur, ajout de `android-menu-lifecycle.patch`
+  (`23af6d0`) : lecteur commun aux trois requêtes JNI, vérification du cœur
+  arrêté avant puis sous verrou et protection des lectures de TMD indisponible.
+- Complément `11353ca` dans le même patch : chemins de restauration et de
+  lancement neuf d’`EmulationFragment` rendus mutuellement exclusifs ; la sortie
+  d’une session restaurée ne doit plus enchaîner un nouveau démarrage.
+- Conservation du contrat API 4 et du comportement d’activation/keepalive du
+  Portal of Power ; aucune nouvelle fonctionnalité ou version publique.
+- Cinq gardes structurelles JVM ajoutées ; 120 tests locaux réussis, Lint
+  sans erreur (16 avertissements), Debug et contrôle de licence réussis ; pile
+  complète des patchs réversée/réappliquée avec succès. Le run intermédiaire
+  `33953904485` a été annulé volontairement pour intégrer le complément, sans
+  échec de compilation constaté. La paire complète du nouveau
+  [run 33954214843](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33954214843)
+  a été construite avec succès, compilation native comprise ; source, kit,
+  empreintes et certificat officiel commun vérifiés après téléchargement.
+- Mise à jour du seul Dolphin correctif sur la Thor, avec le compagnon `d466536`
+  conservé. Premier diagnostic API 4/SSA/USB réussi et données SAF conservées ;
+  ouverture du menu puis retour à l’écran-titre SSA réussis, même processus et
+  aucun nouveau démarrage ni erreur critique dans la fenêtre Logcat examinée.
+  Aucun personnage n’était monté : les essais en partie, retrait, reconnexion,
+  accueil/veille et sortie de session restaurée restent à terminer.
+  Le compagnon produit par le workflow de paire n’a pas été installé et n’est
+  pas présenté comme matériellement testé.
+- Patch inclus dans la procédure d’application, la vérification des notices et la provenance
+  du kit. Le script de préparation doit partir d’un checkout Dolphin neuf :
+  sa réexécution sur un arbre déjà API 4 n’est pas prise en charge, comme le
+  documente [le suivi de reprise](docs/PROJECT_STATUS.md).
+
 ### Composition du portail — PR #14 en validation
 
 - Séparation du panneau en une zone supérieure d’état/actions, une zone centrale pour le Canvas et une bande RGB inférieure.

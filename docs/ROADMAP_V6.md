@@ -39,11 +39,17 @@ V6 Foundation       ✓ fusionnée (PR #10)
 Dolphin LED API 4    ✓ fusionnée (PR #11), observée historiquement sur Thor/SSA
 Portail animé       ✓ fusionné (PR #12), affichage observé historiquement sur Thor
 Activation/keepalive ✓ corrigée et validée historiquement sur Thor (PR #13)
-Composition Thor    PR #14 : rendu corrigé ; parcours de reprise bloqué (menu Dolphin)
+Composition Thor    PR #14 : rendu vérifié ; correctif menu installé, essais en partie à finir
 Bifrost             non commencé ; clôture de #14 et autorisation requises
 ```
 
 État de reprise vérifié le 5 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) est encore ouverte et en brouillon au début de cette reprise. Les résultats de session, l’APK exact et les conditions de clôture figurent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Les tests historiques ne valent pas validation de chaque APK ultérieur.
+
+Après les incidents du menu Dolphin, un correctif ciblé a été autorisé, construit
+et installé. Le retour menu/écran-titre SSA a réussi avec le même processus et
+sans nouveau démarrage ; aucun personnage n’était monté. Les essais en partie,
+retrait, reconnexion, accueil/veille et sortie d’une session restaurée restent à
+terminer. La PR #14 reste en brouillon, sans accord de fusion ni autorisation Bifrost.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
 

@@ -14,8 +14,13 @@ de la checklist restent des preuves historiques, pas des tests de cette session.
   `ffc1e7158e63abf3dae4a6f08aa372c66d8f35d1`.
 - Branche de reprise : `agent/v6-animated-portal-layout-fix` ; tête initiale
   `f0aa3c33a09b1dffa9983001ddb795badea8b97a`, travail local initial propre.
+- Correctif Dolphin courant poussé sur cette branche :
+  `11353ca7cabf28bc4dccbfbefa0593fb321def2f` ; construction de paire réussie,
+  Dolphin mis à jour ; revalidation matérielle avec le compagnon `d466536`
+  conservé encore en cours.
 - [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) : ouverte,
-  **maintenue en brouillon : disposition vérifiée, reprise Dolphin bloquante**.
+  **maintenue en brouillon : disposition et menu depuis l’écran-titre vérifiés,
+  parcours en partie encore à terminer**.
   Aucune fusion autorisée dans cette reprise.
 - Aucun travail plus récent trouvé dans les PR lors de l’audit.
 - Version Android conservée : `0.5.0`, code `7` ; aucun tag ni release V6 créé.
@@ -50,7 +55,8 @@ Le commit `f91e975` corrige uniquement le compagnon :
 Le commit `dcdcfe5692067476600effd7c22f4a7b72922cba` ajoute une construction
 de validation du compagnon seul. Les quatre secrets persistants et le certificat
 officiel sont obligatoires, sans génération de clé de repli. Sources, licences,
-SHA-256 et provenance sont joints à l’artefact. Dolphin n’est ni construit ni installé.
+SHA-256 et provenance sont joints à l’artefact. Dolphin n’est ni construit ni installé
+par ce workflow de validation du compagnon seul.
 
 Le test réel de ce candidat a confirmé le retour du portail et le chargement de
 Lightning Rod, puis son remplacement par Sonic Boom. La capture montrait encore
@@ -69,6 +75,17 @@ uniquement le budget géométrique pour conserver le halo entier dans le Canvas.
 | Code + workflow | `git diff --check` | réussi |
 | `d466536` | Android CI push / PR | runs `33952416530` / `33952418326` réussis |
 | `d466536` | Release signée + sources | run `33952416415` réussi |
+| `23af6d0` | JVM local | 119 tests, 0 échec ; dont quatre gardes structurelles du correctif de menu |
+| `23af6d0` | Android Lint local | 0 erreur, 16 avertissements non bloquants |
+| `23af6d0` | assembleDebug et contrôle de licence locaux | réussis |
+| `23af6d0` | Pile des patchs sur la base Dolphin épinglée | réversion complète puis réapplication réussies sur un arbre contrôlé ; voir la limite de réexécution ci-dessous |
+| `23af6d0` | Construction complète de paire | run `33953904485` annulé volontairement avant candidat afin d’inclure le second correctif ; ce n’est pas un échec de compilation |
+| `11353ca` | JVM local | 120 tests, 0 échec ; cinq gardes structurelles du correctif de cycle de vie |
+| `11353ca` | Android Lint local | 0 erreur, 16 avertissements non bloquants |
+| `11353ca` | assembleDebug et contrôle de licence locaux | réussis |
+| `11353ca` | Pile complète des patchs JNI + Kotlin | réversion et réapplication recontrôlées avec succès sur la base Dolphin épinglée |
+| `11353ca` | Construction complète de paire | run `33954214843` réussi en 31 min 32 s, compilation native Dolphin complète réussie |
+| Artefacts `33954214843` | Contrôle après téléchargement | six empreintes du manifeste et CRC des deux ZIP valides ; certificat commun officiel et mode persistant confirmés |
 
 Les avertissements Lint existants ne justifient pas une montée des dépendances ou
 du SDK dans une correction de mise en page. Les tests JVM couvrent le modèle et
@@ -109,7 +126,9 @@ les contrats ; ils ne sont pas des captures ni des tests d’instrumentation Com
   `com.skyportalthor.app`, version `0.5.0`, code `7` vérifiés avec `aapt`.
 - Installation `adb install -r` réussie à 09:30 (heure de Paris). L’APK installé
   a ensuite été extrait de l’appareil : SHA-256 identique à l’artefact GitHub.
-- Les modifications ultérieures de suivi sont documentaires, pas un nouvel APK.
+- Les modifications de suivi qui ont immédiatement suivi ce candidat étaient
+  documentaires. Les correctifs Dolphin `23af6d0` puis `11353ca` ont ensuite
+  produit un nouveau Dolphin, dont les essais sont distingués ci-dessous.
 
 Certificat public officiel commun, vérifié avec `apksigner` sur le compagnon
 historique et sur les deux APK installés avant mise à jour :
@@ -118,10 +137,31 @@ historique et sur les deux APK installés avant mise à jour :
 502ae2f53a97b32a142cb11bda410a62dee5ee80af5b2d8fca2b70e05ed3229e
 ```
 
-Le Dolphin conservé est `org.dolphinemu.dolphinemu`, version `54070da585`, code
+Le Dolphin préexistant utilisé pour ces essais est `org.dolphinemu.dolphinemu`, version `54070da585`, code
 `43011`, SHA-256 APK
 `b90209d0f466163e193f00d220d4900c416383abc24b0cc4a522120e30dab079`.
 Aucune nouvelle paire V5/API 3 n’est mélangée à cette installation API 4.
+
+### Dolphin correctif installé avec le compagnon final conservé
+
+- Run : [33954214843](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33954214843),
+  réussi en 31 min 32 s sur `11353ca7cabf28bc4dccbfbefa0593fb321def2f`.
+- Mode `PERSISTENT_RELEASE_KEY`, certificat officiel commun ci-dessus vérifié.
+- Les six empreintes du manifeste et les CRC des deux ZIP téléchargés ont été
+  vérifiés. L’archive source contient 37 890 entrées, le kit 28 entrées.
+- Le source complet contient le lecteur JNI commun aux trois requêtes WiiUtils
+  et le `else if` d’EmulationFragment ; le kit contient le nouveau patch.
+- Seul `Dolphin_SkyPortal_API4.apk` a été installé par `adb install -r`, à
+  10:36:58 ; 21 965 375 octets, package `org.dolphinemu.dolphinemu`, version
+  `54070da585`, code `43011` conservés.
+- SHA-256 Dolphin :
+  `6443c72981e1ab3419abdfbfb655d3b54add91219457f5feac8c75636fb94ee0`.
+  L’APK réextrait de la Thor est identique par SHA-256 à l’artefact téléchargé.
+- Le compagnon réellement utilisé reste le candidat de composition `d466536`,
+  SHA-256 `6091fa3f305488a05dff3601532564ee5bcf064fe94969869d881c91b08aafbc`.
+  Il n’a pas été réinstallé lors de cette mise à jour Dolphin.
+- Le compagnon généré par le run de paire `33954214843` n’a pas été installé :
+  ne pas présenter cet APK comme testé sur matériel, même si son certificat est compatible.
 
 ## Matériel de la session
 
@@ -131,8 +171,8 @@ SkyPortal : `com.skyportalthor.app`, 0.5.0/code 7. Diagnostic : Binder connecté
 API 4 active, permission SAF persistante lecture/écriture, 32 fichiers détectés.
 Spyro’s Adventure est lancé sur l’écran supérieur ; l’utilisateur a ouvert sa partie.
 
-Les deux APK préexistants sont conservés localement. Mise à jour par `adb install -r`
-du compagnon uniquement, sans désinstallation, `pm clear`, nouvelle clé ni
+Les deux APK préexistants sont conservés localement. Jusqu’aux incidents décrits
+ci-dessous, mise à jour par `adb install -r` du compagnon uniquement, sans désinstallation, `pm clear`, nouvelle clé ni
 modification directe des dumps. Captures et journaux bruts restent hors du dépôt,
 notamment les images du jeu et les informations privées.
 
@@ -194,20 +234,107 @@ compagnon n’a été identifié dans la fenêtre examinée. Des `SecurityExcept
 `WRITE_SETTINGS` concernent Cocoon, pas SkyPortal ; elles ne sont pas dissimulées
 ni comptées comme une validation propre de l’ensemble du parcours.
 
-Après ces incidents, le test matériel a été arrêté ; aucun nouveau Dolphin n’a
-été installé. L’émulation n’est plus active, les slots sont vides, le compagnon
-est revenu en mode solo sur l’écran inférieur, avec les 32 fichiers et l’accès
+À ce premier point d’arrêt après les incidents, aucun nouveau Dolphin n’avait
+été installé. L’émulation n’était plus active, les slots étaient vides, le compagnon
+était revenu en mode solo sur l’écran inférieur, avec les 32 fichiers et l’accès
 SAF conservés. Pas de réinitialisation, suppression de collection ou changement
 de clé. Les sauvegardes rapides créées par le système n’ont pas été supprimées.
 
+## Correctif Dolphin autorisé — candidat `11353ca`
+
+L’utilisateur a ensuite autorisé le correctif ciblé du menu Dolphin. Cette
+extension de périmètre traite le blocage natif observé ; elle n’autorise ni
+Bifrost, ni une nouvelle release, ni une fusion automatique de la PR #14.
+
+Le premier commit `23af6d04693867a8eab8048ef1353935ff2c5b4b` ajoute le patch séparé
+`dolphin-patch/android-menu-lifecycle.patch` dans `Source/Android/jni/WiiUtils.cpp` :
+
+- les trois requêtes de menu Wii utilisent un lecteur commun limité au cœur
+  entièrement arrêté ; elles retournent un résultat indisponible pendant l’émulation ;
+- une vérification avant puis sous `Core::CPUThreadGuard` protège la création
+  du noyau IOS temporaire face à un démarrage concurrent ;
+- un TMD indisponible est vérifié avant lecture de ses champs ;
+- le protocole du portail, le correctif `A 00` et le contrat API 4 sont conservés ;
+- le patch est appliqué après les patchs Smart Portal et LED, contrôlé par les
+  licences, haché dans la provenance et exigé dans le kit de reconstruction.
+
+L’analyse a également identifié un second défaut dans `EmulationFragment.kt` :
+après retour de `NativeLibrary.Run(...)` d’une session restaurée depuis l’état
+temporaire, un `if` indépendant pouvait enchaîner un nouveau démarrage. Le commit
+`11353ca7cabf28bc4dccbfbefa0593fb321def2f` transforme cette suite en `else if`,
+rendant les chemins de restauration et de lancement neuf mutuellement exclusifs.
+La sortie d’une session restaurée ne doit donc plus lancer une nouvelle session
+dans la même exécution. Le même fichier `android-menu-lifecycle.patch` contient
+les changements JNI et Kotlin.
+
+Les cinq nouveaux tests JVM contrôlent la structure du patch et sa distribution.
+Ils n’exécutent ni le code C++ de Dolphin, ni le cycle de vie Android. La première
+construction [33953904485](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33953904485)
+a été annulée volontairement avant candidat pour intégrer ce second correctif :
+elle n’est pas classée comme échec de compilation. La nouvelle construction
+[33954214843](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33954214843)
+sur `11353ca` a réussi, y compris la compilation native complète. Après contrôle
+des artefacts et du certificat officiel, seul Dolphin a été mis à jour ; les
+APK réellement utilisés sont identifiés ci-dessus. Les premiers contrôles
+d’installation, de diagnostic et de retour au menu depuis l’écran-titre réussissent.
+Les scénarios en partie, retrait, reconnexion et sortie d’une session restaurée
+restent **en attente** dans ce relevé.
+
+### Premiers contrôles après mise à jour Dolphin
+
+- API 4, Spyro’s Adventure `SSPP52`, état `RUNNING` et les trois preuves USB
+  présence/attachement/protocole à `true`, confirmés par le diagnostic.
+- Les 16 slots natifs sont libres ; les 32 fichiers et les droits SAF sont
+  conservés, sans suppression de données.
+- Deux avertissements signalent les fichiers Wii SSL `clientca.pem` et
+  `clientcakey.pem` manquants. Ils ont été acquittés individuellement avec OK ;
+  l’option d’ignorance générale des alertes n’a pas été activée.
+- Une `DeadObjectException` à 10:36:59 accompagne le remplacement attendu du
+  processus Dolphin pendant l’installation. Elle doit être distinguée des
+  erreurs éventuelles du parcours de revalidation suivant.
+
+### Retour au menu vérifié depuis l’écran-titre uniquement
+
+À 10:42, avec SSA sur son écran-titre, état `RUNNING`, portail prêt et aucun
+personnage monté, l’action « Dolphin en haut » a ouvert `MainActivity` au-dessus
+d’`EmulationActivity`. Le bouton Retour Android a ramené le même écran-titre,
+dans le même processus Dolphin, sans nouveau démarrage de l’émulation.
+
+Le Logcat de 10:37 à 10:43 ne contient aucune nouvelle erreur fatale, assertion,
+ANR, `SecurityException` ou `DeadObjectException`. Un seul événement `Running`
+est relevé à 10:37:28, correspondant au lancement initial. L’historique des
+sorties Android conserve la mise à jour de package de 10:36:58 comme sortie la
+plus récente ; les crashs natifs historiques de 09:34 et 09:37 sont inchangés.
+
+Ce contrôle valide l’ouverture du menu et le retour depuis l’écran-titre ; il
+ne valide pas ces actions avec un personnage monté ou pendant une partie, ni la
+sortie d’une session restaurée. Aucun personnage n’a encore été chargé avec ce
+nouveau Dolphin. L’action demandée à l’utilisateur est d’ouvrir sa partie SSA
+depuis l’écran-titre, puis de confirmer que le chargement de sauvegarde est terminé.
+
+### Reconstruction : checkout Dolphin neuf obligatoire
+
+Exécuter `tools/apply_dolphin_patch.py` sur un **checkout neuf** de la révision
+épinglée `54070da5851e12f2d1a4389daa528e4fb81327ce`. Le script complet n’est
+pas idempotent sur un arbre déjà passé en API 4 : un nouvel essai dans cette
+session a échoué, car le contrôle inverse du patch de base ne correspond plus
+à son état après le patch LED. Le script avait déjà recopié l’overlay du service
+de base avant cet échec, donc cet arbre partiellement modifié ne doit pas servir
+à une construction sans remise en cohérence.
+
+L’arbre de travail contrôlé a été réparé, puis toute la pile a été réversée et
+réappliquée avec succès sur la base épinglée. Cela valide la pile de patchs,
+**pas** la réexécution du script complet sur une installation de sources API 4.
+Le workflow de paire utilise un checkout neuf. Aucune correction générale de
+cette limite du script n’entre dans le chantier actuel ; pour reproduire le
+build, repartir également d’un checkout neuf, sans toucher aux données de la Thor.
+
 ## Prochaine action et conditions de clôture
 
-**Faire autoriser puis traiter le défaut ciblé d’ouverture/reprise du menu Dolphin**,
-sans démarrer Bifrost. Le correctif doit éviter cette requête IOS pendant une
-émulation active (ou reprendre la tâche existante sans réinitialiser l’accueil),
-après analyse du cycle de vie ; ne pas livrer un contournement non testé.
-
-Ensuite, rejouer sur la Thor le parcours interrompu avec une paire de signatures
-compatibles : chargement/remplacement/retrait J1, J2, accueil/veille, reprise et
-Logcat sans crash. Tant que ces conditions manquent, garder #14 en brouillon.
+**Faire ouvrir la partie SSA par l’utilisateur**, puis reprendre les essais avec
+Dolphin `11353ca` issu du run `33954214843` et le compagnon `d466536` conservé :
+chargement/remplacement/retrait J1, J2, retour au menu avec personnage monté puis
+après arrêt, sortie d’une session restaurée, accueil/veille, reconnexion et Logcat
+sans crash. Le contrôle réussi depuis l’écran-titre ne remplace pas ces scénarios.
+Tant que ces conditions manquent, garder #14 en brouillon.
 Même après réussite, la fusion nécessite l’accord explicite de l’utilisateur.
