@@ -74,4 +74,10 @@ Sur la Thor, après installation de la paire corrective :
 6. effectuer un remplacement et un retrait ;
 7. contrôler Logcat pour exclure crash, ANR et erreur Binder.
 
-La correction fonctionnelle a donc permis de reprendre la mise en page dans la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14). La priorité actuelle est sa validation finale sur la Thor, suivie dans [PROJECT_STATUS.md](PROJECT_STATUS.md). Bifrost reste suspendu jusqu’à la clôture de cette étape et une autorisation explicite de l’utilisateur.
+## Revalidation distincte du 5 septembre 2026
+
+La correction fonctionnelle a permis de reprendre la mise en page dans la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14). Pendant cette campagne, les incidents du menu Android Dolphin ont conduit à une extension ciblée autorisée : gardes des requêtes JNI et chemins de restauration/lancement rendus exclusifs, sans modification du comportement d’activation/keepalive documenté ici.
+
+Avec le compagnon `d466536` et le Dolphin correctif `11353ca`, la revalidation ciblée SSA de 12:16 à 12:33 a confirmé les opérations J1/J2 logiques, le retour du menu avec figurine, la sortie d’une session restaurée sans nouveau démarrage et la reconnexion automatique après mort Dolphin. Aucun nouveau crash ou ANR n’a été relevé dans cette fenêtre. Ces observations sont distinctes de celles de la paire corrective historique de la PR #13 et ne revendiquent aucun test des autres jeux.
+
+Les résultats complets, les limites de commande Wii et de fiche d’actions périmée, ainsi que les deux APK effectivement utilisés sont identifiés dans [PROJECT_STATUS.md](PROJECT_STATUS.md). La validation ciblée est achevée ; la PR #14 reste ouverte, avec revue et accord de fusion attendus. Bifrost reste suspendu jusqu’à la clôture de cette étape et une autorisation explicite distincte de l’utilisateur.

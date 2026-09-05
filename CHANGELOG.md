@@ -2,7 +2,7 @@
 
 ## V6 — développement non publié
 
-### Reprise du menu Dolphin — correctif autorisé, validation en cours
+### Reprise du menu Dolphin — validation ciblée achevée, revue attendue
 
 - Deux crashs natifs du Dolphin préexistant ont interrompu le parcours Thor du
   5 septembre 2026 : les requêtes du menu Wii tentaient de créer un noyau IOS
@@ -24,19 +24,23 @@
   a été construite avec succès, compilation native comprise ; source, kit,
   empreintes et certificat officiel commun vérifiés après téléchargement.
 - Mise à jour du seul Dolphin correctif sur la Thor, avec le compagnon `d466536`
-  conservé. Premier diagnostic API 4/SSA/USB réussi et données SAF conservées ;
-  ouverture du menu puis retour à l’écran-titre SSA réussis, même processus et
-  aucun nouveau démarrage ni erreur critique dans la fenêtre Logcat examinée.
-  Aucun personnage n’était monté : les essais en partie, retrait, reconnexion,
-  accueil/veille et sortie de session restaurée restent à terminer.
+  conservé. Revalidation en partie SSA le 5 septembre de 12:16 à 12:33 :
+  chargements/remplacements/retraits J1 et cycle J2 logique, menu avec figurine,
+  restauration Android suivie d’une sortie sans redémarrage, puis mort/reprise
+  Dolphin et reconnexion automatique confirmés. Aucun nouveau crash ou ANR
+  dans la fenêtre Logcat examinée ; données et droits SAF conservés.
   Le compagnon produit par le workflow de paire n’a pas été installé et n’est
   pas présenté comme matériellement testé.
+- Limites observées : commande Wii à réactiver après veille ; une fiche d’actions
+  déjà ouverte peut conserver un ancien nom après mort Dolphin, alors que le slot
+  de fond est vidé correctement. Les cas exacts et réserves, dont le scénario
+  multi-client non testé, figurent dans [le suivi](docs/PROJECT_STATUS.md).
 - Patch inclus dans la procédure d’application, la vérification des notices et la provenance
   du kit. Le script de préparation doit partir d’un checkout Dolphin neuf :
   sa réexécution sur un arbre déjà API 4 n’est pas prise en charge, comme le
   documente [le suivi de reprise](docs/PROJECT_STATUS.md).
 
-### Composition du portail — PR #14 en validation
+### Composition du portail — PR #14 revalidée sur Thor, non fusionnée
 
 - Séparation du panneau en une zone supérieure d’état/actions, une zone centrale pour le Canvas et une bande RGB inférieure.
 - Conservation des commandes Équipes et Diagnostic et des repères gauche/droite avec leurs valeurs RGB.

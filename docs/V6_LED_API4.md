@@ -27,10 +27,11 @@ Le transport décrit ici alimente désormais le [portail animé Compose](V6_ANIM
 - patch natif : vérifié par application/réversion et construction Dolphin dans le workflow de paire ;
 - observations matérielles historiques sur l’AYN Thor : séquences LED, valeurs RGB gauche/droite et affichage du portail dans Spyro’s Adventure, consignés dans la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) ;
 - activation/keepalive : correctif [PR #13](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/13) validé historiquement sur Thor puis fusionné le 19 août 2026 ;
-- composition finale du panneau : chantier de validation PR #14, suivi dans [PROJECT_STATUS.md](PROJECT_STATUS.md) ;
+- composition et fonctions du compagnon : revalidation ciblée en partie SSA le 5 septembre 2026, de 12:16 à 12:33, avec le compagnon `d466536` et Dolphin `11353ca` ; affichage sans chevauchement ni Trap, chargements/remplacements/retraits J1 et cycle J2 logique confirmés ;
+- cycle de vie Dolphin : menu avec figurine, sortie d’une session restaurée et reconnexion automatique après arrêt forcé contrôlés ; preuves et limites dans [PROJECT_STATUS.md](PROJECT_STATUS.md) ;
 - release stable publique : reste `v0.5.0`, Dolphin API 3.
 
-Ces observations historiques ne valident ni les autres jeux, ni le canal Trap en jeu, ni chaque APK ultérieur. La provenance de l’APK et les résultats de chaque nouvelle session doivent être relevés séparément.
+Les preuves historiques restent distinctes de la revalidation du 5 septembre. Elles ne valident ni les autres jeux, ni le canal Trap en jeu, ni chaque APK ultérieur. Les deux APK réellement utilisés et leur provenance sont identifiés dans le suivi : le compagnon produit par le workflow de paire Dolphin n’a pas été installé. La validation ciblée est achevée ; la PR #14 reste ouverte, avec revue et accord de fusion attendus.
 
 ## Contrat AIDL
 
@@ -190,11 +191,11 @@ Il couvre les trois zones, les doublons, l’alias gauche `0x04` et les transiti
 ## Limites connues
 
 - le snapshot transporte la couleur cible, pas la durée de fondu des commandes `J` ;
-- Compose produit les transitions visuelles entre deux états ; la composition finale sur l’écran inférieur reste à valider dans la PR #14 ;
+- Compose produit les transitions visuelles entre deux états ; la disposition corrigée a été contrôlée sur l’écran inférieur dans SSA, sans chevauchement ni canal Trap injustifié ;
 - Bifrost n’est pas encore déclaré ni contacté ;
 - aucune LED physique n’est encore modifiée ;
-- seuls les essais historiques dans Spyro’s Adventure sont documentés ; les autres jeux et le canal Trap n’ont pas été validés matériellement.
+- les essais matériels, historiques et du 5 septembre, restent limités à Spyro’s Adventure ; les autres jeux et le canal Trap n’ont pas été validés matériellement.
 
 ## Étape suivante
 
-Terminer la validation visuelle et fonctionnelle de la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14), avec l’APK identifié dans le suivi de reprise. L’intégration Bifrost ne peut commencer qu’après clôture de cette étape et autorisation explicite de l’utilisateur.
+Soumettre les preuves et limites de la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) à la revue puis attendre l’accord explicite de fusion. L’intégration Bifrost ne peut commencer qu’après clôture de cette étape et autorisation explicite distincte de l’utilisateur.

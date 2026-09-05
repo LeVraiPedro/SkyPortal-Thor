@@ -5,6 +5,11 @@
 Le [suivi courant](docs/PROJECT_STATUS.md) identifie commits, APK, certificat et
 preuves de cette session. La section V5 ci-dessous reste historique.
 
+### Premiers essais avec l’ancien Dolphin — historique conservé
+
+Les cases non cochées de ce premier parcours décrivent ses limites à 09:37.
+La revalidation du Dolphin correctif figure dans la section suivante.
+
 - [x] ADB autorisé, écrans logiques `0` supérieur et `4` inférieur vérifiés.
 - [x] APK préexistants conservés, certificat officiel commun vérifié.
 - [x] Dolphin API 4 préexistant conservé pendant les essais initiaux du compagnon,
@@ -31,7 +36,7 @@ preuves de cette session. La section V5 ci-dessous reste historique.
 
 Deux `SIGTRAP` Dolphin ont été observés à 09:34 et 09:37 lors du retour à son
 menu principal : `onPrepareOptionsMenu → isSystemMenuInstalled → IOS::HLE::Kernel`,
-avec un IOS déjà présent. La PR reste en brouillon. Le compagnon a refusé le
+avec un IOS déjà présent. La PR était alors maintenue en brouillon. Le compagnon a refusé le
 chargement après perte du handshake, sans faux succès. Voir les limites et les
 résultats détaillés dans le suivi ; ne pas cocher le parcours global à partir
 des seules réussites de disposition, de CI ou de reconnexion du compagnon.
@@ -71,24 +76,42 @@ restent des observations de l’ancien Dolphin ; aucune case matérielle ne peut
 - [x] Logcat 10:37–10:43 sans nouvelle erreur fatale, assertion, ANR,
   `SecurityException` ou `DeadObjectException` ; un seul lancement `Running`,
   celui de 10:37:28. Historique des sorties inchangé depuis la mise à jour.
-- [ ] Partie SSA ouverte par l’utilisateur ; premier chargement de figurine
+- [x] Partie SSA ouverte par l’utilisateur ; premier chargement de figurine
   avec le nouveau Dolphin avant poursuite des scénarios.
-- [ ] Retour au menu Dolphin pendant la partie avec personnage monté puis après arrêt d’émulation sans
+- [x] Retour au menu Dolphin pendant la partie avec personnage monté puis après arrêt d’émulation sans
   nouveau `SIGTRAP`, crash ou ANR.
-- [ ] Sortie d’une session restaurée depuis l’état temporaire sans nouveau
+- [x] Sortie d’une session restaurée depuis l’état temporaire sans nouveau
   démarrage involontaire de l’émulation.
-- [ ] Chargement/remplacement/retrait J1 et chargement/retrait J2 rejoués ;
+- [x] Chargement/remplacement/retrait J1 et chargement/retrait J2 rejoués ;
   disposition, reconnexion, accès collection et retour solo préservés.
-- [ ] Accueil/veille/reprise rejoués et fenêtre Logcat du nouveau candidat analysée.
-- [ ] PR #14 mise à jour avec les preuves ; accord de fusion demandé seulement
-  après levée des blocages. Bifrost reste soumis à une autorisation distincte.
+- [x] Accueil/veille/reprise rejoués et fenêtre Logcat du nouveau candidat analysée
+  (commande Wii interrompue après veille, distincte de Binder et du rendu).
+- [x] Mort du processus Dolphin avec figurine montée, retour automatique du service,
+  relance SSA et 16 slots libres sans remontage ni mapping fantôme.
+- [x] Preuves de la revalidation 12:16–12:33 consignées dans le suivi et la PR #14.
+- [ ] Accord explicite de fusion obtenu séparément ; Bifrost reste soumis à une
+  autorisation distincte.
 
 Deux avertissements Wii SSL (`clientca.pem`, `clientcakey.pem` manquants) ont
 été acquittés individuellement ; aucune option d’ignorance globale activée.
 Une `DeadObjectException` à 10:36:59 correspond au remplacement du processus
 par l’installation. Le Logcat des scénarios suivants doit être contrôlé séparément.
-Le succès du retour au menu depuis l’écran-titre ne valide pas une sortie de
-partie restaurée ni le parcours avec figurines : ces contrôles restent en attente.
+Le succès initial depuis l’écran-titre n’a pas été utilisé comme substitut aux
+essais en partie : ceux-ci ont été exécutés ensuite de 12:16 à 12:33. Lightning Rod,
+Sonic Boom et Bash en J1, puis Warnado via J2, ont été présentés réellement par SSA.
+J2 désigne ici le slot logique du compagnon, pas une validation coopérative.
+
+La restauration a été prouvée par un processus neuf et l’OSD « Loaded State from
+temp.sav » après `am kill` en arrière-plan et retour par Récents. La sortie n’a
+pas relancé de session pendant plus de 30 secondes. Logcat 12:16–12:33 : aucun
+nouveau crash, ANR, assertion, `SecurityException`, `DeadObjectException` ou erreur
+du pont SkyPortal. Aucun nouvel APK installé dans ce parcours.
+
+Limites consignées dans le suivi : commande Wii après veille ; nom périmé dans
+une fiche d’actions restée ouverte pendant la mort Dolphin, malgré un slot de fond
+correctement vidé (Backup revalide le montage). Ni les objets, ni les autres jeux,
+ni la coopération à deux commandes ne sont validés par ces essais. La Thor est
+laissée en solo, slots vides, bibliothèque Dolphin sur 0 et compagnon sur 4.
 
 ## Historique V5 Smart Portal
 

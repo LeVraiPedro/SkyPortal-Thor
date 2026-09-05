@@ -22,7 +22,7 @@ Elle ne pilote encore aucune LED physique et ne contacte pas Bifrost.
 
 ## État de reprise
 
-Le portail animé est fusionné dans `main` depuis la [PR #12](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/12). Son affichage, les séquences LED et les valeurs gauche/droite ont été observés historiquement sur la Thor avec Spyro’s Adventure, comme le consigne la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14). La correction de composition portée par cette dernière PR reste en validation ; les résultats du 5 septembre 2026 et la provenance de l’APK sont suivis dans [PROJECT_STATUS.md](PROJECT_STATUS.md).
+Le portail animé initial est fusionné dans `main` depuis la [PR #12](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/12). La revalidation ciblée de la composition et des reprises dans SSA est achevée le 5 septembre 2026, de 12:16 à 12:33, avec le compagnon `d466536` conservé et Dolphin `11353ca`. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) reste ouverte ; revue et accord explicite de fusion sont attendus. Les résultats, limites et provenance exacte des deux APK figurent dans [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Position dans l’interface
 
@@ -36,7 +36,7 @@ En-tête
 → Barre de collection
 ```
 
-La PR #14 sépare le panneau en trois zones : état et actions en haut, portail central, puis bande RGB gauche/droite en bas. Les actions `Équipes` et `Diagnostic` restent accessibles dans la zone supérieure. La hauteur réellement disponible pour le Canvas et l’absence de chevauchement doivent être contrôlées sur l’écran inférieur ; les identifiants d’écran sont revérifiés par ADB à chaque session.
+La PR #14 sépare le panneau en trois zones : état et actions en haut, portail central, puis bande RGB gauche/droite en bas. Les actions `Équipes` et `Diagnostic` restent accessibles dans la zone supérieure. La hauteur du Canvas et l’absence de chevauchement ont été contrôlées sur l’écran inférieur pendant la campagne du 5 septembre ; les affichages logiques `0` et `4` ont également été retrouvés après accueil/veille/retour. Les identifiants d’écran sont revérifiés par ADB à chaque session.
 
 ## États visuels
 
@@ -119,7 +119,9 @@ Les tests JVM couvrent :
 - le mode veille API 4 ;
 - la visibilité du canal Trap selon les fonctionnalités du jeu actif.
 
-Ces tests ne remplacent pas le contrôle de disposition réel. La validation finale de la PR #14 doit vérifier le portail central visible, les zones sans chevauchement, les valeurs RGB lisibles, les actions accessibles et les fonctions de chargement/remplacement/retrait préservées. Les observations historiques ne suffisent pas à valider un nouvel APK ; voir le suivi de reprise pour les résultats associés à chaque artefact.
+Ces tests sont distincts du contrôle réel. La campagne Thor/SSA du 5 septembre, de 12:16 à 12:33, a confirmé les apparitions/remplacements/retrait J1, le cycle J2 logique puis le retour solo, l’absence de chevauchement ou Trap injustifié, ainsi que les menus et les reconnexions. La restauration Android puis la sortie d’émulation n’ont pas produit de nouveau démarrage. Les preuves détaillées restent dans le suivi afin de les associer aux APK effectivement installés.
+
+Deux limites sont conservées : la commande Wii peut devoir être réactivée après veille ; une fiche d’actions déjà ouverte peut conserver un ancien nom après mort Dolphin, alors que le slot de fond est vidé correctement. Fermer la fiche rétablit l’affichage dans le cas observé ; le scénario de remplacement par un autre client n’a pas été testé. Les autres jeux, Trap en jeu et la coopération à deux commandes ne sont pas validés par cette campagne ciblée.
 
 ## Hors périmètre
 

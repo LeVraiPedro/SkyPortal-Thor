@@ -39,17 +39,19 @@ V6 Foundation       ✓ fusionnée (PR #10)
 Dolphin LED API 4    ✓ fusionnée (PR #11), observée historiquement sur Thor/SSA
 Portail animé       ✓ fusionné (PR #12), affichage observé historiquement sur Thor
 Activation/keepalive ✓ corrigée et validée historiquement sur Thor (PR #13)
-Composition Thor    PR #14 : rendu vérifié ; correctif menu installé, essais en partie à finir
+Composition Thor    PR #14 : validation ciblée Thor achevée ; revue et accord de fusion attendus
 Bifrost             non commencé ; clôture de #14 et autorisation requises
 ```
 
 État de reprise vérifié le 5 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) est encore ouverte et en brouillon au début de cette reprise. Les résultats de session, l’APK exact et les conditions de clôture figurent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Les tests historiques ne valent pas validation de chaque APK ultérieur.
 
 Après les incidents du menu Dolphin, un correctif ciblé a été autorisé, construit
-et installé. Le retour menu/écran-titre SSA a réussi avec le même processus et
-sans nouveau démarrage ; aucun personnage n’était monté. Les essais en partie,
-retrait, reconnexion, accueil/veille et sortie d’une session restaurée restent à
-terminer. La PR #14 reste en brouillon, sans accord de fusion ni autorisation Bifrost.
+et installé. La revalidation du 5 septembre, de 12:16 à 12:33, a confirmé dans
+SSA la composition, les opérations J1/J2 logiques, les menus, la restauration
+Android et les reconnexions. Les preuves, les deux APK utilisés et les limites
+(commande Wii après veille, fiche d’actions pouvant conserver un ancien nom)
+figurent dans le suivi. La PR #14 reste ouverte, avec revue et accord de fusion
+attendus ; Bifrost reste soumis à une autorisation distincte après sa clôture.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
 
@@ -168,7 +170,7 @@ Le contrat API 1–3 existant reste inchangé. La méthode LED est ajoutée à l
 
 ## Portail animé
 
-**État : fusionné dans `main` (PR #12), affichage observé historiquement sur l’écran inférieur.** La mise en page fait l’objet de la PR #14 ; son dernier contrôle visuel et fonctionnel est le chantier prioritaire de la reprise. Une compilation réussie ne suffit pas à clôturer cette étape.
+**État : rendu initial fusionné dans `main` (PR #12).** La mise en page corrigée de la PR #14 a été revalidée sur la vraie Thor dans SSA le 5 septembre. La PR n’est pas encore fusionnée ; revue et accord explicite restent nécessaires. Le suivi conserve les résultats matériels et les limites séparément de la CI.
 
 Le rendu Compose doit prendre en charge :
 

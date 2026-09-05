@@ -17,10 +17,9 @@ de la checklist restent des preuves historiques, pas des tests de cette session.
 - Correctif Dolphin courant poussé sur cette branche :
   `11353ca7cabf28bc4dccbfbefa0593fb321def2f` ; construction de paire réussie,
   Dolphin mis à jour ; revalidation matérielle avec le compagnon `d466536`
-  conservé encore en cours.
+  conservé, revalidée en partie le 5 septembre, de 12:16 à 12:33 (Paris).
 - [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) : ouverte,
-  **maintenue en brouillon : disposition et menu depuis l’écran-titre vérifiés,
-  parcours en partie encore à terminer**.
+  **validation matérielle ciblée achevée ; revue et accord de fusion attendus**.
   Aucune fusion autorisée dans cette reprise.
 - Aucun travail plus récent trouvé dans les PR lors de l’audit.
 - Version Android conservée : `0.5.0`, code `7` ; aucun tag ni release V6 créé.
@@ -86,6 +85,13 @@ uniquement le budget géométrique pour conserver le halo entier dans le Canvas.
 | `11353ca` | Pile complète des patchs JNI + Kotlin | réversion et réapplication recontrôlées avec succès sur la base Dolphin épinglée |
 | `11353ca` | Construction complète de paire | run `33954214843` réussi en 31 min 32 s, compilation native Dolphin complète réussie |
 | Artefacts `33954214843` | Contrôle après téléchargement | six empreintes du manifeste et CRC des deux ZIP valides ; certificat commun officiel et mode persistant confirmés |
+| `6ddd72a` + documentation seulement | JVM, Lint, Debug réexécutés après le parcours matériel avec `--rerun-tasks` | 120 tests, 0 échec/erreur ; Lint 0 erreur/16 avertissements ; build réussi en 56 s, 56 tâches exécutées |
+| Même état | Contrôle de licence | réussi, 81 sources ; aucun code de production modifié |
+
+Lors de cette dernière exécution locale, une première commande a échoué avant les
+tests car le SDK n’était pas déclaré dans son environnement. `ANDROID_HOME` a été
+positionné uniquement pour la commande suivante, puis les trois tâches ont été
+réexécutées intégralement avec succès ; aucun chemin privé n’a été ajouté au dépôt.
 
 Les avertissements Lint existants ne justifient pas une montée des dépendances ou
 du SDK dans une correction de mise en page. Les tests JVM couvrent le modèle et
@@ -278,7 +284,7 @@ des artefacts et du certificat officiel, seul Dolphin a été mis à jour ; les
 APK réellement utilisés sont identifiés ci-dessus. Les premiers contrôles
 d’installation, de diagnostic et de retour au menu depuis l’écran-titre réussissent.
 Les scénarios en partie, retrait, reconnexion et sortie d’une session restaurée
-restent **en attente** dans ce relevé.
+étaient alors en attente ; leur revalidation distincte figure ci-dessous.
 
 ### Premiers contrôles après mise à jour Dolphin
 
@@ -329,12 +335,94 @@ Le workflow de paire utilise un checkout neuf. Aucune correction générale de
 cette limite du script n’entre dans le chantier actuel ; pour reproduire le
 build, repartir également d’un checkout neuf, sans toucher aux données de la Thor.
 
+## Revalidation en partie — 5 septembre, 12:16–12:33 (Paris)
+
+Reprise à `6ddd72a1e3456e7dcca6d73a236d532e37f89c26`, arbre propre avant
+actualisation documentaire ; `main` distant toujours `ffc1e71`. L’utilisateur a
+ouvert sa partie SSA. Aucun APK supplémentaire n’a été installé pendant ce
+parcours : compagnon `d466536` (SHA-256 `6091fa3f…`) et Dolphin `11353ca`
+(`6443c729…`), identifiés intégralement plus haut. Les changements de branche
+postérieurs à leurs sources n’affectent pas leur code de production respectif.
+
+### Observations réelles
+
+- J1 : Lightning Rod, remplacé par Sonic Boom puis Bash ; chaque personnage
+  est apparu dans la partie avec son nom, pas seulement dans le compagnon.
+  Retrait Bash : retour effectif à la demande de figurine du jeu.
+- « Dolphin en haut » avec Lightning Rod monté : bibliothèque, puis Retour
+  Android à la même partie, même processus et même personnage, sans nouveau boot.
+- Arrêt forcé de SkyPortal avec Bash monté : après relance sur l’écran 4,
+  Bash reste en J1 et le diagnostic ne compte qu’un slot natif `#0 (4/0)`.
+  Le processus Dolphin est inchangé ; aucun second montage constaté.
+- Mode 2J : Warnado chargé depuis J2, présentation du personnage observée dans
+  SSA ; J1 vide, unique slot natif `#0 (2/0)`. Son retrait vide J2, puis retour
+  au mode solo. Il s’agit du slot logique J2 du compagnon, **pas d’une partie
+  coopérative à deux commandes** ; le jeu attribue la seule figurine au joueur actif.
+- Équipes, Diagnostic, collection de 32 fichiers et sélecteur Slot 3 accessibles.
+  Aucun objet ni montage supplémentaire n’a été ajouté pour cet essai.
+- Portail visible en solo/2J, slots vides/occupés et avec messages ; aucune
+  superposition texte/Canvas/RGB ni cristal/badge Trap SSA. Couleurs et valeurs
+  gauche/droite lisibles et évolutives, sans alternance actif/veille anormale observée.
+- Accueil, extinction (`Asleep` vérifié), rallumage et réouverture : Dolphin sur
+  l’écran logique 0 et SkyPortal sur 4 ; Binder et portail retrouvés, même processus
+  Dolphin. SSA affiche toutefois une interruption de commande Wii après la veille.
+  Ce problème de commande est distingué du portail ; la restauration suivante
+  retrouve ensuite la demande de figurine. Aucun réglage de commande n’a été changé.
+
+### Restauration Android et sortie — chemin réellement exercé
+
+Après retrait de toutes les figurines, fermeture de SkyPortal pour libérer Binder,
+puis accueil Android : `EmulationActivity` est `STOPPED`, avec `mHaveState=true`.
+`am kill` arrête le processus Dolphin **en arrière-plan**, sans effacer sa tâche.
+Réouverture de la même carte dans Récents : processus neuf et capture de l’OSD
+**« Loaded State from temp.sav »**, avec la scène restaurée. Cette preuve distingue
+la restauration réussie d’une simple tentative « Decompressing State ».
+
+La sortie « Exit Emulation » revient à la bibliothèque, garde le nouveau processus
+et laisse SkyPortal connecté avec « Aucun jeu ». Aucun redémarrage spontané pendant
+plus de 30 secondes. Le message debug Kotlin du chemin de restauration n’est pas
+émis en Release : il n’est pas revendiqué comme preuve. Une nouvelle session SSA
+a ensuite été lancée volontairement depuis la bibliothèque.
+
+### Mort de Dolphin et reconnexion
+
+À 12:30:16, arrêt forcé de Dolphin avec Lightning Rod monté sur l’écran-titre.
+Le service redémarre automatiquement 0,31 s plus tard ; le slot passe vide, pas
+faussement actif. Après réouverture de Dolphin et lancement volontaire de SSA,
+le diagnostic retrouve `SSPP52`, `RUNNING`, USB présent/attaché/protocole à `true`
+et les **16 slots libres**, sans action Reconnecter et sans remontage automatique.
+La dernière sortie normale depuis cette session neuve revient également au menu.
+
+### Logcat, limites et état laissé sur la console
+
+- Fenêtre 12:16–12:33 : aucun `FATAL EXCEPTION`, signal fatal, ANR, assertion,
+  `SecurityException`, `DeadObjectException` ou erreur `SkyPortalBridge` relevé.
+- Trois événements natifs `Running` : restauration à 12:27:35, lancement volontaire
+  à 12:28:51, puis lancement volontaire après arrêt forcé à 12:30:44. Aucun boot
+  supplémentaire après la sortie restaurée. L’historique des sorties Android
+  ajoute seulement les arrêts demandés ; les deux crashs de 09:34/09:37 restent
+  historiques et n’ont pas récidivé avec le correctif.
+- Avertissements SSL Wii manquants toujours présents au démarrage neuf, acquittés
+  individuellement sans désactiver les alertes. Configuration réseau non modifiée.
+- Réserve d’interface : une fiche d’actions déjà ouverte conserve le nom de l’ancien
+  personnage si Dolphin meurt. Le slot de fond est correctement vidé et fermer la
+  fiche rétablit l’affichage. Audit du code : Backup vérifie à nouveau URI/montage
+  avant copie ; Retirer utilise le slot logique réconcilié, pas l’ancien index natif.
+  Un autre client qui remplacerait ce slot pendant l’ouverture pourrait néanmoins
+  rendre le libellé trompeur pour Retirer. Rafraîchir/fermer ces fiches est un suivi
+  séparé ; ce scénario multi-client n’a pas été testé sur matériel.
+- Aucun backup, jeu autre que SSA, objet/Trap, coop à deux commandes ou Bifrost
+  n’est revendiqué validé par cette revalidation ciblée. Pas de mesure exhaustive
+  de progression : seules les opérations normales de Dolphin ont touché les dumps.
+- État final : Dolphin à sa bibliothèque sur 0, SkyPortal en solo sur 4, slots
+  vides, collection de 32 fichiers conservée. Aucun effacement, désinstallation,
+  changement de clé ou installation nouvelle pendant ce parcours. Captures et
+  journaux contenant des données privées restent hors dépôt et PR.
+
 ## Prochaine action et conditions de clôture
 
-**Faire ouvrir la partie SSA par l’utilisateur**, puis reprendre les essais avec
-Dolphin `11353ca` issu du run `33954214843` et le compagnon `d466536` conservé :
-chargement/remplacement/retrait J1, J2, retour au menu avec personnage monté puis
-après arrêt, sortie d’une session restaurée, accueil/veille, reconnexion et Logcat
-sans crash. Le contrôle réussi depuis l’écran-titre ne remplace pas ces scénarios.
-Tant que ces conditions manquent, garder #14 en brouillon.
-Même après réussite, la fusion nécessite l’accord explicite de l’utilisateur.
+**Obtenir l’accord explicite de fusion de #14**, après revue des preuves et succès
+de la CI sur la tête documentaire finale. Le parcours ciblé de composition et de
+cycle de vie Dolphin est terminé ; les réserves ci-dessus ne sont pas dissimulées.
+Aucune fusion automatique. Bifrost et toute nouvelle fonctionnalité nécessitent
+ensuite une autorisation distincte, même si #14 est fusionnée.
