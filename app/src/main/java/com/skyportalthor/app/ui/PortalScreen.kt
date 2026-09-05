@@ -41,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,6 +71,8 @@ import com.skyportalthor.app.portal.PortalReadinessPolicy
 import com.skyportalthor.app.portal.PortalSlotState
 import com.skyportalthor.app.portal.PortalState
 import com.skyportalthor.app.ui.portal.AnimatedPortalPanel
+import com.skyportalthor.app.ui.portal.SlotActionTarget
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -97,13 +100,14 @@ internal fun PortalScreen(
     onDeleteTeam: (String) -> Unit,
     onLoadTeam: suspend (QuickTeam) -> PortalResult,
     onRunDiagnostics: () -> List<DiagnosticItem>,
+    onLightingSettings: () -> Unit,
     onPlayerTwoEnabledChange: suspend (Boolean) -> PortalResult,
     onBackup: suspend (Int, Skylander) -> PortalResult,
     onRemove: suspend (Int) -> PortalResult,
     onClear: () -> Unit
 ) {
     var pickerSlot by remember { mutableStateOf<Int?>(null) }
-    var actionSlot by remember { mutableStateOf<PortalSlotState?>(null) }
+    var actionTarget by remember { mutableStateOf<SlotActionTarget?>(null) }
     var infoSlot by remember { mutableStateOf<PortalSlotState?>(null) }
     var loadState by remember { mutableStateOf<LoadUiState>(LoadUiState.Idle) }
     var localNotice by remember { mutableStateOf<UiNotice?>(null) }
@@ -111,6 +115,17 @@ internal fun PortalScreen(
     var showPlayerMode by remember { mutableStateOf(false) }
     var showQuickTeams by remember { mutableStateOf(false) }
     var showDiagnostics by remember { mutableStateOf(false) }
+    val latestPortalState by rememberUpdatedState(portalState)
+    // An in-flight remove/backup must finish even when its own slot change closes the sheet.
+    val slotActionScope = rememberCoroutineScope()
+    val selectedActionTarget = actionTarget
+    val currentActionSlot = selectedActionTarget?.resolve(portalState)
+
+    LaunchedEffect(selectedActionTarget, currentActionSlot == null) {
+        if (selectedActionTarget != null && currentActionSlot == null && actionTarget === selectedActionTarget) {
+            actionTarget = null
+        }
+    }
 
     LaunchedEffect(loadState) {
         val success = loadState as? LoadUiState.Success ?: return@LaunchedEffect
@@ -153,7 +168,8 @@ internal fun PortalScreen(
                     playerTwoEnabled = playerTwoEnabled,
                     loadState = loadState,
                     onTap = { slot ->
-                        if (slot.isOccupied()) actionSlot = slot else pickerSlot = slot.logicalSlot
+                        if (slot.isOccupied()) actionTarget = SlotActionTarget.capture(portalState, slot)
+                        else pickerSlot = slot.logicalSlot
                     }
                 )
 
@@ -163,7 +179,8 @@ internal fun PortalScreen(
                     teamCount = quickTeams.size,
                     modifier = Modifier.fillMaxWidth().height(144.dp),
                     onTeams = { showQuickTeams = true },
-                    onDiagnostics = { showDiagnostics = true }
+                    onDiagnostics = { showDiagnostics = true },
+                    onLightingSettings = onLightingSettings
                 )
 
                 val compactFeedback = !portalState.connected || localNotice != null || uiMessage != null
@@ -172,7 +189,8 @@ internal fun PortalScreen(
                         slots = portalState.slots.drop(2),
                         loadState = loadState,
                         onTap = { slot ->
-                            if (slot.isOccupied()) actionSlot = slot else pickerSlot = slot.logicalSlot
+                            if (slot.isOccupied()) actionTarget = SlotActionTarget.capture(portalState, slot)
+                            else pickerSlot = slot.logicalSlot
                         }
                     )
                 }
@@ -212,20 +230,30 @@ internal fun PortalScreen(
         )
     }
 
-    actionSlot?.let { slotSnapshot ->
+    if (selectedActionTarget != null && currentActionSlot != null) {
+        val target = selectedActionTarget
+        val isTargetCurrent = {
+            actionTarget === target && target.resolve(latestPortalState) != null
+        }
         OccupiedSlotDialog(
-            slot = slotSnapshot,
-            onDismiss = { actionSlot = null },
+            slot = currentActionSlot,
+            scope = slotActionScope,
+            isTargetCurrent = isTargetCurrent,
+            onDismiss = { if (actionTarget === target) actionTarget = null },
             onChange = {
-                actionSlot = null
-                pickerSlot = slotSnapshot.logicalSlot
+                if (isTargetCurrent()) pickerSlot = target.logicalSlot
+                if (actionTarget === target) actionTarget = null
             },
             onInfo = {
-                actionSlot = null
-                infoSlot = slotSnapshot
+                if (isTargetCurrent()) infoSlot = target.resolve(latestPortalState)
+                if (actionTarget === target) actionTarget = null
             },
-            onRemove = onRemove,
-            onBackup = onBackup,
+            onRemove = { logicalSlot ->
+                if (isTargetCurrent()) onRemove(logicalSlot) else staleSlotActionError()
+            },
+            onBackup = { logicalSlot, figure ->
+                if (isTargetCurrent()) onBackup(logicalSlot, figure) else staleSlotActionError()
+            },
             onNotice = { localNotice = it },
             onClearLoadState = { loadState = LoadUiState.Idle }
         )
@@ -1013,6 +1041,8 @@ private fun MessageBar(notice: UiNotice, onDismiss: () -> Unit) {
 @Composable
 private fun OccupiedSlotDialog(
     slot: PortalSlotState,
+    scope: CoroutineScope,
+    isTargetCurrent: () -> Boolean,
     onDismiss: () -> Unit,
     onChange: () -> Unit,
     onInfo: () -> Unit,
@@ -1021,7 +1051,6 @@ private fun OccupiedSlotDialog(
     onNotice: (UiNotice) -> Unit,
     onClearLoadState: () -> Unit
 ) {
-    val scope = rememberCoroutineScope()
     var busy by remember(slot.logicalSlot) { mutableStateOf(false) }
     var confirmBackup by remember(slot.logicalSlot) { mutableStateOf(false) }
     var actionError by remember(slot.logicalSlot) { mutableStateOf<PortalResult.Error?>(null) }
@@ -1065,7 +1094,10 @@ private fun OccupiedSlotDialog(
                                             onNotice(UiNotice(result.message ?: "Backup créé", NoticeKind.SUCCESS))
                                             onDismiss()
                                         }
-                                        is PortalResult.Error -> actionError = result
+                                        is PortalResult.Error -> {
+                                            actionError = result
+                                            if (!isTargetCurrent()) onNotice(UiNotice(result.message, NoticeKind.ERROR))
+                                        }
                                     }
                                     busy = false
                                 }
@@ -1090,7 +1122,10 @@ private fun OccupiedSlotDialog(
                                     onNotice(UiNotice(result.message ?: "Personnage retiré", NoticeKind.SUCCESS))
                                     onDismiss()
                                 }
-                                is PortalResult.Error -> actionError = result
+                                is PortalResult.Error -> {
+                                    actionError = result
+                                    if (!isTargetCurrent()) onNotice(UiNotice(result.message, NoticeKind.ERROR))
+                                }
                             }
                             busy = false
                         }
@@ -1099,7 +1134,7 @@ private fun OccupiedSlotDialog(
                         "Backup",
                         if (figure != null) "Retirer puis sauvegarder le fichier .sky" else "Fichier source inconnu",
                         !busy && figure != null
-                    ) { confirmBackup = true }
+                    ) { if (isTargetCurrent()) confirmBackup = true else onDismiss() }
                     ActionButton("Informations", "Jeu, élément, fichier et slot Dolphin", !busy, onInfo)
                     TextButton(onClick = onDismiss, enabled = !busy) { Text("Fermer") }
                 }
@@ -1124,6 +1159,12 @@ private fun OccupiedSlotDialog(
         }
     }
 }
+
+private fun staleSlotActionError() = PortalResult.Error(
+    message = "Le contenu du slot a changé ou Dolphin s’est déconnecté",
+    diagnosticCode = "SLOT_ACTION_TARGET_CHANGED",
+    recoveryHint = "Rouvre le slot pour choisir une action sur son contenu actuel."
+)
 
 @Composable
 private fun ActionButton(title: String, subtitle: String, enabled: Boolean, onClick: () -> Unit) {

@@ -6,6 +6,7 @@ import com.skyportalthor.app.portal.led.PortalLedState
 import com.skyportalthor.app.portal.led.PortalRgb
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,6 +19,7 @@ class DolphinLedStateResolverTest {
         assertNull(resolved.state)
         assertTrue(resolved.warnings.isEmpty())
         assertNull(resolved.error)
+        assertFalse(resolved.fresh)
     }
 
     @Test
@@ -30,6 +32,7 @@ class DolphinLedStateResolverTest {
         assertNull(resolved.state)
         assertTrue(resolved.warnings.isEmpty())
         assertNull(resolved.error)
+        assertFalse(resolved.fresh)
     }
 
     @Test
@@ -42,6 +45,22 @@ class DolphinLedStateResolverTest {
 
         assertEquals(1L, resolved.state?.sequence)
         assertEquals(PortalRgb(90, 20, 30), resolved.state?.left)
+        assertNull(resolved.error)
+        assertTrue(resolved.fresh)
+    }
+
+    @Test
+    fun duplicateValidPayloadConfirmsFreshnessWithoutChangingSequence() {
+        val current = state(sequence = 8, red = 90)
+        val resolved = DolphinLedStateResolver.resolve(
+            apiVersion = 4,
+            current = current,
+            payloadJson = payload(sequence = 8, red = 90)
+        )
+
+        assertEquals(current, resolved.state)
+        assertTrue(resolved.fresh)
+        assertTrue(resolved.warnings.isEmpty())
         assertNull(resolved.error)
     }
 
@@ -57,6 +76,7 @@ class DolphinLedStateResolverTest {
         assertEquals(current, resolved.state)
         assertTrue(resolved.warnings.any { "obsolète" in it })
         assertNull(resolved.error)
+        assertFalse(resolved.fresh)
     }
 
     @Test
@@ -70,6 +90,7 @@ class DolphinLedStateResolverTest {
 
         assertEquals(current, resolved.state)
         assertTrue(resolved.error.orEmpty().contains("Conflit"))
+        assertFalse(resolved.fresh)
     }
 
     @Test
@@ -83,6 +104,7 @@ class DolphinLedStateResolverTest {
 
         assertEquals(current, resolved.state)
         assertTrue(resolved.error.orEmpty().contains("JSON"))
+        assertFalse(resolved.fresh)
     }
 
     @Test
@@ -96,6 +118,7 @@ class DolphinLedStateResolverTest {
 
         assertEquals(current, resolved.state)
         assertTrue(resolved.error.orEmpty().contains("DeadObjectException"))
+        assertFalse(resolved.fresh)
     }
 
     private fun state(sequence: Long, red: Int = 10) = PortalLedState(

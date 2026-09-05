@@ -18,6 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -69,7 +70,8 @@ internal fun AnimatedPortalPanel(
     teamCount: Int,
     modifier: Modifier = Modifier,
     onTeams: () -> Unit,
-    onDiagnostics: () -> Unit
+    onDiagnostics: () -> Unit,
+    onLightingSettings: () -> Unit
 ) {
     val visual = remember(portalState) { AnimatedPortalStateMapper.from(portalState) }
     val toneColor = visual.tone.toColor()
@@ -157,6 +159,8 @@ internal fun AnimatedPortalPanel(
                         "PORTAL EXPERIENCE • V6",
                         color = PortalPalette.Accent,
                         style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                         fontWeight = FontWeight.Black
                     )
                     Row(
@@ -185,6 +189,11 @@ internal fun AnimatedPortalPanel(
                     OutlinedButton(onClick = onDiagnostics) {
                         Text("Diagnostic")
                     }
+                    OutlinedButton(
+                        onClick = onLightingSettings,
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        modifier = Modifier.semantics { contentDescription = "Réglages éclairage Bifrost" }
+                    ) { Text("LED") }
                 }
             }
 
