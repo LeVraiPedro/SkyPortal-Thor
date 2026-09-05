@@ -76,7 +76,7 @@ internal fun LightingSettingsDialog(
         },
         dismissButton = {
             TextButton(onClick = onOpenBifrost, enabled = availability == BifrostAvailability.AVAILABLE) {
-                Text("Ouvrir Bifrost")
+                Text("Bifrost en haut")
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Fermer") } }

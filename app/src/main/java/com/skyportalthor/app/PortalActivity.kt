@@ -6,6 +6,7 @@ import android.content.Intent
 import android.app.ActivityOptions
 import android.net.Uri
 import android.os.Bundle
+import android.view.Display
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -286,7 +287,8 @@ class PortalActivity : ComponentActivity() {
                         onOpenBifrost = {
                             val launch = packageManager.getLaunchIntentForPackage(AndroidBifrostTransport.PACKAGE)
                             val opened = launch != null && runCatching {
-                                val options = ActivityOptions.makeBasic().setLaunchDisplayId(window.decorView.display?.displayId ?: 0)
+                                // Bifrost 1.3.1 redirects secondary-screen launches and may finish its reused activity.
+                                val options = ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY)
                                 startActivity(launch, options.toBundle())
                             }.isSuccess
                             if (!opened) uiMessage = UiNotice("Impossible d’ouvrir Bifrost. Vérifie son installation.", NoticeKind.ERROR)
