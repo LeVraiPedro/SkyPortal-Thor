@@ -8,8 +8,40 @@ La validation de #14 ci-dessous est historique. La nouvelle intégration doit
 **Reprise du 6 septembre :** campagne Bifrost suspendue à la demande de
 l’utilisateur, sans clôture ni fusion de la PR #15, toujours ouverte en brouillon
 à `696db59`. Le chantier distinct `agent/v6-interface-refresh` part de ce commit
-pour épurer l’interface et ranger le diagnostic dans les réglages, sans masquer les erreurs. Aucune
-preuve de compilation ou matérielle de cette interface n’est encore consignée ici.
+pour épurer l’interface et ranger le diagnostic dans les réglages, sans masquer
+les erreurs. Les premières preuves d’interface sont séparées ci-dessous ; elles
+ne clôturent pas la campagne Bifrost.
+
+### Interface épurée — PR #16, 6 septembre, hors jeu
+
+PR #16 ouverte en brouillon, empilée sur `agent/v6-bifrost-integration` ; aucune
+fusion. Les deux candidats ci-dessous restent distincts.
+
+- [x] `46ed581`, run signé `34025548487`, installé à 11:50:16 : navigation
+  J1/J2 puis solo, collection 32 figurines, filtres, 12 récents, équipes,
+  emplacements supplémentaires, réglages et diagnostic vérifiés sur l’écran `4`.
+- [x] Même premier candidat : Binder API 4, SAF lecture/écriture, 16 slots libres
+  et éclairage ON/35 % conservés, sans jeu lancé.
+- [x] `02840b0`, run signé `34025947957` et CI `34025948311` réussis : 164 tests
+  JVM, zéro erreur ; Lint zéro erreur/17 avertissements ; Debug/Release compilés ;
+  contrôle de licence réussi sur 95 sources.
+- [x] Candidat final signé avec le certificat persistant officiel, installé par
+  `adb install -r` à 12:01:52. Accueil solo et collection 32 figurines capturés
+  sur `4` ; filtres dépliés laissant la grille visible, réglages et retour accueil
+  vérifiés à 12:02–12:03. `0` reste à l’accueil Android. Hash installé identique
+  à l’artefact, hash Dolphin recontrôlé inchangé.
+- [x] Logcat UI : 4 559 lignes de 11:50:00.142 à 12:03:13.258, aucun crash,
+  ANR, exception Compose/permission ou erreur explicite Binder/SAF attribuable
+  à SkyPortal ; avertissements non bloquants et exceptions tierces distingués.
+  L’arrêt du premier candidat est sa mise à jour, pas un crash.
+- [ ] Navigation étendue intégralement rejouée sur le candidat final : les
+  contrôles étendus ci-dessus portent sur `46ed581`, pas automatiquement `02840b0`.
+- [ ] Validation en jeu et opérations chargement/retrait/backup/stress de la
+  nouvelle interface : non effectuées dans cette campagne visuelle.
+- [ ] Retour utilisateur sur cette direction visuelle.
+
+Les hashes, certificat et périmètre exact sont dans [le suivi](docs/PROJECT_STATUS.md).
+Les résultats Bifrost qui suivent conservent leur provenance historique.
 
 - [x] Bifrost officiel 1.3.1/code 16 audité ; APK signé et SHA-256 vérifiés.
 - [x] Installation autorisée sur Thor, sans remplacement Dolphin ni effacement.

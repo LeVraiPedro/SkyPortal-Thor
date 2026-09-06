@@ -2,14 +2,17 @@
 
 Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin Android modifié sur l'AYN Thor. La version stable actuelle est **0.5.0** (`versionCode 7`).
 
-> **Développement V6 :** la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) est fusionnée ; l’intégration facultative Bifrost se poursuit dans la [PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15). Le candidat signé `159dbe0`, installé sur la Thor, corrige l’ouverture de Bifrost sur l’écran supérieur. Tests locaux : **157 réussis**, Lint sans erreur ; CI verte et bouton vérifié sur matériel. Le 5 septembre, l’utilisateur a confirmé les couleurs synchronisées et leur restitution après OFF sur le candidat précédent `3be0796` : les autres interruptions restent à valider séparément. La stable `v0.5.0` reste une paire **API 3**, la V6 utilise **API 4** : ne pas mélanger leurs APK. Voir [le suivi](docs/PROJECT_STATUS.md), [la roadmap](docs/ROADMAP_V6.md), [le contrat LED API 4](docs/V6_LED_API4.md) et [le contrat Bifrost](docs/V6_BIFROST.md).
+> **Développement V6 :** la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) est fusionnée ; la [PR #15 Bifrost](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15) reste en brouillon, campagne matérielle suspendue à la demande de l’utilisateur. Ses confirmations physiques restent attachées aux candidats testés et ne clôturent pas les scénarios restants. La stable `v0.5.0` reste une paire **API 3**, la V6 utilise **API 4** : ne pas mélanger leurs APK. Voir [le suivi](docs/PROJECT_STATUS.md), [la roadmap](docs/ROADMAP_V6.md), [le contrat LED API 4](docs/V6_LED_API4.md) et [le contrat Bifrost](docs/V6_BIFROST.md).
 
-**Chantier visuel du 6 septembre — non publié :** `agent/v6-interface-refresh`
-part de la branche Bifrost, sans la fusionner. Accueil centré sur le portail,
+**Première interface du 6 septembre — non publiée :** la [PR #16 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/16)
+est empilée sur la branche Bifrost, sans la fusionner. Accueil centré sur le portail,
 collection visuelle et réglages techniques regroupés ; les erreurs restent visibles
-lorsqu'une action est nécessaire. Luminosité et restitution après veille confirmées
-sur `159dbe0` ; campagne Bifrost suspendue par l'utilisateur avec ses limites conservées.
-La nouvelle interface doit être validée séparément, voir [le suivi](docs/PROJECT_STATUS.md).
+lorsqu’une action est nécessaire. Le candidat signé `02840b0` est installé sur la
+Thor : **164 tests JVM réussis**, Lint sans erreur, CI et builds Debug/Release
+réussis. Accueil et collection vérifiés hors jeu ; la navigation étendue a été
+testée sur le premier candidat `46ed581`, pas intégralement rejouée sur le final.
+Aucune validation en jeu n’est revendiquée pour cette interface. Le prochain
+point est le retour utilisateur sur cette direction visuelle, voir [le suivi](docs/PROJECT_STATUS.md).
 
 Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (`Screen-2`) de la Thor, même si l'icône SkyPortal est touchée depuis l'écran inférieur. L'écran supérieur reste ainsi libre pour Dolphin.
 

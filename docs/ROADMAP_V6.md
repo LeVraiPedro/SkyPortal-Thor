@@ -42,7 +42,7 @@ Activation/keepalive ✓ corrigée et validée historiquement sur Thor (PR #13)
 Composition Thor    ✓ revalidée puis fusionnée (PR #14), main 12d23a1
 Bifrost             PR #15 brouillon ; campagne suspendue le 6 septembre
                     preuves ciblées conservées, autres limites non levées
-Interface épurée    chantier distinct autorisé, depuis 696db59 ; non validé
+Interface épurée    PR #16 brouillon ; 02840b0 installé, contrôles hors jeu
 ```
 
 Reprise du 6 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14), initialement ouverte en brouillon, a été fusionnée après autorisation dans `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`. La [CI de main](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33962044116) a réussi. Les preuves de cette étape et le nouveau point de reprise restent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md) ; ils ne valident pas automatiquement les modifications Bifrost.
@@ -91,8 +91,22 @@ l’interface : moins de menus et diagnostic rangé dans les réglages. Le chant
 sur `agent/v6-interface-refresh` depuis `696db59`. La PR #15 est revérifiée ouverte
 en brouillon à ce commit ; aucune fusion n’est autorisée. Le watchdog physique
 du compagnon n’a pas été rejoué après l’interruption. Aucun changement Dolphin,
-version ou clé n’entre dans ce chantier, et aucune preuve de compilation ou de
-validation matérielle de la nouvelle interface n’est encore consignée à la reprise.
+version ou clé n’entre dans ce chantier.
+
+La [PR #16](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/16), ouverte en
+brouillon et empilée sur la branche Bifrost, porte cette première interface.
+Le candidat `46ed581` installé à 11:50:16 a servi à la navigation hors jeu :
+J1/J2/solo, collection et filtres, récents, équipes, emplacements, réglages et
+diagnostic. Le candidat final `02840b0` (descriptions d’état et génération
+redondante ajustées) est installé à 12:01:52 ; accueil solo, collection de
+32 figurines, filtres dépliés, réglages et retour accueil revérifiés sur `4`,
+écran `0` laissé à l’accueil Android. Hash installé identique à l’artefact.
+Run signé `34025947957` et CI `34025948311` réussis : 164 tests JVM, Lint zéro
+erreur/17 avertissements, Debug/Release compilés et licence 95 sources vérifiée.
+Les deux preuves matérielles ne sont pas confondues. Logcat de 11:50 à 12:03 sans
+crash, ANR ni erreur Binder/SAF attribuable à SkyPortal. Aucun jeu, chargement,
+retrait, backup ou stress n’a été lancé pour cette interface. La prochaine action
+est le retour utilisateur sur la direction visuelle ; aucune fusion ni release.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
 

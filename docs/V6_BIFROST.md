@@ -10,8 +10,12 @@ les tests effectivement exécutés et le point d’arrêt courant.
 Le 6 septembre, l’utilisateur suspend la campagne matérielle pour passer à un
 chantier distinct d’interface épurée sur `agent/v6-interface-refresh`, depuis
 `696db59`. La PR #15 reste ouverte en brouillon à cette reprise. Les résultats
-ci-dessous ne valident ni les scénarios encore ouverts ni la nouvelle interface,
-pour laquelle aucune preuve de build ou matérielle n’est encore consignée ici.
+ci-dessous ne valident ni les scénarios encore ouverts ni la nouvelle interface.
+Celle-ci dispose désormais de ses propres preuves **hors jeu** dans le suivi :
+PR #16 ouverte en brouillon, navigation sur `46ed581`, puis accueil/collection
+sur `02840b0` signé et installé (164 tests JVM réussis, Lint sans erreur).
+Aucune nouvelle campagne LED, opération de figurine ou partie n’est déduite de
+ces contrôles visuels ; Dolphin, version et clé sont conservés.
 
 ## Référence auditée
 

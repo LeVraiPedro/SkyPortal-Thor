@@ -5,10 +5,12 @@
 
 Ce document est le point de reprise courant. Le 6 septembre, l’utilisateur demande
 de suspendre les tests Bifrost pour le moment et de moderniser l’interface :
-présentation épurée, moins de menus et diagnostic rangé dans les réglages. Ce chantier distinct
-démarre sur `agent/v6-interface-refresh`, depuis `696db59`. Aucune preuve de build
-ou de validation matérielle de cette nouvelle interface n’est encore consignée à
-cette reprise. La pause ne clôt ni Bifrost ni sa PR et n’autorise aucune fusion.
+présentation épurée, moins de menus et diagnostic rangé dans les réglages. Ce
+chantier distinct démarre sur `agent/v6-interface-refresh`, depuis `696db59`.
+La première interface est maintenant compilée et installée sur la Thor : candidat
+final `02840b0`, 164 tests JVM réussis, contrôles visuels ciblés **hors jeu**. Sa
+provenance et celle du premier candidat de navigation sont distinguées en fin de
+document. La pause ne clôt ni Bifrost ni sa PR et n’autorise aucune fusion.
 
 Le chantier V6.0 Bifrost comprend une fiabilisation préalable et l’audit du contrat
 officiel terminé.
@@ -47,6 +49,9 @@ des preuves historiques.
   `3be07965921ee9205a22fdd06c06222fe400d76e` ; provenances distinctes ci-dessous.
 - Branche courante : `agent/v6-interface-refresh`, depuis `696db59`, pour le
   chantier distinct d’interface ; aucun changement Dolphin, version ou clé prévu.
+- [PR #16](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/16) : ouverte en
+  brouillon, empilée sur `agent/v6-bifrost-integration` (PR #15 toujours en
+  brouillon). Dernier code UI : `02840b065fd639b07141ab43638de51e6ac41684`.
 - L’utilisateur a ensuite autorisé V6.0 Bifrost avec une fiabilisation préalable,
   puis l’installation officielle de Bifrost, absent de la Thor au contrôle initial.
   L’audit du source Bifrost `1.3.1` / code `16` est terminé et l’APK officiel est
@@ -944,16 +949,76 @@ clignotement, autres restitutions, coopération J2 et cause de la déconnexion W
 
 La PR #15 reste **ouverte en brouillon**, tête `696db59` au contrôle de reprise.
 Le chantier distinct d’interface part de ce commit sur
-`agent/v6-interface-refresh`. Aucune nouvelle preuve de compilation ou de test
-sur la Thor de cette interface n’est disponible à ce point. Aucun changement
-Dolphin, version, clé, tag ou release n’entre dans cette reprise visuelle.
+`agent/v6-interface-refresh`. Au début de la reprise, aucune nouvelle preuve
+d’interface n’était disponible ; les résultats ajoutés ci-dessous sont séparés
+de la campagne Bifrost. Aucun changement Dolphin, version, clé, tag ou release
+n’entre dans cette reprise visuelle.
+
+### Première interface épurée — 6 septembre, 11:50–12:03 Paris
+
+L’accueil est centré sur le portail et la cible J1/J2 ; collection et réglages
+sont regroupés, le diagnostic restant accessible dans les réglages. Les erreurs
+nécessitant une action ne sont pas masquées. La PR #16 reste ouverte en brouillon,
+empilée sur la branche de la PR #15, sans fusion de l’une ou l’autre.
+
+**Premier candidat de navigation `46ed581` :**
+
+- Run signé [34025548487](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/34025548487).
+- SHA-256 APK : `0148d832b48d225a79f75ab1b650a34d72504fe91563bd8091b578a1f2ad7961`.
+- Installé par mise à jour à 11:50:16 sur l’écran `4`, sans lancer de jeu.
+- Navigation réellement vérifiée : J1/J2 puis retour solo, collection de 32
+  figurines, filtres, 12 récents, équipes, emplacements supplémentaires, réglages
+  et diagnostic. Binder API 4, permissions SAF lecture/écriture et 16 slots libres
+  observés ; option d’éclairage ON/35 % préservée.
+
+**Candidat final `02840b0` :**
+
+- Commit : `02840b065fd639b07141ab43638de51e6ac41684` ; arbre app :
+  `e887a1b5c239887c141e8fcfa2fd266d12a84848`.
+- Run signé [34025947957](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/34025947957)
+  réussi ; Android CI [34025948311](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/34025948311)
+  réussie. 164 tests JVM réussis, zéro erreur ; Lint zéro erreur / 17 avertissements ;
+  Debug et Release compilés, licence vérifiée sur 95 sources.
+- SHA-256 APK : `45349b725d752e11d9e75097e2869e4545e46d9657ac911a527c1f4ac4795503`.
+- Mode `PERSISTENT_RELEASE_KEY`, certificat public vérifié :
+  `502ae2f53a97b32a142cb11bda410a62dee5ee80af5b2d8fca2b70e05ed3229e`.
+- Package `com.skyportalthor.app`, version inchangée `0.5.0`, code `7`.
+  Installation `adb install -r` à **12:01:52**, puis captures de l’accueil solo
+  et de la collection de 32 figurines ciblant J1 sur `4`. Les filtres dépliés
+  laissent la grille visible ; réglages puis retour à l’accueil vérifiés entre
+  12:02 et 12:03. L’écran `0` reste à l’accueil Android.
+- La somme de l’APK installé, calculée sur Android, correspond exactement au
+  SHA-256 de l’artefact ci-dessus. Le hash du Dolphin installé est également
+  recontrôlé inchangé.
+- Le second candidat ajuste seulement des descriptions d’état et retire un
+  affichage de génération redondant. La navigation étendue ci-dessus reste une
+  preuve du premier candidat : elle n’est pas présentée comme intégralement
+  rejouée sur le binaire final.
+
+Dolphin API 4 n’a pas été remplacé ; son APK conserve le SHA-256
+`6443c72981e1ab3419abdfbfb655d3b54add91219457f5feac8c75636fb94ee0`.
+Pas de jeu lancé ni de chargement, retrait, backup ou stress dans cette campagne
+d’interface. La campagne Bifrost reste suspendue et ses limites non levées.
+Captures privées, URI, identifiant appareil et chemins locaux ne sont pas publiés.
+
+**Logcat de cette interface :** 4 559 lignes, le 6 septembre de 11:50:00.142 à
+12:03:13.258 (horloge Thor). Le premier candidat tourne de 11:50:17.888 à son
+remplacement à 12:01:52.906 ; le candidat final de 12:01:53.566 à la fin de la
+fenêtre. Son lancement cible `4` à 12:01:53.628, affiché en 261 ms.
+Aucun crash Java/natif, ANR, `SecurityException`, `DeadObjectException`, exception
+Compose ou erreur explicite Binder/SAF attribuable à SkyPortal n’est trouvé.
+L’arrêt du premier processus est lié à la mise à jour, avec conservation des
+données explicitement indiquée. Avertissements non bloquants OpenGL, retour
+Android 13, débogueur Release et fenêtres ; autres exceptions tierces/système.
+Cette fenêtre ne valide que la navigation hors jeu, pas les chargements,
+retraits ou reconnexions en partie.
 
 ## Prochaine action et conditions de validation
 
-**Prochaine action : réaliser l’interface épurée demandée sur la branche dédiée**,
-en conservant les fonctions et protections existantes. Les contrôles de cette
-interface et la provenance de son éventuel APK doivent être ajoutés séparément :
-les preuves de `159dbe0` ne la valident pas automatiquement.
+**Prochaine action : recueillir le retour de l’utilisateur sur la direction
+visuelle installée.** Les vérifications hors jeu ne constituent pas une campagne
+fonctionnelle complète ; les preuves Bifrost de `159dbe0` ne valident pas
+automatiquement ces nouveaux APK.
 
 La campagne matérielle Bifrost est suspendue, pas déclarée terminée. Sa reprise
 devra conserver les cases non vérifiées et associer chaque succès à une preuve
