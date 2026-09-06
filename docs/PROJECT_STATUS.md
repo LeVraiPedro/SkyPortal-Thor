@@ -1,15 +1,25 @@
 <!-- Copyright 2026 LeVraiPedro and SkyPortal Thor contributors -->
 <!-- SPDX-License-Identifier: GPL-2.0-or-later -->
 
-# Suivi du projet — 5 septembre 2026
+# Suivi du projet — reprise du 6 septembre 2026
 
-Ce document est le point de reprise courant. Le chantier autorisé est désormais
-V6.0 Bifrost, avec fiabilisation préalable et audit du contrat officiel terminé.
+Ce document est le point de reprise courant. Le 6 septembre, l’utilisateur demande
+de suspendre les tests Bifrost pour le moment et de moderniser l’interface :
+présentation épurée, moins de menus et diagnostic rangé dans les réglages. Ce chantier distinct
+démarre sur `agent/v6-interface-refresh`, depuis `696db59`. Aucune preuve de build
+ou de validation matérielle de cette nouvelle interface n’est encore consignée à
+cette reprise. La pause ne clôt ni Bifrost ni sa PR et n’autorise aucune fusion.
+
+Le chantier V6.0 Bifrost comprend une fiabilisation préalable et l’audit du contrat
+officiel terminé.
 Bifrost officiel est installé, le contrôle tiers autorisé et son service démarré
 pour un test STATIC isolé, dont le bleu gauche / rouge droite a été confirmé
 physiquement par l’utilisateur. Les commandes SkyPortal sont maintenant reçues
 dans SSA ; l’utilisateur a confirmé leur effet physique et la restitution après
-OFF sur le candidat `3be0796`. Les autres interruptions restent distinctes. La campagne PR #14
+OFF sur le candidat `3be0796`. Sur `159dbe0`, le retour après arrêt Dolphin,
+la variation qualitative de luminosité et le retour pendant veille disposent de
+confirmations distinctes ; le watchdog après arrêt du compagnon reste à observer
+physiquement. La campagne PR #14
 ci-dessous est conservée comme historique ; elle ne valide pas les changements
 du nouveau chantier. Les rapports V5 et leurs cases de checklist restent également
 des preuves historiques.
@@ -28,12 +38,15 @@ des preuves historiques.
 - Android CI de `main` après fusion :
   [run 33962044116](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33962044116)
   réussi. Ce résultat couvre le commit fusionné, pas le nouveau chantier Bifrost.
-- Branche courante : `agent/v6-bifrost-integration`, créée depuis ce `main` ;
+- Branche Bifrost : `agent/v6-bifrost-integration`, créée depuis ce `main` ;
   base `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`, arbre propre à son ouverture.
 - [PR #15](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15) : ouverte en
-  brouillon ; dernier commit de code `159dbe07facbd7fde414a411a318b6537f372be5`
+  brouillon, état revérifié le 6 septembre à la tête `696db59` ; dernier commit
+  de code `159dbe07facbd7fde414a411a318b6537f372be5`
   (ouverture Bifrost sur l’écran supérieur). Le code LED validé précédemment est
   `3be07965921ee9205a22fdd06c06222fe400d76e` ; provenances distinctes ci-dessous.
+- Branche courante : `agent/v6-interface-refresh`, depuis `696db59`, pour le
+  chantier distinct d’interface ; aucun changement Dolphin, version ou clé prévu.
 - L’utilisateur a ensuite autorisé V6.0 Bifrost avec une fiabilisation préalable,
   puis l’installation officielle de Bifrost, absent de la Thor au contrôle initial.
   L’audit du source Bifrost `1.3.1` / code `16` est terminé et l’APK officiel est
@@ -897,16 +910,52 @@ build, changement d’APK ou réglage matériel n’a été effectué pour consi
 réponse. Les CI de `2af8dcc` ont été vérifiées réussies (`33988917950`, `33988915920`).
 La PR #15 reste ouverte en brouillon ; ce « oui » n’est pas une autorisation de fusion.
 
-## Prochaine action et conditions de validation du nouveau chantier
+### Luminosité et veille — 5 septembre, 22:43–23:11 Paris
 
-**Prochaine action : terminer l’observation physique guidée des LED sur `159dbe0`**
-(luminosité, veille et arrêt du compagnon ; arrêt Dolphin désormais confirmé).
-La partie devra être reprise
-depuis l’écran titre ; la déconnexion Wii récurrente reste une anomalie à isoler.
-J2 coopératif et les autres restitutions physiques ne sont pas déclarés validés
-par les contrôles logiciels réussis ci-dessus.
-La validation doit associer tests déterministes et observation
-réelle des LED, vérifier le mode sans Bifrost et les libérations de contrôle,
-puis documenter les limites de restauration du service tiers. Aucun résultat
-ne sera coché sans preuve correspondante, avec provenance des APK testés. Toute
-fusion ou publication du nouveau chantier reste soumise à une autorisation distincte.
+Ces observations portent toujours sur l’APK signé `159dbe0`, sans reconstruction
+ni remplacement de Dolphin. Elles complètent les preuves des candidats antérieurs
+sans les réattribuer à un autre binaire.
+
+- Séquence à 22:43–22:44 : 0 % → 70 % → 35 %. L’utilisateur confirme les anneaux
+  éteints à 0 %, rallumés à 70 %, puis moins lumineux à 35 % (consigné à 22:58).
+  Cette validation est **qualitative**, pas une calibration lumineuse ni une
+  observation d’absence de clignotement.
+- Veille à 22:59:11 : dernier DISPLAY à 22:59:10.950, accepté ; CLEAR à
+  22:59:11.254, accepté en 5 ms ; retour STATIC à 22:59:11.535. Les écrans
+  `0` et `4` sont OFF, le service Bifrost vivant. L’utilisateur confirme à 23:11
+  le retour physique bleu gauche / rouge droite **pendant cette veille**.
+- Logcat 22:59:00.052–22:59:16.419 : aucun crash, ANR, `SecurityException`,
+  `DeadObjectException` ou erreur Binder recherché. Du bruit vendor audio,
+  Bluetooth et CPU est présent ; pas d’affirmation d’absence globale d’erreurs.
+- À 23:11:41, la Thor est **déjà `Awake` avant** la commande de réveil `224`.
+  Whirlwind est visible en partie, Dolphin sur `0`, SkyPortal sur `4`, ON/35 %.
+  Le diagnostic retrouve le seul slot `#0 (0/0)` et les preuves USB présent /
+  attaché / protocole. Cela ne prouve pas un réveil contrôlé ni la résolution
+  de la déconnexion Wii récurrente.
+
+### Pause de campagne et changement de priorité — 6 septembre
+
+L’utilisateur demande explicitement d’arrêter les tests pour le moment et de
+moderniser l’interface. Le test physique d’arrêt forcé du compagnon / expiration
+du watchdog, préparé avant l’interruption, **n’a pas été rejoué** et reste non
+validé physiquement. Les traces logicielles historiques sont conservées.
+La pause ne transforme pas les autres limites ouvertes en succès : absence de
+clignotement, autres restitutions, coopération J2 et cause de la déconnexion Wii.
+
+La PR #15 reste **ouverte en brouillon**, tête `696db59` au contrôle de reprise.
+Le chantier distinct d’interface part de ce commit sur
+`agent/v6-interface-refresh`. Aucune nouvelle preuve de compilation ou de test
+sur la Thor de cette interface n’est disponible à ce point. Aucun changement
+Dolphin, version, clé, tag ou release n’entre dans cette reprise visuelle.
+
+## Prochaine action et conditions de validation
+
+**Prochaine action : réaliser l’interface épurée demandée sur la branche dédiée**,
+en conservant les fonctions et protections existantes. Les contrôles de cette
+interface et la provenance de son éventuel APK doivent être ajoutés séparément :
+les preuves de `159dbe0` ne la valident pas automatiquement.
+
+La campagne matérielle Bifrost est suspendue, pas déclarée terminée. Sa reprise
+devra conserver les cases non vérifiées et associer chaque succès à une preuve
+sur l’APK concerné. J2 désigne le slot logique, pas une validation coopérative.
+Toute fusion ou publication nécessite un accord distinct.

@@ -5,6 +5,12 @@
 La validation de #14 ci-dessous est historique. La nouvelle intégration doit
 être validée avec son propre APK signé, sans remplacer Dolphin API 4.
 
+**Reprise du 6 septembre :** campagne Bifrost suspendue à la demande de
+l’utilisateur, sans clôture ni fusion de la PR #15, toujours ouverte en brouillon
+à `696db59`. Le chantier distinct `agent/v6-interface-refresh` part de ce commit
+pour épurer l’interface et ranger le diagnostic dans les réglages, sans masquer les erreurs. Aucune
+preuve de compilation ou matérielle de cette interface n’est encore consignée ici.
+
 - [x] Bifrost officiel 1.3.1/code 16 audité ; APK signé et SHA-256 vérifiés.
 - [x] Installation autorisée sur Thor, sans remplacement Dolphin ni effacement.
 - [x] Test isolé Bifrost : preset temporaire STATIC bleu gauche / rouge droite,
@@ -36,7 +42,8 @@ La validation de #14 ci-dessous est historique. La nouvelle intégration doit
 - [x] Couleurs physiques pilotées par SkyPortal puis restitution bleu gauche /
   rouge droite après OFF confirmées explicitement par l’utilisateur le 5 septembre,
   sur `3be0796`. Preuve distincte de la baseline isolée et des accusés receiver.
-- [ ] Variation de luminosité au curseur et absence de clignotement parasite observées.
+- [ ] Absence de clignotement parasite observée ; la variation qualitative de
+  luminosité sur le candidat suivant est documentée séparément ci-dessous.
 - [x] Contrôle tiers désactivé : refus explicite sur `3be0796`, temporisation
   observée d’environ 5 s, puis réception reprise après restauration de l’autorisation.
 - [x] `3be0796`, 21:06–21:16 : commandes conservées avec focus du jeu ; CLEAR
@@ -107,10 +114,30 @@ anciens. APK installé inchangé, SHA-256 relu ; aucun build ni mise à jour d�
 - [ ] Cause du retour du message Wii déconnectée vers 21:50 identifiée ; pas de
   causalité établie avec Bifrost ou le backup.
 
-État à 21:59 : SSA sur l’écran titre, Whirlwind seul en J1, SkyPortal OFF/35 %,
-écrans `0`/`4` respectés, Bifrost temporaire actif et Default intact. Suite :
-observation physique après veille/arrêt du compagnon et variation de luminosité ;
-arrêt Dolphin désormais confirmé. Aucune fusion autorisée.
+État historique à 21:59 : SSA sur l’écran titre, Whirlwind seul en J1, SkyPortal
+OFF/35 %, écrans `0`/`4` respectés, Bifrost temporaire actif et Default intact.
+Les observations complémentaires suivantes n’autorisent aucune fusion.
+
+### Complément `159dbe0` — 5 septembre, 22:43–23:11
+
+- [x] Variation qualitative 0 % → 70 % → 35 % à 22:43–22:44 : anneaux éteints,
+  rallumés, puis moins lumineux, confirmés par l’utilisateur (consigné à 22:58).
+  Pas de calibration lumineuse ni de preuve d’absence de clignotement.
+- [x] Veille à 22:59:11 : écrans `0`/`4` OFF, service Bifrost vivant ; dernier
+  DISPLAY accepté à 22:59:10.950, CLEAR accepté à 22:59:11.254 en 5 ms, STATIC
+  à 22:59:11.535. Retour physique bleu gauche / rouge droite pendant la veille
+  confirmé par l’utilisateur à 23:11.
+- [x] Logcat 22:59:00.052–22:59:16.419 : aucun crash/ANR, `SecurityException`,
+  `DeadObjectException` ou erreur Binder recherché ; bruit vendor audio/Bluetooth/CPU.
+- [x] Contrôle de reprise à 23:11:41 : Whirlwind visible en partie et seul natif
+  `#0 (0/0)`, USB présent/attaché/protocole, Dolphin `0`, SkyPortal `4`, ON/35 %.
+  La Thor était déjà `Awake` avant la commande `224` : pas de réveil contrôlé prouvé.
+- [ ] Restitution physique après arrêt forcé du compagnon / watchdog : test
+  préparé mais non rejoué après l’interruption ; campagne suspendue le 6 septembre.
+- [ ] Déconnexion Wii récurrente résolue : le retour en partie ne prouve pas un correctif.
+
+Les autres cases ouvertes restent en attente. Aucun nouveau build, changement
+Dolphin, version ou clé n’est déduit de ces observations.
 
 ## Reprise V6 / PR #14 — 5 septembre 2026
 
