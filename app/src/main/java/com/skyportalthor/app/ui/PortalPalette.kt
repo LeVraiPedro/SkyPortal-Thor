@@ -6,11 +6,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.darkColorScheme
 
 internal object PortalPalette {
-    val Background = Color(0xFF08111F)
-    val Panel = Color(0xFF141F33)
-    val PanelRaised = Color(0xFF1C2B44)
-    val Accent = Color(0xFF79B4FF)
-    val Muted = Color(0xFFA0B0CC)
+    val Background = Color(0xFF0C1018)
+    val Panel = Color(0xFF151B27)
+    val PanelRaised = Color(0xFF202A3B)
+    val Accent = Color(0xFF9ADBCB)
+    val Muted = Color(0xFFA3ADBE)
     val Success = Color(0xFF61D095)
     val Warning = Color(0xFFFFC857)
     val Error = Color(0xFFFF7A7A)

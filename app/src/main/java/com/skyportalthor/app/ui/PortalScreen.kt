@@ -6,19 +6,16 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -48,17 +45,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.skyportalthor.app.data.FigureKind
 import com.skyportalthor.app.data.QuickTeam
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.SmartPortalReadiness
@@ -70,8 +64,8 @@ import com.skyportalthor.app.portal.PortalResult
 import com.skyportalthor.app.portal.PortalReadinessPolicy
 import com.skyportalthor.app.portal.PortalSlotState
 import com.skyportalthor.app.portal.PortalState
-import com.skyportalthor.app.ui.portal.AnimatedPortalPanel
 import com.skyportalthor.app.ui.portal.SlotActionTarget
+import com.skyportalthor.app.ui.portal.AnimatedPortalStateMapper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -115,6 +109,8 @@ internal fun PortalScreen(
     var showPlayerMode by remember { mutableStateOf(false) }
     var showQuickTeams by remember { mutableStateOf(false) }
     var showDiagnostics by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var showExtraSlots by remember { mutableStateOf(false) }
     val latestPortalState by rememberUpdatedState(portalState)
     // An in-flight remove/backup must finish even when its own slot change closes the sheet.
     val slotActionScope = rememberCoroutineScope()
@@ -141,72 +137,67 @@ internal fun PortalScreen(
 
     MaterialTheme(colorScheme = PortalColorScheme) {
         Surface(color = PortalPalette.Background, modifier = Modifier.fillMaxSize()) {
-            Column(
-                // Scroll only when messages or larger fonts need more than the lower display.
-                // A weighted portal could previously be measured at zero height.
-                modifier = Modifier.fillMaxSize().safeDrawingPadding()
-                    .verticalScroll(rememberScrollState()).padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Header(
-                    portalState = portalState,
-                    playerTwoEnabled = playerTwoEnabled,
-                    onReconnect = onReconnect,
-                    onChooseTarget = { showDolphinTargets = true },
-                    onChoosePlayerMode = { showPlayerMode = true },
-                    onLaunchDolphin = onLaunchDolphin,
-                    onSetPortalEnabled = onSetPortalEnabled
-                )
-
-                when {
-                    localNotice != null -> MessageBar(localNotice!!) { localNotice = null }
-                    uiMessage != null -> MessageBar(uiMessage, onDismissMessage)
-                }
-
-                PrimarySlots(
-                    slots = portalState.slots,
-                    playerTwoEnabled = playerTwoEnabled,
-                    loadState = loadState,
-                    onTap = { slot ->
-                        if (slot.isOccupied()) actionTarget = SlotActionTarget.capture(portalState, slot)
-                        else pickerSlot = slot.logicalSlot
+            PortalHome(
+                state = portalState,
+                playerTwoEnabled = playerTwoEnabled,
+                figureCount = figures.size,
+                hasFolder = rootUri != null,
+                scanning = scanning,
+                busy = loadState is LoadUiState.Loading || loadState is LoadUiState.Success,
+                statusLine = smartStatusLine(portalState),
+                onChoose = { logicalSlot -> pickerSlot = logicalSlot },
+                onActions = { slot -> actionTarget = SlotActionTarget.capture(portalState, slot) },
+                onSettings = { showSettings = true },
+                onPlayerMode = { showPlayerMode = true },
+                onTeams = { showQuickTeams = true },
+                onExtras = { showExtraSlots = true },
+                onRecovery = { recovery ->
+                    when (recovery) {
+                        HomeRecovery.RECONNECT -> onReconnect()
+                        HomeRecovery.DOLPHIN -> onLaunchDolphin()
+                        HomeRecovery.ACTIVATE -> onSetPortalEnabled(true)
+                        HomeRecovery.HELP -> showDiagnostics = true
+                        HomeRecovery.NONE -> Unit
                     }
-                )
-
-                AnimatedPortalPanel(
-                    portalState = portalState,
-                    playerTwoEnabled = playerTwoEnabled,
-                    teamCount = quickTeams.size,
-                    modifier = Modifier.fillMaxWidth().height(144.dp),
-                    onTeams = { showQuickTeams = true },
-                    onDiagnostics = { showDiagnostics = true },
-                    onLightingSettings = onLightingSettings
-                )
-
-                val compactFeedback = !portalState.connected || localNotice != null || uiMessage != null
-                if (!compactFeedback) {
-                    ExtraSlots(
-                        slots = portalState.slots.drop(2),
-                        loadState = loadState,
-                        onTap = { slot ->
-                            if (slot.isOccupied()) actionTarget = SlotActionTarget.capture(portalState, slot)
-                            else pickerSlot = slot.logicalSlot
-                        }
-                    )
+                },
+                notice = {
+                    when {
+                        localNotice != null -> MessageBar(localNotice!!) { localNotice = null }
+                        uiMessage != null -> MessageBar(uiMessage, onDismissMessage)
+                    }
                 }
-
-                StorageBar(
-                    rootUri = rootUri,
-                    scanning = scanning,
-                    totalCount = figures.size,
-                    playableCount = figures.count { it.kind == FigureKind.CHARACTER },
-                    onPickRoot = onPickRoot,
-                    onRescan = onRescan,
-                    onClear = onClear
-                )
-
-            }
+            )
         }
+    }
+
+    if (showSettings) {
+        PortalSettingsDialog(
+            statusLine = smartStatusLine(portalState),
+            rootSelected = rootUri != null,
+            scanning = scanning,
+            playerTwoEnabled = playerTwoEnabled,
+            onDismiss = { showSettings = false },
+            onLighting = { showSettings = false; onLightingSettings() },
+            onPlayerMode = { showSettings = false; showPlayerMode = true },
+            onDolphin = { showSettings = false; onLaunchDolphin() },
+            onTarget = { showSettings = false; showDolphinTargets = true },
+            onDiagnostics = { showSettings = false; showDiagnostics = true },
+            onPickRoot = { showSettings = false; onPickRoot() },
+            onRescan = onRescan,
+            onClear = onClear
+        )
+    }
+
+    if (showExtraSlots) {
+        ExtraSlotsDialog(
+            slots = portalState.slots.drop(2),
+            onDismiss = { showExtraSlots = false },
+            onTap = { slot ->
+                showExtraSlots = false
+                if (slot.isOccupied()) actionTarget = SlotActionTarget.capture(portalState, slot)
+                else pickerSlot = slot.logicalSlot
+            }
+        )
     }
 
     pickerSlot?.let { logicalSlot ->
@@ -301,7 +292,14 @@ internal fun PortalScreen(
 
     if (showDiagnostics) {
         DiagnosticsDialog(
-            onRunDiagnostics = onRunDiagnostics,
+            onRunDiagnostics = {
+                val lighting = AnimatedPortalStateMapper.from(portalState)
+                onRunDiagnostics() + DiagnosticItem(
+                    title = "Couleurs du portail",
+                    level = if (lighting.warning == null) DiagnosticLevel.INFO else DiagnosticLevel.WARNING,
+                    detail = lighting.accessibilityDescription
+                )
+            },
             onReconnect = onReconnect,
             onRescan = onRescan,
             onLaunchDolphin = onLaunchDolphin,
@@ -310,65 +308,6 @@ internal fun PortalScreen(
     }
 }
 
-@Composable
-private fun Header(
-    portalState: PortalState,
-    playerTwoEnabled: Boolean,
-    onReconnect: () -> Unit,
-    onChooseTarget: () -> Unit,
-    onChoosePlayerMode: () -> Unit,
-    onLaunchDolphin: () -> Unit,
-    onSetPortalEnabled: (Boolean) -> Unit
-) {
-    Card(colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel), shape = RoundedCornerShape(18.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "SKYPORTAL THOR",
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    smartStatusLine(portalState),
-                    color = if (portalState.readiness == SmartPortalReadiness.READY) PortalPalette.Success else PortalPalette.Warning,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(
-                    onClick = onChoosePlayerMode,
-                    modifier = Modifier.semantics {
-                        contentDescription = if (playerTwoEnabled) {
-                            "Mode deux joueurs, toucher pour modifier"
-                        } else {
-                            "Mode un joueur, toucher pour modifier"
-                        }
-                    }
-                ) { Text(if (playerTwoEnabled) "2J" else "1J") }
-                if (portalState.availablePackages.size > 1) {
-                    OutlinedButton(onClick = onChooseTarget) { Text("Cible") }
-                }
-                if (!portalState.connected) {
-                    OutlinedButton(onClick = onReconnect) { Text("Reconnecter") }
-                }
-                if (portalState.readiness == SmartPortalReadiness.PORTAL_DISABLED && portalState.canSetPortalEnabled) {
-                    Button(onClick = { onSetPortalEnabled(true) }) { Text("Activer le portail") }
-                }
-                Button(onClick = onLaunchDolphin) { Text("Dolphin en haut") }
-            }
-        }
-    }
-}
 
 private fun smartStatusLine(state: PortalState): String {
     if (!state.connected) return "● ${state.message}"
@@ -403,77 +342,6 @@ private fun smartStatusLine(state: PortalState): String {
     return "● Connecté | $game | $portal"
 }
 
-@Composable
-private fun PrimarySlots(
-    slots: List<PortalSlotState>,
-    playerTwoEnabled: Boolean,
-    loadState: LoadUiState,
-    onTap: (PortalSlotState) -> Unit
-) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        PortalSlotCard(
-            title = "JOUEUR 1",
-            slot = slots.getOrElse(0) { PortalSlotState(0) },
-            loadState = loadState,
-            modifier = Modifier.weight(1f),
-            onTap = onTap
-        )
-        if (playerTwoEnabled) {
-            PortalSlotCard(
-                title = "JOUEUR 2",
-                slot = slots.getOrElse(1) { PortalSlotState(1) },
-                loadState = loadState,
-                modifier = Modifier.weight(1f),
-                onTap = onTap
-            )
-        }
-    }
-}
-
-@Composable
-private fun QuickActionsPanel(
-    playerTwoEnabled: Boolean,
-    teamCount: Int,
-    modifier: Modifier = Modifier,
-    onTeams: () -> Unit,
-    onDiagnostics: () -> Unit
-) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    if (playerTwoEnabled) "Touchez Joueur 1 ou Joueur 2" else "Touchez Joueur 1",
-                    color = Color.White,
-                    fontWeight = FontWeight.Black,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    "Favoris et récents sont disponibles dans la collection.",
-                    color = PortalPalette.Muted,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OutlinedButton(onClick = onTeams) {
-                    Text(if (teamCount > 0) "Équipes ($teamCount)" else "Équipes")
-                }
-                OutlinedButton(onClick = onDiagnostics) { Text("Diagnostic") }
-            }
-        }
-    }
-}
 
 @Composable
 private fun QuickTeamsDialog(
@@ -851,169 +719,6 @@ private fun PlayerModeDialog(
     }
 }
 
-@Composable
-private fun PortalSlotCard(
-    title: String,
-    slot: PortalSlotState,
-    loadState: LoadUiState,
-    modifier: Modifier,
-    onTap: (PortalSlotState) -> Unit
-) {
-    val status = slotVisualStatus(slot, loadState)
-    val borderColor = when (status) {
-        SlotVisualStatus.LOADING -> PortalPalette.Warning
-        SlotVisualStatus.SUCCESS -> PortalPalette.Success
-        SlotVisualStatus.ERROR -> PortalPalette.Error
-        SlotVisualStatus.OCCUPIED -> slot.figure?.let { PortalPalette.element(it.element) } ?: PortalPalette.Accent
-        SlotVisualStatus.EMPTY -> PortalPalette.Muted.copy(alpha = 0.5f)
-    }
-    Card(
-        modifier = modifier
-            .heightIn(min = 88.dp)
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                contentDescription = "$title, ${slot.figure?.name ?: slot.label ?: "vide"}"
-                stateDescription = status.accessibilityLabel
-            }
-            .clickable(role = Role.Button) { onTap(slot) },
-        colors = CardDefaults.cardColors(containerColor = PortalPalette.PanelRaised),
-        border = BorderStroke(if (status in setOf(SlotVisualStatus.LOADING, SlotVisualStatus.SUCCESS, SlotVisualStatus.ERROR)) 3.dp else 1.dp, borderColor),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(title, color = PortalPalette.Accent, fontWeight = FontWeight.Black,
-                    style = MaterialTheme.typography.labelSmall)
-                SlotStatusLabel(status)
-            }
-            if (slot.isOccupied()) {
-                Text(
-                    slot.figure?.name ?: slot.label.orEmpty(),
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    slot.figure?.let { "${it.element} • ${it.generation}" }
-                        ?: "Slot Dolphin #${slot.actualPortalSlot}",
-                    color = PortalPalette.Muted,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    "Toucher : Changer · Retirer · Backup · Infos",
-                    color = PortalPalette.Accent,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            } else {
-                Text("SLOT VIDE", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
-                Text("Touchez pour choisir un Skylander", color = PortalPalette.Success,
-                    fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-}
-
-@Composable
-private fun SlotStatusLabel(status: SlotVisualStatus) {
-    val color = when (status) {
-        SlotVisualStatus.LOADING -> PortalPalette.Warning
-        SlotVisualStatus.SUCCESS -> PortalPalette.Success
-        SlotVisualStatus.ERROR -> PortalPalette.Error
-        SlotVisualStatus.OCCUPIED -> PortalPalette.Success
-        SlotVisualStatus.EMPTY -> PortalPalette.Muted
-    }
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (status == SlotVisualStatus.LOADING) {
-            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = color, strokeWidth = 2.dp)
-            Spacer(Modifier.width(5.dp))
-        }
-        Text(status.visibleLabel, color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun ExtraSlots(
-    slots: List<PortalSlotState>,
-    loadState: LoadUiState,
-    onTap: (PortalSlotState) -> Unit
-) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-        items(slots, key = { it.logicalSlot }) { slot ->
-            val status = slotVisualStatus(slot, loadState)
-            Card(
-                modifier = Modifier
-                    .width(132.dp)
-                    .height(48.dp)
-                    .semantics(mergeDescendants = true) {
-                        role = Role.Button
-                        contentDescription = "Slot ${slot.logicalSlot + 1}, ${slot.figure?.name ?: slot.label ?: "vide"}"
-                    }
-                    .clickable(role = Role.Button) { onTap(slot) },
-                colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
-                border = BorderStroke(1.dp, if (status == SlotVisualStatus.ERROR) PortalPalette.Error else PortalPalette.PanelRaised),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Column(modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)) {
-                    Text("SLOT ${slot.logicalSlot + 1}", color = PortalPalette.Accent, fontWeight = FontWeight.Bold)
-                    Text(
-                        slot.figure?.name ?: slot.label ?: "Toucher pour choisir",
-                        color = if (slot.isOccupied()) Color.White else PortalPalette.Muted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StorageBar(
-    rootUri: Uri?,
-    scanning: Boolean,
-    totalCount: Int,
-    playableCount: Int,
-    onPickRoot: () -> Unit,
-    onRescan: () -> Unit,
-    onClear: () -> Unit
-) {
-    Card(colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel), shape = RoundedCornerShape(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(9.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Collection locale", color = Color.White, fontWeight = FontWeight.Bold)
-                Text(
-                    when {
-                        scanning -> "Analyse du dossier…"
-                        rootUri == null -> "Aucun dossier Skylanders sélectionné"
-                        else -> "$playableCount jouable(s) • $totalCount fichier(s) .sky"
-                    },
-                    color = PortalPalette.Muted,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                OutlinedButton(onClick = onRescan, enabled = rootUri != null && !scanning) { Text("Scanner") }
-                OutlinedButton(onClick = onPickRoot, enabled = !scanning) { Text("Dossier") }
-                OutlinedButton(onClick = onClear) { Text("Vider") }
-            }
-        }
-    }
-}
 
 @Composable
 private fun MessageBar(notice: UiNotice, onDismiss: () -> Unit) {
@@ -1275,31 +980,6 @@ private fun DolphinTargetDialog(
 
 private fun PortalSlotState.isOccupied(): Boolean = figure != null || !label.isNullOrBlank() || actualPortalSlot >= 0
 
-private fun slotVisualStatus(slot: PortalSlotState, state: LoadUiState): SlotVisualStatus {
-    val stateSlot = when (state) {
-        LoadUiState.Idle -> null
-        is LoadUiState.Loading -> state.logicalSlot
-        is LoadUiState.Success -> state.logicalSlot
-        is LoadUiState.Error -> state.logicalSlot
-    }
-    if (stateSlot == slot.logicalSlot) {
-        return when (state) {
-            is LoadUiState.Loading -> SlotVisualStatus.LOADING
-            is LoadUiState.Success -> SlotVisualStatus.SUCCESS
-            is LoadUiState.Error -> SlotVisualStatus.ERROR
-            LoadUiState.Idle -> if (slot.isOccupied()) SlotVisualStatus.OCCUPIED else SlotVisualStatus.EMPTY
-        }
-    }
-    return if (slot.isOccupied()) SlotVisualStatus.OCCUPIED else SlotVisualStatus.EMPTY
-}
-
-private enum class SlotVisualStatus(val visibleLabel: String, val accessibilityLabel: String) {
-    EMPTY("VIDE", "Slot vide"),
-    OCCUPIED("● ACTIF", "Sur le portail"),
-    LOADING("PLACEMENT…", "Chargement en cours"),
-    SUCCESS("✓ CHARGÉ", "Chargement réussi"),
-    ERROR("⚠ ÉCHEC", "Dernier chargement échoué")
-}
 
 private fun slotLabel(logicalSlot: Int): String = when (logicalSlot) {
     0 -> "Joueur 1"

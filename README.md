@@ -4,9 +4,22 @@ Application compagnon Android pour utiliser les fichiers `.sky` avec un Dolphin 
 
 > **Développement V6 :** la [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14) est fusionnée ; l’intégration facultative Bifrost se poursuit dans la [PR #15 en brouillon](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/15). Le candidat signé `159dbe0`, installé sur la Thor, corrige l’ouverture de Bifrost sur l’écran supérieur. Tests locaux : **157 réussis**, Lint sans erreur ; CI verte et bouton vérifié sur matériel. Le 5 septembre, l’utilisateur a confirmé les couleurs synchronisées et leur restitution après OFF sur le candidat précédent `3be0796` : les autres interruptions restent à valider séparément. La stable `v0.5.0` reste une paire **API 3**, la V6 utilise **API 4** : ne pas mélanger leurs APK. Voir [le suivi](docs/PROJECT_STATUS.md), [la roadmap](docs/ROADMAP_V6.md), [le contrat LED API 4](docs/V6_LED_API4.md) et [le contrat Bifrost](docs/V6_BIFROST.md).
 
+**Chantier visuel du 6 septembre — non publié :** `agent/v6-interface-refresh`
+part de la branche Bifrost, sans la fusionner. Accueil centré sur le portail,
+collection visuelle et réglages techniques regroupés ; les erreurs restent visibles
+lorsqu'une action est nécessaire. Luminosité et restitution après veille confirmées
+sur `159dbe0` ; campagne Bifrost suspendue par l'utilisateur avec ses limites conservées.
+La nouvelle interface doit être validée séparément, voir [le suivi](docs/PROJECT_STATUS.md).
+
 Depuis la version 0.3.1, le lanceur cible toujours l'écran Android secondaire (`Screen-2`) de la Thor, même si l'icône SkyPortal est touchée depuis l'écran inférieur. L'écran supérieur reste ainsi libre pour Dolphin.
 
 Le compagnon démarre en mode solo : seule la carte Joueur 1 est affichée. Le bouton `1J` de l'en-tête ouvre le réglage permettant d'activer Joueur 2 ; ce choix est conservé entre les lancements.
+
+Dans le candidat d'interface V6, toucher le portail ou **Changer** ouvre la collection ;
+**•••** conserve Retirer / Backup / Informations. **Solo / 2 joueurs** règle le mode
+et les onglets Joueur 1 / Joueur 2 choisissent la cible. La roue de réglages regroupe
+éclairage, dossier, actualisation, ouverture/cible Dolphin et diagnostic ; les
+emplacements supplémentaires restent disponibles sous le portail.
 
 ## Nouveautés V5
 

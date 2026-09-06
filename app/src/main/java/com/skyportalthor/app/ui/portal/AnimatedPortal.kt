@@ -12,32 +12,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
@@ -51,30 +31,20 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.skyportalthor.app.data.GameFeature
 import com.skyportalthor.app.portal.PortalState
 import com.skyportalthor.app.portal.led.PortalRgb
-import com.skyportalthor.app.ui.PortalPalette
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
 @Composable
-internal fun AnimatedPortalPanel(
+internal fun AnimatedPortalArtwork(
     portalState: PortalState,
-    playerTwoEnabled: Boolean,
-    teamCount: Int,
-    modifier: Modifier = Modifier,
-    onTeams: () -> Unit,
-    onDiagnostics: () -> Unit,
-    onLightingSettings: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     val visual = remember(portalState) { AnimatedPortalStateMapper.from(portalState) }
-    val toneColor = visual.tone.toColor()
     val showTrapZone = portalState.skylandersGame?.features?.contains(GameFeature.TRAPS) == true
 
     val leftColor by animateColorAsState(
@@ -131,149 +101,18 @@ internal fun AnimatedPortalPanel(
         )
     }
 
-    Card(
-        modifier = modifier.heightIn(min = 132.dp),
-        colors = CardDefaults.cardColors(containerColor = PortalPalette.Panel),
-        border = BorderStroke(1.dp, toneColor.copy(alpha = 0.72f)),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 9.dp)
-        ) {
-            // Measure the text and RGB strips first; the canvas owns the remaining space.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        PortalPalette.Panel.copy(alpha = 0.88f),
-                        RoundedCornerShape(14.dp)
-                    )
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "PORTAL EXPERIENCE • V6",
-                        color = PortalPalette.Accent,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = FontWeight.Black
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(toneColor, CircleShape)
-                        )
-                        Text(
-                            "${visual.title} • ${visual.detail}",
-                            color = Color.White,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(onClick = onTeams) {
-                        Text(if (teamCount > 0) "Équipes ($teamCount)" else "Équipes")
-                    }
-                    OutlinedButton(onClick = onDiagnostics) {
-                        Text("Diagnostic")
-                    }
-                    OutlinedButton(
-                        onClick = onLightingSettings,
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        modifier = Modifier.semantics { contentDescription = "Réglages éclairage Bifrost" }
-                    ) { Text("LED") }
-                }
-            }
-
-            PortalCanvas(
-                visual = visual,
-                leftColor = leftColor,
-                rightColor = rightColor,
-                trapColor = trapColor,
-                showTrapZone = showTrapZone,
-                activation = activation,
-                ambience = ambience,
-                rotation = rotation,
-                interactionBurst = interactionBurst.value,
-                modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 6.dp)
-            )
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                color = PortalPalette.Background.copy(alpha = 0.96f),
-                border = BorderStroke(1.dp, toneColor.copy(alpha = 0.38f)),
-                shape = RoundedCornerShape(13.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PortalColorChip("G", visual.left, leftColor)
-                    PortalColorChip("D", visual.right, rightColor)
-                    if (showTrapZone) {
-                        visual.trap?.let { PortalColorChip("Trap", it, trapColor) }
-                    }
-                    visual.warning?.let { warning ->
-                        Text(
-                            "Canal LED : $warning",
-                            color = PortalPalette.Warning,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PortalColorChip(
-    label: String,
-    rgb: PortalRgb,
-    color: Color
-) {
-    Surface(
-        color = color.copy(alpha = 0.14f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.88f)),
-        shape = RoundedCornerShape(50)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(modifier = Modifier.size(7.dp).background(color, CircleShape))
-            Text(
-                label,
-                color = Color.White,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Black
-            )
-            Text(
-                rgb.toHex(),
-                color = Color.White,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
+    PortalCanvas(
+        visual = visual,
+        leftColor = leftColor,
+        rightColor = rightColor,
+        trapColor = trapColor,
+        showTrapZone = showTrapZone,
+        activation = activation,
+        ambience = ambience,
+        rotation = rotation,
+        interactionBurst = interactionBurst.value,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -527,14 +366,6 @@ private fun PortalCanvas(
             }
         }
     }
-}
-
-private fun PortalVisualTone.toColor(): Color = when (this) {
-    PortalVisualTone.NEUTRAL -> PortalPalette.Muted
-    PortalVisualTone.INFO -> PortalPalette.Accent
-    PortalVisualTone.SUCCESS -> PortalPalette.Success
-    PortalVisualTone.WARNING -> PortalPalette.Warning
-    PortalVisualTone.ERROR -> PortalPalette.Error
 }
 
 private fun PortalRgb.toComposeColor(): Color = Color(

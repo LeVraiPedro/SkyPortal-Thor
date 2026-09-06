@@ -3,16 +3,20 @@
 package com.skyportalthor.app.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -25,6 +29,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -34,6 +39,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,8 +54,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -63,9 +72,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.skyportalthor.app.data.FigureKind
 import com.skyportalthor.app.data.FigureCompatibilityEngine
 import com.skyportalthor.app.data.FigureFilterPolicy
+import com.skyportalthor.app.data.FigureKind
 import com.skyportalthor.app.data.Skylander
 import com.skyportalthor.app.data.SkylandersGame
 import com.skyportalthor.app.portal.PortalResult
@@ -216,196 +225,285 @@ internal fun SkylanderPickerDialog(
                 .imePadding()
                 .padding(10.dp),
             color = PortalPalette.Background,
-            shape = RoundedCornerShape(22.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            BoxWithConstraints(Modifier.fillMaxSize().padding(18.dp)) {
+                val filtersMaxHeight = (maxHeight * 0.3f).coerceAtMost(112.dp)
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Choisir pour ${slotLabel(logicalSlot)}",
-                            color = Color.White,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            "${filtered.size} résultat(s) • toucher pour placer immédiatement",
-                            color = PortalPalette.Muted,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    if (currentState !is LoadUiState.Error) {
-                        OutlinedButton(
-                            onClick = {
-                                if (searchExpanded) focusManager.clearFocus(force = true)
-                                searchExpanded = !searchExpanded
-                            },
-                            enabled = !busy
-                        ) {
-                            Text(if (searchExpanded) "Masquer recherche" else "Rechercher")
-                        }
-                        Spacer(Modifier.width(6.dp))
-                    }
-                    TextButton(onClick = onDismiss, enabled = !busy) { Text("Fermer") }
-                }
-
-                if (currentState !is LoadUiState.Error) {
-                    if (!searchExpanded) {
-                        PickerFilterRow(
-                            "Contenu",
-                            FigureCategory.entries.map { it.label },
-                            category.label,
-                            !busy
-                        ) { label ->
-                            category = FigureCategory.entries.first { it.label == label }
-                            typeFilter = "Tous"
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (detectedGame != null) {
-                                FilterChip(
-                                    selected = smartFilterEnabled,
-                                    onClick = { smartFilterEnabled = !smartFilterEnabled },
-                                    enabled = !busy,
-                                    label = {
-                                        Text(if (smartFilterEnabled) "Compatible ${detectedGame.displayName}" else "Toute la collection")
-                                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "Collection",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold
                                 )
+                                Surface(
+                                    color = PortalPalette.Accent.copy(alpha = 0.12f),
+                                    shape = CircleShape
+                                ) {
+                                    Text(
+                                        slotLabel(logicalSlot),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                        color = PortalPalette.Accent,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
                             }
-                            Spacer(Modifier.weight(1f))
+                            Text(
+                                "${filtered.size} au choix · toucher pour placer",
+                                color = PortalPalette.Muted,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (currentState !is LoadUiState.Error) {
                             TextButton(
-                                onClick = { filtersExpanded = !filtersExpanded },
+                                onClick = {
+                                    if (searchExpanded) focusManager.clearFocus(force = true)
+                                    searchExpanded = !searchExpanded
+                                },
                                 enabled = !busy
                             ) {
-                                Text(if (filtersExpanded) "Masquer filtres" else "Filtres")
+                                Text(if (searchExpanded) "Annuler" else "Rechercher")
+                            }
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        TextButton(
+                            onClick = onDismiss,
+                            enabled = !busy,
+                            modifier = Modifier.size(48.dp).semantics { contentDescription = "Fermer la collection" },
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Text("×", style = MaterialTheme.typography.headlineSmall)
+                        }
+                    }
+
+                    if (currentState !is LoadUiState.Error) {
+                        if (!searchExpanded) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FigureCategory.entries.forEach { entry ->
+                                    PickerTab(
+                                        label = entry.label,
+                                        selected = category == entry,
+                                        enabled = !busy,
+                                        onClick = {
+                                            category = entry
+                                            typeFilter = "Tous"
+                                        }
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                TextButton(
+                                    onClick = { filtersExpanded = !filtersExpanded },
+                                    enabled = !busy
+                                ) {
+                                    Text(if (filtersExpanded) "Réduire" else "Filtres")
+                                }
+                            }
+                            if (!filtersExpanded) {
+                                PickerCollectionViews(collectionView, !busy) { collectionView = it }
+                            }
+                            if (detectedGame != null) {
+                                Text(
+                                    if (smartFilterEnabled) {
+                                        "Pour ${detectedGame.displayName}"
+                                    } else {
+                                        "Toute la collection · compatibilité vérifiée au chargement"
+                                    },
+                                    color = PortalPalette.Muted,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (filtersExpanded) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = filtersMaxHeight)
+                                        .background(PortalPalette.Panel, RoundedCornerShape(20.dp))
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    PickerCollectionViews(collectionView, !busy) { collectionView = it }
+                                    if (detectedGame != null) {
+                                        FilterChip(
+                                            selected = smartFilterEnabled,
+                                            onClick = { smartFilterEnabled = !smartFilterEnabled },
+                                            enabled = !busy,
+                                            label = {
+                                                Text(if (smartFilterEnabled) "Compatibles avec le jeu" else "Toute la collection")
+                                            }
+                                        )
+                                    }
+                                    PickerFilterRow("Élément", elements, element, !busy) { element = it }
+                                    if (types.size > 2) {
+                                        PickerFilterRow("Type", types, activeType, !busy) { typeFilter = it }
+                                    }
+                                    PickerFilterRow("Jeu", generations, generation, !busy) { generation = it }
+                                }
+                            }
+                        } else {
+                            OutlinedTextField(
+                                value = query,
+                                onValueChange = { query = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy,
+                                singleLine = true,
+                                shape = RoundedCornerShape(18.dp),
+                                label = { Text("Trouver un personnage ou un objet") },
+                                trailingIcon = {
+                                    if (query.isNotBlank()) {
+                                        TextButton(onClick = { query = "" }) { Text("Effacer") }
+                                    }
+                                },
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(
+                                    onSearch = { focusManager.clearFocus(force = true) }
+                                )
+                            )
+                        }
+                    }
+
+                    when (currentState) {
+                        is LoadUiState.Loading -> LoadingPanel(currentState.figure)
+                        is LoadUiState.Success -> SuccessPanel(currentState.figure)
+                        is LoadUiState.Error -> ErrorPanel(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            state = currentState,
+                            detailsExpanded = detailsExpanded,
+                            onToggleDetails = { detailsExpanded = !detailsExpanded },
+                            onRetry = { requestLoad(currentState.figure) },
+                            onReconnect = onReconnect,
+                            onChooseAnother = {
+                                detailsExpanded = false
+                                onLoadStateChange(LoadUiState.Idle)
+                            },
+                            portalConnected = portalConnected,
+                            portalMessage = portalMessage
+                        )
+                        LoadUiState.Idle -> Unit
+                    }
+
+                    if (currentState is LoadUiState.Error) {
+                        Unit
+                    } else if (figures.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Aucun Skylander jouable détecté", color = Color.White, fontWeight = FontWeight.Bold)
+                                Text("Sélectionne le dossier qui contient tes fichiers .sky.", color = PortalPalette.Muted)
+                                Button(onClick = onPickRoot, modifier = Modifier.padding(top = 12.dp)) {
+                                    Text("Choisir le dossier")
+                                }
                             }
                         }
-                        if (filtersExpanded) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 164.dp)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                PickerFilterRow(
-                                    "Vue",
-                                    CollectionView.entries.map { it.label },
-                                    collectionView.label,
-                                    !busy
-                                ) { label -> collectionView = CollectionView.entries.first { it.label == label } }
-                                PickerFilterRow("Élément", elements, element, !busy) { element = it }
-                                if (types.size > 2) {
-                                    PickerFilterRow("Type", types, activeType, !busy) { typeFilter = it }
-                                }
-                                PickerFilterRow("Jeu", generations, generation, !busy) { generation = it }
+                    } else if (filtered.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    when (collectionView) {
+                                        CollectionView.FAVORITES -> "Aucun favori avec ces filtres"
+                                        CollectionView.RECENTS -> "Aucun personnage récent avec ces filtres"
+                                        CollectionView.ALL -> "Aucun résultat avec ces filtres"
+                                    },
+                                    color = Color.White
+                                )
+                                TextButton(onClick = {
+                                    query = ""
+                                    generation = "Tous"
+                                    element = "Tous"
+                                    typeFilter = "Tous"
+                                    collectionView = CollectionView.ALL
+                                }) { Text("Réinitialiser les filtres") }
                             }
                         }
                     } else {
-                        OutlinedTextField(
-                            value = query,
-                            onValueChange = { query = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !busy,
-                            singleLine = true,
-                            label = { Text("Nom ou fichier .sky") },
-                            trailingIcon = {
-                                if (query.isNotBlank()) {
-                                    TextButton(onClick = { query = "" }) { Text("Effacer") }
-                                }
-                            },
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(
-                                onSearch = { focusManager.clearFocus(force = true) }
-                            )
-                        )
-                    }
-                }
-
-                when (currentState) {
-                    is LoadUiState.Loading -> LoadingPanel(currentState.figure)
-                    is LoadUiState.Success -> SuccessPanel(currentState.figure)
-                    is LoadUiState.Error -> ErrorPanel(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        state = currentState,
-                        detailsExpanded = detailsExpanded,
-                        onToggleDetails = { detailsExpanded = !detailsExpanded },
-                        onRetry = { requestLoad(currentState.figure) },
-                        onReconnect = onReconnect,
-                        onChooseAnother = {
-                            detailsExpanded = false
-                            onLoadStateChange(LoadUiState.Idle)
-                        },
-                        portalConnected = portalConnected,
-                        portalMessage = portalMessage
-                    )
-                    LoadUiState.Idle -> Unit
-                }
-
-                if (currentState is LoadUiState.Error) {
-                    Unit
-                } else if (figures.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Aucun Skylander jouable détecté", color = Color.White, fontWeight = FontWeight.Bold)
-                            Text("Sélectionne le dossier qui contient tes fichiers .sky.", color = PortalPalette.Muted)
-                            Button(onClick = onPickRoot, modifier = Modifier.padding(top = 12.dp)) {
-                                Text("Choisir le dossier")
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(144.dp),
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentPadding = PaddingValues(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(filtered, key = { it.documentUri.toString() }) { figure ->
+                                val occupied = figure.documentUri.toString() in occupiedUris
+                                val loading = currentState is LoadUiState.Loading && currentState.figure.documentUri == figure.documentUri
+                                FigureGridCard(
+                                    figure = figure,
+                                    occupied = occupied,
+                                    favorite = figure.documentUri.toString() in favoriteUris,
+                                    loading = loading,
+                                    enabled = !busy,
+                                    onToggleFavorite = { onToggleFavorite(figure) },
+                                    onClick = { requestLoad(figure) }
+                                )
                             }
-                        }
-                    }
-                } else if (filtered.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                when (collectionView) {
-                                    CollectionView.FAVORITES -> "Aucun favori avec ces filtres"
-                                    CollectionView.RECENTS -> "Aucun personnage récent avec ces filtres"
-                                    CollectionView.ALL -> "Aucun résultat avec ces filtres"
-                                },
-                                color = Color.White
-                            )
-                            TextButton(onClick = {
-                                query = ""
-                                generation = "Tous"
-                                element = "Tous"
-                                collectionView = CollectionView.ALL
-                            }) { Text("Réinitialiser les filtres") }
-                        }
-                    }
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(150.dp),
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(filtered, key = { it.documentUri.toString() }) { figure ->
-                            val occupied = figure.documentUri.toString() in occupiedUris
-                            val loading = currentState is LoadUiState.Loading && currentState.figure.documentUri == figure.documentUri
-                            FigureGridCard(
-                                figure = figure,
-                                occupied = occupied,
-                                favorite = figure.documentUri.toString() in favoriteUris,
-                                loading = loading,
-                                enabled = !busy,
-                                onToggleFavorite = { onToggleFavorite(figure) },
-                                onClick = { requestLoad(figure) }
-                            )
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun PickerCollectionViews(selected: CollectionView, enabled: Boolean, onSelect: (CollectionView) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(CollectionView.entries, key = { it.name }) { entry ->
+            PickerTab(
+                label = entry.label,
+                selected = selected == entry,
+                enabled = enabled,
+                subtle = true,
+                onClick = { onSelect(entry) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PickerTab(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    subtle: Boolean = false,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        enabled = enabled,
+        label = {
+            Text(
+                label,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+            )
+        },
+        shape = CircleShape,
+        border = null,
+        colors = FilterChipDefaults.filterChipColors(
+            containerColor = Color.Transparent,
+            labelColor = PortalPalette.Muted,
+            selectedContainerColor = if (subtle) PortalPalette.PanelRaised else PortalPalette.Accent,
+            selectedLabelColor = if (subtle) Color.White else PortalPalette.Background
+        )
+    )
 }
 
 @Composable
@@ -418,7 +516,7 @@ private fun PickerFilterRow(
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            "$label :",
+            label,
             color = PortalPalette.Muted,
             modifier = Modifier.width(76.dp),
             maxLines = 1
@@ -429,7 +527,12 @@ private fun PickerFilterRow(
                     selected = selected == value,
                     onClick = { onSelect(value) },
                     enabled = enabled,
-                    label = { Text(value) }
+                    label = { Text(value) },
+                    shape = CircleShape,
+                    border = null,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = PortalPalette.PanelRaised
+                    )
                 )
             }
         }
@@ -451,7 +554,7 @@ private fun FigureGridCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 112.dp)
+            .heightIn(min = 164.dp)
             .semantics {
                 role = Role.Button
                 contentDescription = "${figure.name}, ${figure.element}, ${figure.generation}"
@@ -463,64 +566,101 @@ private fun FigureGridCard(
             }
             .clickable(enabled = canClick, role = Role.Button, onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = if (occupied) PortalPalette.Panel.copy(alpha = 0.55f) else PortalPalette.PanelRaised
+            containerColor = PortalPalette.Panel.copy(alpha = if (occupied) 0.6f else 1f)
         ),
-        border = BorderStroke(if (loading) 3.dp else 1.dp, if (loading) PortalPalette.Warning else elementColor),
-        shape = RoundedCornerShape(16.dp)
+        border = if (loading) BorderStroke(2.dp, PortalPalette.Warning) else null,
+        shape = RoundedCornerShape(24.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().background(elementColor.copy(alpha = 0.18f)).padding(start = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier.fillMaxWidth().height(94.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text(figure.element, color = elementColor, fontWeight = FontWeight.Black)
+            FigureMonogram(figure, elementColor, occupied)
             TextButton(
                 onClick = onToggleFavorite,
                 enabled = enabled,
-                modifier = Modifier.semantics {
-                    contentDescription = if (favorite) {
-                        "Retirer ${figure.name} des favoris"
-                    } else {
-                        "Ajouter ${figure.name} aux favoris"
-                    }
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.align(Alignment.TopEnd).size(48.dp).semantics {
+                    contentDescription = if (favorite) "Retirer ${figure.name} des favoris"
+                    else "Ajouter ${figure.name} aux favoris"
                 }
             ) {
-                Text(if (favorite) "★" else "☆", color = if (favorite) PortalPalette.Warning else PortalPalette.Muted)
+                Text(
+                    if (favorite) "★" else "☆",
+                    color = if (favorite) PortalPalette.Warning else PortalPalette.Muted,
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(22.dp),
+                    color = PortalPalette.Warning,
+                    strokeWidth = 2.dp
+                )
             }
         }
-        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        figure.name,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        figure.generation,
-                        color = PortalPalette.Muted,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                if (loading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(28.dp),
-                        color = PortalPalette.Warning,
-                        strokeWidth = 3.dp
-                    )
-                }
-            }
+        Column(
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Text(
-                if (occupied) "Déjà sur le portail" else "Toucher pour charger",
-                color = if (occupied) PortalPalette.Warning else PortalPalette.Success,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold
+                figure.name,
+                color = if (occupied) PortalPalette.Muted else Color.White,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
+            Text(
+                if (figure.kind == FigureKind.CHARACTER) {
+                    "${figure.element} · ${figure.generation}"
+                } else {
+                    "${figure.typeLabel} · ${figure.generation}"
+                },
+                color = elementColor,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (occupied) {
+                Text("Sur le portail", color = PortalPalette.Warning, style = MaterialTheme.typography.labelSmall)
+            }
         }
+    }
+}
+
+@Composable
+private fun FigureMonogram(figure: Skylander, color: Color, occupied: Boolean) {
+    val initials = remember(figure.name) {
+        figure.name.split(' ', '-').filter { it.isNotBlank() }.take(2)
+            .mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
+    }
+    Box(
+        modifier = Modifier.size(84.dp).background(
+            Brush.radialGradient(listOf(color.copy(alpha = if (occupied) 0.07f else 0.16f), Color.Transparent)),
+            CircleShape
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.size(64.dp)) {
+            val radius = size.minDimension * 0.4f
+            drawCircle(color.copy(alpha = 0.2f), radius, style = Stroke(width = 1.dp.toPx()))
+            drawArc(
+                color = color.copy(alpha = 0.45f),
+                startAngle = 205f,
+                sweepAngle = 70f,
+                useCenter = false,
+                style = Stroke(width = 2.dp.toPx())
+            )
+            drawCircle(color.copy(alpha = 0.7f), 2.dp.toPx(), Offset(size.width * 0.86f, size.height * 0.78f))
+        }
+        Text(
+            initials,
+            color = color.copy(alpha = if (occupied) 0.45f else 0.9f),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Light
+        )
     }
 }
 
@@ -531,7 +671,7 @@ private fun LoadingPanel(figure: Skylander) {
         Spacer(Modifier.width(10.dp))
         Column {
             Text("Placement de ${figure.name}…", color = Color.White, fontWeight = FontWeight.Bold)
-            Text("Vérification du fichier puis envoi à Dolphin", color = PortalPalette.Muted)
+            Text("Un instant…", color = PortalPalette.Muted)
         }
     }
 }
@@ -543,7 +683,7 @@ private fun SuccessPanel(figure: Skylander) {
         Spacer(Modifier.width(10.dp))
         Column {
             Text("${figure.name} est sur le portail", color = Color.White, fontWeight = FontWeight.Bold)
-            Text("La sélection va se fermer automatiquement.", color = PortalPalette.Muted)
+            Text("Placement confirmé", color = PortalPalette.Muted)
         }
     }
 }
@@ -563,11 +703,11 @@ private fun ErrorPanel(
     Card(
         modifier = modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Assertive },
         colors = CardDefaults.cardColors(containerColor = Color(0xFF3C222D)),
-        border = BorderStroke(1.dp, PortalPalette.Error)
+        shape = RoundedCornerShape(24.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text("Impossible de placer ${state.figure.name}", color = Color.White, fontWeight = FontWeight.Black)
             Text(state.result.message, color = PortalPalette.Error)
@@ -612,7 +752,7 @@ private fun FeedbackPanel(color: Color, content: @Composable RowScope.() -> Unit
     Card(
         modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.16f)),
-        border = BorderStroke(1.dp, color)
+        shape = RoundedCornerShape(20.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(10.dp),
