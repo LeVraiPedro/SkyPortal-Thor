@@ -2,6 +2,23 @@
 
 ## V6 — développement non publié
 
+### Interface épurée — premier candidat, 6 septembre 2026
+
+- Accueil centré sur le portail animé et la figurine active ; toucher le portail
+  ou « Changer » ouvre directement la collection pour le joueur sélectionné.
+- Palette sombre graphite/menthe, surfaces discrètes et transitions de nom ;
+  J2 n'apparaît que dans le mode deux joueurs. Collection et équipes au premier plan.
+- Réglages regroupés : éclairage, dossier, scan, cible Dolphin et diagnostic.
+  Les conflits et erreurs conservent une action corrective visible sur l'accueil.
+- Valeurs RGB et informations LED déplacées dans le diagnostic ; Canvas et texte
+  restent séparés, sans ajouter un canal Trap aux jeux qui ne le prennent pas en charge.
+- Collection plus visuelle, monogrammes locaux, favoris/récents directs et filtres
+  avancés repliables. Aucune image de personnage tierce ni ressource réseau ajoutée.
+- « Vider » devient « Retirer tout du portail », avec confirmation explicite :
+  aucun fichier supprimé. Gardes de montage/backup et moteur Binder inchangés.
+- Chantier séparé de Bifrost, sans nouvelle version publique, modification de Dolphin
+  ou changement de clé. Provenance et validation propres au candidat dans le suivi.
+
 ### Bifrost — intégration en cours, non publiée
 
 - Synchronisation opt-in des joysticks via l’API externe locale de Bifrost 1.3.1,

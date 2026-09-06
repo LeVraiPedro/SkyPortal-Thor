@@ -40,11 +40,12 @@ Dolphin LED API 4    ✓ fusionnée (PR #11), observée historiquement sur Thor/
 Portail animé       ✓ fusionné (PR #12), affichage observé historiquement sur Thor
 Activation/keepalive ✓ corrigée et validée historiquement sur Thor (PR #13)
 Composition Thor    ✓ revalidée puis fusionnée (PR #14), main 12d23a1
-Bifrost             PR #15 brouillon ; couleurs synchronisées, restitution OFF
-                    et arrêt Dolphin confirmées ; autres interruptions à valider
+Bifrost             PR #15 brouillon ; campagne suspendue le 6 septembre
+                    preuves ciblées conservées, autres limites non levées
+Interface épurée    PR #16 brouillon ; 02840b0 installé, contrôles hors jeu
 ```
 
-État courant du 5 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14), initialement ouverte en brouillon, a été fusionnée après autorisation dans `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`. La [CI de main](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33962044116) a réussi. Les preuves de cette étape et le nouveau point de reprise restent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md) ; ils ne valident pas automatiquement les modifications Bifrost.
+Reprise du 6 septembre 2026 : `v0.5.0` reste la release publique API 3 ; la V6/API 4 est un développement non publié. La [PR #14](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/14), initialement ouverte en brouillon, a été fusionnée après autorisation dans `12d23a1db1b0fb9214d4386072dcfc44c1858f2f`. La [CI de main](https://github.com/LeVraiPedro/SkyPortal-Thor/actions/runs/33962044116) a réussi. Les preuves de cette étape et le nouveau point de reprise restent dans [`PROJECT_STATUS.md`](PROJECT_STATUS.md) ; ils ne valident pas automatiquement les modifications Bifrost.
 
 Après les incidents du menu Dolphin, un correctif ciblé a été autorisé, construit
 et installé. La revalidation du 5 septembre, de 12:16 à 12:33, a confirmé dans
@@ -79,9 +80,33 @@ suivant (21:46–21:59) ajoute Whirlwind visible en partie, les opérations du s
 (sans coop à deux commandes), backup sécurisé vérifié et reconnexions Dolphin /
 compagnon. Le retour physique bleu gauche / rouge droite après l’arrêt volontaire
 Dolphin à 21:53:47 sur `159dbe0` est ensuite confirmé par l’utilisateur le 5 septembre.
-Veille, arrêt du compagnon et luminosité restent à observer ; un nouveau message
-Wii déconnectée a été constaté, sans cause établie. Détails et
-point d’arrêt dans le suivi, PR #15 toujours en brouillon.
+La variation qualitative 0 % éteint → 70 % rallumé → 35 % moins lumineux est
+ensuite confirmée (séquence 22:43–22:44, confirmation 22:58), ainsi que le retour
+bleu gauche / rouge droite pendant la veille de 22:59:11 (confirmation 23:11).
+Ces preuves sur `159dbe0` ne valent pas calibration, absence de clignotement,
+restitution après arrêt du compagnon ou résolution de la déconnexion Wii.
+
+Le 6 septembre, l’utilisateur demande de suspendre les tests pour moderniser
+l’interface : moins de menus et diagnostic rangé dans les réglages. Le chantier séparé démarre
+sur `agent/v6-interface-refresh` depuis `696db59`. La PR #15 est revérifiée ouverte
+en brouillon à ce commit ; aucune fusion n’est autorisée. Le watchdog physique
+du compagnon n’a pas été rejoué après l’interruption. Aucun changement Dolphin,
+version ou clé n’entre dans ce chantier.
+
+La [PR #16](https://github.com/LeVraiPedro/SkyPortal-Thor/pull/16), ouverte en
+brouillon et empilée sur la branche Bifrost, porte cette première interface.
+Le candidat `46ed581` installé à 11:50:16 a servi à la navigation hors jeu :
+J1/J2/solo, collection et filtres, récents, équipes, emplacements, réglages et
+diagnostic. Le candidat final `02840b0` (descriptions d’état et génération
+redondante ajustées) est installé à 12:01:52 ; accueil solo, collection de
+32 figurines, filtres dépliés, réglages et retour accueil revérifiés sur `4`,
+écran `0` laissé à l’accueil Android. Hash installé identique à l’artefact.
+Run signé `34025947957` et CI `34025948311` réussis : 164 tests JVM, Lint zéro
+erreur/17 avertissements, Debug/Release compilés et licence 95 sources vérifiée.
+Les deux preuves matérielles ne sont pas confondues. Logcat de 11:50 à 12:03 sans
+crash, ANR ni erreur Binder/SAF attribuable à SkyPortal. Aucun jeu, chargement,
+retrait, backup ou stress n’a été lancé pour cette interface. La prochaine action
+est le retour utilisateur sur la direction visuelle ; aucune fusion ni release.
 
 Le contrat technique API 4 est documenté dans [`V6_LED_API4.md`](V6_LED_API4.md).
 
@@ -228,9 +253,11 @@ audit. La fiabilisation préalable et l’intégration se poursuivent sur
 la branche et a passé les contrôles locaux. La baseline physique Bifrost, la
 réception des commandes SkyPortal, puis les couleurs physiques synchronisées et
 leur restitution après OFF ont leurs preuves distinctes sur le candidat `3be0796`.
-Le retour après arrêt volontaire Dolphin a ensuite sa confirmation physique
-distincte sur `159dbe0`. Les autres restitutions et la variation de luminosité
-restent à vérifier. Les modes LED J1/J2 et priorité J1
+Le retour après arrêt volontaire Dolphin, le retour pendant veille et la variation
+qualitative de luminosité ont ensuite leurs confirmations distinctes sur `159dbe0`.
+Les autres restitutions, notamment le watchdog après arrêt du compagnon, restent
+à vérifier ; la campagne est suspendue à la demande de l’utilisateur le 6 septembre.
+Les modes LED J1/J2 et priorité J1
 ne sont pas ajoutés : V6.0 n’est pas déclarée achevée. Une fusion ou publication
 nécessitera son autorisation propre.
 
@@ -309,9 +336,10 @@ Le diagnostic doit afficher :
 
 Les couleurs synchronisées et le retour bleu gauche / rouge droite après OFF
 ont été confirmés physiquement par l’utilisateur le 5 septembre sur `3be0796` ;
-le retour après arrêt volontaire Dolphin est confirmé séparément sur `159dbe0`.
-Les autres critères matériels, notamment veille, arrêt du compagnon et luminosité,
-restent distincts et non validés par ces confirmations.
+le retour après arrêt volontaire Dolphin, celui pendant veille et la variation
+qualitative de luminosité sont confirmés séparément sur `159dbe0`. Calibration,
+absence de clignotement et restitution après arrêt du compagnon ne sont pas
+déduites de ces confirmations. La campagne est suspendue, pas déclarée terminée.
 Les contrôles locaux sur
 le code `3be0796` ont réussi : 157 tests, Lint sans erreur bloquante, compilation
 Debug et licence. La checklist détaillée figure dans [`V6_BIFROST.md`](V6_BIFROST.md) ;

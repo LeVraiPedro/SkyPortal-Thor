@@ -7,6 +7,16 @@ Ce document fixe le contrat technique de l’intégration facultative. Il ne rem
 pas le [suivi du projet](PROJECT_STATUS.md), qui conserve les versions d’APK,
 les tests effectivement exécutés et le point d’arrêt courant.
 
+Le 6 septembre, l’utilisateur suspend la campagne matérielle pour passer à un
+chantier distinct d’interface épurée sur `agent/v6-interface-refresh`, depuis
+`696db59`. La PR #15 reste ouverte en brouillon à cette reprise. Les résultats
+ci-dessous ne valident ni les scénarios encore ouverts ni la nouvelle interface.
+Celle-ci dispose désormais de ses propres preuves **hors jeu** dans le suivi :
+PR #16 ouverte en brouillon, navigation sur `46ed581`, puis accueil/collection
+sur `02840b0` signé et installé (164 tests JVM réussis, Lint sans erreur).
+Aucune nouvelle campagne LED, opération de figurine ou partie n’est déduite de
+ces contrôles visuels ; Dolphin, version et clé sont conservés.
+
 ## Référence auditée
 
 L’audit du 5 septembre 2026 porte sur le dépôt officiel
@@ -225,6 +235,16 @@ Les autres chemins de restitution restent distincts. Aucun APK modifié pour ces
 Le message Wii déconnectée a réapparu pendant le parcours ; sa cause reste inconnue.
 Le jeu relancé est laissé au titre, Whirlwind monté et synchronisation OFF/35 %.
 
+Complément sur `159dbe0`, le 5 septembre : variation qualitative 0 % → 70 % →
+35 % à 22:43–22:44, confirmée à 22:58 (éteint, rallumé, puis moins lumineux).
+La restitution physique bleu gauche / rouge droite pendant la veille de 22:59:11
+est confirmée à 23:11. CLEAR est accepté à 22:59:11.254, puis STATIC reprend à
+22:59:11.535, service Bifrost vivant et les deux écrans OFF. Ces deux preuves
+ne sont ni une calibration ni une observation d’absence de clignotement.
+À 23:11:41, Whirlwind est visible en partie, seul slot natif `#0 (0/0)`, USB prêt,
+compagnon ON/35 % sur `4` et jeu sur `0`. La Thor étant déjà `Awake` avant la
+commande `224`, aucun réveil contrôlé ni correctif Wii n’est revendiqué.
+
 ### Contrôles sur AYN Thor
 
 - [x] Contrôles limités hors jeu sur ce candidat : UI inférieure, OFF/35 %,
@@ -259,8 +279,9 @@ Le jeu relancé est laissé au titre, Whirlwind monté et synchronisation OFF/35
 - [ ] Mode OFF puis absence/arrêt de Bifrost sans régression SkyPortal ou Dolphin.
 - [x] Avec consentement et service actif, couleurs physiques suivant le portail
   confirmées par l’utilisateur le 5 septembre sur `3be0796`, distinctes du test isolé Bifrost.
-- [ ] Variation physique de luminosité vérifiée ; le réglage affiché 35 % et la
-  confirmation des couleurs ne constituent pas une calibration lumineuse.
+- [x] Variation qualitative de luminosité sur `159dbe0`, le 5 septembre : 0 %
+  éteint → 70 % rallumé → 35 % moins lumineux, confirmée par l’utilisateur.
+  Aucune calibration lumineuse ni absence de clignotement déduite.
 - [ ] Couleur constante maintenue au-delà du bail, transitions sans clignotement parasite.
 - [ ] Contrôle conservé lorsque seul le focus passe à Dolphin sur l’écran supérieur.
 - [x] Après désactivation OFF : retour physique bleu gauche / rouge droite confirmé
@@ -268,9 +289,12 @@ Le jeu relancé est laissé au titre, Whirlwind monté et synchronisation OFF/35
 - [x] Arrêt volontaire Dolphin à 21:53:47 sur `159dbe0` : retour physique bleu
   gauche / rouge droite confirmé explicitement par l’utilisateur le 5 septembre,
   en complément du CLEAR. Ne valide pas les autres causes de déconnexion.
-- [ ] `CLEAR` après sortie, veille et autres déconnexions ; réglage Bifrost retrouvé
-  pour chacun de ces chemins, indépendamment des résultats OFF et arrêt Dolphin.
-- [ ] Arrêt brutal SkyPortal : expiration du bail et restauration observées, Bifrost vivant.
+- [x] Veille à 22:59:11 sur `159dbe0` : CLEAR logiciel accepté et retour physique
+  bleu gauche / rouge droite confirmé à 23:11, Bifrost vivant, écrans `0`/`4` OFF.
+- [ ] `CLEAR` après sortie et autres déconnexions : réglage Bifrost retrouvé
+  pour chacun de ces chemins, indépendamment des résultats OFF, arrêt Dolphin et veille.
+- [ ] Arrêt brutal SkyPortal : expiration du bail et restauration physique observées,
+  Bifrost vivant. Test non rejoué après interruption ; campagne désormais suspendue.
 - [ ] Arrêt/reprise Bifrost : absence de crash SkyPortal, limites de restauration documentées.
 - [ ] Reprise après veille, reconnexion, fiches d’actions et J1/J2 vérifiés sans mapping périmé.
 - [ ] Logcat examiné ; aucun crash, ANR, refus de permission ou boucle de commandes nouveau.

@@ -410,7 +410,7 @@ class PortalActivity : ComponentActivity() {
                             title = "Éclairage Bifrost",
                             level = DiagnosticLevel.INFO,
                             detail = "${lighting.availability()} • ${if (lightingSettings.enabled) lightingStatus.message else "Désactivé dans SkyPortal"} • 2 Hz maximum",
-                            recovery = "Le service et l’éclairage physique ne sont pas confirmés par l’API Bifrost. Voir le bouton LED pour les réglages."
+                            recovery = "Le service et l’éclairage physique ne sont pas confirmés par l’API Bifrost. Voir Réglages → Éclairage des joysticks."
                         )
                     },
                     onLightingSettings = { showLighting = true },
