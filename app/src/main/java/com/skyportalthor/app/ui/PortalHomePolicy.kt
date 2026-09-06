@@ -11,13 +11,14 @@ internal enum class HomeRecovery(val label: String) {
 }
 
 internal data class HomeStatus(val label: String, val recovery: HomeRecovery = HomeRecovery.NONE,
-    val isReady: Boolean = false, val isError: Boolean = false)
+    val isReady: Boolean = false, val isError: Boolean = false, val description: String? = null)
 
 internal object PortalHomePolicy {
     fun selectedPlayer(requested: Int, twoPlayers: Boolean): Int = if (twoPlayers && requested == 1) 1 else 0
 
     fun status(state: PortalState): HomeStatus = when {
-        !state.connected -> HomeStatus("Déconnecté", HomeRecovery.RECONNECT)
+        !state.connected -> HomeStatus("Déconnecté", HomeRecovery.RECONNECT,
+            description = "Dolphin n'est pas connecté à ton portail.")
         state.readiness == SmartPortalReadiness.PORTAL_CONFLICT -> HomeStatus("Conflit", HomeRecovery.HELP, isError = true)
         state.readiness in setOf(SmartPortalReadiness.ERROR, SmartPortalReadiness.PORTAL_RESTART_REQUIRED) ->
             HomeStatus("À vérifier", HomeRecovery.HELP, isError = true)
@@ -28,7 +29,8 @@ internal object PortalHomePolicy {
             if (state.canSetPortalEnabled) HomeRecovery.ACTIVATE else HomeRecovery.DOLPHIN)
         (state.apiVersion ?: 1) < 3 -> HomeStatus("Non vérifié", HomeRecovery.HELP)
         state.readiness == SmartPortalReadiness.READY -> HomeStatus("Prêt à jouer", isReady = true)
-        state.readiness == SmartPortalReadiness.NO_GAME -> HomeStatus("En attente", HomeRecovery.DOLPHIN)
+        state.readiness == SmartPortalReadiness.NO_GAME -> HomeStatus("En attente", HomeRecovery.DOLPHIN,
+            description = "Lance ton jeu sur l'écran supérieur.")
         else -> HomeStatus("À vérifier", HomeRecovery.HELP)
     }
 }

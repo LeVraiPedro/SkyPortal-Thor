@@ -448,6 +448,7 @@ internal fun SkylanderPickerDialog(
                                     figure = figure,
                                     occupied = occupied,
                                     favorite = figure.documentUri.toString() in favoriteUris,
+                                    showGeneration = generations.size > 2,
                                     loading = loading,
                                     enabled = !busy,
                                     onToggleFavorite = { onToggleFavorite(figure) },
@@ -544,6 +545,7 @@ private fun FigureGridCard(
     figure: Skylander,
     occupied: Boolean,
     favorite: Boolean,
+    showGeneration: Boolean,
     loading: Boolean,
     enabled: Boolean,
     onToggleFavorite: () -> Unit,
@@ -613,11 +615,10 @@ private fun FigureGridCard(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                if (figure.kind == FigureKind.CHARACTER) {
-                    "${figure.element} · ${figure.generation}"
-                } else {
-                    "${figure.typeLabel} · ${figure.generation}"
-                },
+                listOfNotNull(
+                    if (figure.kind == FigureKind.CHARACTER) figure.element else figure.typeLabel,
+                    figure.generation.takeIf { showGeneration }
+                ).joinToString(" · "),
                 color = elementColor,
                 style = MaterialTheme.typography.labelMedium,
                 maxLines = 1,

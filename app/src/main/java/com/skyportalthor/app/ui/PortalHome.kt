@@ -110,7 +110,7 @@ internal fun PortalHome(
             Surface(color = status.color().copy(alpha = 0.08f), shape = RoundedCornerShape(16.dp)) {
                 Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(statusLine.removePrefix("● "), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                    Text(status.description ?: statusLine.removePrefix("● "), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
                         color = PortalPalette.Muted)
                     TextButton(onClick = { onRecovery(status.recovery) }) { Text(status.recovery.label) }
                 }
